@@ -1,0 +1,39 @@
+name: Build & Deploy (GitHub Pages)
+
+on:
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: write
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.64
+
+      - name: Build WASM
+        run: |
+          emcc src/main.c \
+            -O2 \
+            -s WASM=1 \
+            -s MODULARIZE=0 \
+            -s EXPORT_ES6=0 \
+            -s EXPORTED_FUNCTIONS="['_malloc','_free']" \
+            -s EXPORTED_RUNTIME_METHODS="['cwrap']" \
+            -s ALLOW_MEMORY_GROWTH=1 \
+            -s ASSERTIONS=0 \
+            -o web/rogue.js
+
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./web
