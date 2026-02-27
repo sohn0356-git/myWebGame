@@ -33,12 +33,14 @@ async function idbGet(key) {
 
 let api = null;
 let episodeBoss = null;
-let ModuleReady = new Promise((res) => {
+const ModuleReady = new Promise((res) => {
   Module.onRuntimeInitialized = () => res();
 });
 
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
+ctx.imageSmoothingEnabled = false;
+
 const logEl = document.getElementById("log");
 const hpEl = document.getElementById("hp");
 const bossEl = document.getElementById("boss");
@@ -98,35 +100,223 @@ function bind() {
       "number",
     ]),
     boss_config_end: Module.cwrap("boss_config_end", null, []),
-    boss_apply_stats_from_config: Module.cwrap(
-      "boss_apply_stats_from_config",
-      null,
-      []
-    ),
+    boss_apply_stats_from_config: Module.cwrap("boss_apply_stats_from_config", null, []),
     saveSize: Module.cwrap("game_save_size", "number", []),
     saveWrite: Module.cwrap("game_save_write", null, ["number"]),
     loadRead: Module.cwrap("game_load_read", "number", ["number", "number"]),
   };
 }
 
-function palette(ch) {
-  if (ch === "#") return "#232842";
-  if (ch === ".") return "#61738f";
-  if (ch === "~") return "#3d6f8b";
-  if (ch === "*") return "#d8e8ff";
-  if (ch === "@") return "#f5f6ff";
-  if (ch === "s") return "#9fcee0";
-  if (ch === "g") return "#b0998a";
-  if (ch === "W") return "#cfd7e8";
-  return "#8da0be";
-}
-
 function tileGlyph(x, y) {
-  if (api.game_glyph) {
-    return String.fromCharCode(api.game_glyph(x, y));
-  }
+  if (api.game_glyph) return String.fromCharCode(api.game_glyph(x, y));
   if (api.px() === x && api.py() === y) return "@";
   return String.fromCharCode(api.game_tile(x, y));
+}
+
+function pset(px, py, scale, color) {
+  ctx.fillStyle = color;
+  ctx.fillRect(px, py, scale, scale);
+}
+
+function drawSprite(px, py, size, sprite) {
+  const scale = Math.max(1, Math.floor(size / 16));
+  const pw = 16 * scale;
+  const ox = px + Math.floor((size - pw) / 2);
+  const oy = py + Math.floor((size - pw) / 2);
+
+  for (let y = 0; y < 16; y++) {
+    const row = sprite.map[y];
+    for (let x = 0; x < 16; x++) {
+      const k = row[x];
+      if (k === "." || !sprite.palette[k]) continue;
+      pset(ox + x * scale, oy + y * scale, scale, sprite.palette[k]);
+    }
+  }
+}
+
+const SPRITES = {
+  wall: {
+    palette: { a: "#1b2335", b: "#233149", c: "#2a3b56" },
+    map: [
+      "abababababababab",
+      "bccccccccccccccb",
+      "acababababababca",
+      "bcbbbbcbbbbcbbcb",
+      "acabacababacabca",
+      "bccccccccccccccb",
+      "acbbbbcbbbbcbbca",
+      "bcacabacabacabcb",
+      "acccccccccccccca",
+      "bcbbbbcbbbbcbbcb",
+      "acabacababacabca",
+      "bccccccccccccccb",
+      "acbbbbcbbbbcbbca",
+      "bcacabacabacabcb",
+      "bccccccccccccccb",
+      "abababababababab",
+    ],
+  },
+  floor: {
+    palette: { a: "#4f617c", b: "#5a6e8d", c: "#657a9c" },
+    map: [
+      "aaaaaaaaaaaaaaaa",
+      "aaaaabaaaaaaaaaa",
+      "aaaaaaaaaacaaaaa",
+      "aaacaaaaaaaaaaaa",
+      "aaaaaaaaaaaaaaaa",
+      "aaaaaabaaaaaaaaa",
+      "aaaaaaaaaaaaacaa",
+      "aaacaaaaaaaaaaaa",
+      "aaaaaaaaaaaaaaaa",
+      "aaaaaaaabaaaaaaa",
+      "aaaaaaaaaaaaaaca",
+      "aabaaaaaaaaaaaaa",
+      "aaaaaaaaaaaaaaaa",
+      "aaaaacaaaaaaaaaa",
+      "aaaaaaaaaaaaabaa",
+      "aaaaaaaaaaaaaaaa",
+    ],
+  },
+  water: {
+    palette: { a: "#2e5d78", b: "#3f7f9e", c: "#6eb8cf" },
+    map: [
+      "aaaaaaaaaaaaaaaa",
+      "aaabaaaaacaaaaaa",
+      "aaaaaacaaaaaabaa",
+      "aaaaaaaaaaaaaaaa",
+      "aacabaaaaaaacaaa",
+      "aaaaaaaaaaaaaaaa",
+      "aaaabaaaaacaaaaa",
+      "aaaaaaaaaaaaaaab",
+      "aaacaaaaaaaaaaaa",
+      "aaaaaaaaaacaaaaa",
+      "aaaaaaabaaaaaaaa",
+      "aaaaaaaaaaaaacaa",
+      "aabaaaaaaaaaaaaa",
+      "aaaaaaaaaacaaaaa",
+      "aaaaacaaaaaaaaaa",
+      "aaaaaaaaaaaaaaaa",
+    ],
+  },
+  salt: {
+    palette: { a: "#6a7f9f", b: "#d8edff", c: "#f6fbff" },
+    map: [
+      "aaaaaaaaaaaaaaaa",
+      "aaaaaaaaaaaaaaaa",
+      "aaaaaaaaabaaaaaa",
+      "aaaaaaaabcbbaaaa",
+      "aaaaaaabbccbbaaa",
+      "aaaaaaabccccbaaa",
+      "aaaaaabbccccbbaa",
+      "aaaaaabccccccbba",
+      "aaaaaabccccccbba",
+      "aaaaaabbccccbbaa",
+      "aaaaaaabccccbaaa",
+      "aaaaaaabbccbbaaa",
+      "aaaaaaaabcbbaaaa",
+      "aaaaaaaaabaaaaaa",
+      "aaaaaaaaaaaaaaaa",
+      "aaaaaaaaaaaaaaaa",
+    ],
+  },
+  player: {
+    palette: { a: "#ffffff", b: "#9dd2ff", c: "#2f425b" },
+    map: [
+      "................",
+      "......aaaa......",
+      ".....abbbba.....",
+      "....abbccbba....",
+      "...abccccccba...",
+      "...abcbccbcb....",
+      "...abccccccba...",
+      "...abbbbbbbb....",
+      "...aaabbbbaaa...",
+      "...aabaaaaabaa..",
+      "...aabaaaaabaa..",
+      "...aaabbbbaaa...",
+      "....aabbbbaa....",
+      "....aa....aa....",
+      "...aa......aa...",
+      "................",
+    ],
+  },
+  snail: {
+    palette: { a: "#5e8aa0", b: "#8ec3da", c: "#d6eef8" },
+    map: [
+      "................",
+      "................",
+      ".......bbbb.....",
+      "......bccccb....",
+      ".....bcbbbbcb...",
+      "....bcbaaaabcb..",
+      "...bcbaaaaaabcb.",
+      "...bcbaaaaaabcb.",
+      "...bcbaaaaaabcb.",
+      "...bcbaaaaaabcb.",
+      "....bcbaaaabcb..",
+      ".....bcbbbbcb...",
+      "......bccccb....",
+      "....bbb....bbb..",
+      "...bb........bb.",
+      "................",
+    ],
+  },
+  ghost: {
+    palette: { a: "#8f7766", b: "#c6a88f", c: "#e8d7c8" },
+    map: [
+      "................",
+      "......bbbb......",
+      ".....bccccb.....",
+      "....bcbbbbcb....",
+      "...bcbbbbbbcb...",
+      "...bcbbbbbbcb...",
+      "...bcbbbbbbcb...",
+      "...bccbbbbccb...",
+      "...bcbbbbbbcb...",
+      "...bcbbbbbbcb...",
+      "....bcbbbbcb....",
+      ".....bccccb.....",
+      "...bbb....bbb...",
+      "..bb.b....b.bb..",
+      ".bb..b....b..bb.",
+      "................",
+    ],
+  },
+  boss: {
+    palette: { a: "#3f4d63", b: "#7f92aa", c: "#ccd8e8" },
+    map: [
+      "......bbbb......",
+      ".....bccccb.....",
+      "...bbbccccbbb...",
+      "..bbccbbbbccbb..",
+      ".bbcbbaaaabbcbb.",
+      ".bcbbabbbbabbbc.",
+      ".bcbbbbbbbbbbbc.",
+      ".bcbbbaaaabbbbc.",
+      ".bcbbbaaaabbbbc.",
+      ".bcbbbbbbbbbbbc.",
+      ".bcbbabbbbabbbc.",
+      ".bbcbbaaaabbcbb.",
+      "..bbccbbbbccbb..",
+      "...bbbccccbbb...",
+      ".....bccccb.....",
+      "......bbbb......",
+    ],
+  },
+};
+
+function drawTile(glyph, px, py, size) {
+  if (glyph === "#") return drawSprite(px, py, size, SPRITES.wall);
+  if (glyph === "~") return drawSprite(px, py, size, SPRITES.water);
+  if (glyph === "*") return drawSprite(px, py, size, SPRITES.salt);
+  return drawSprite(px, py, size, SPRITES.floor);
+}
+
+function drawActor(glyph, px, py, size) {
+  if (glyph === "@") return drawSprite(px, py, size, SPRITES.player);
+  if (glyph === "s") return drawSprite(px, py, size, SPRITES.snail);
+  if (glyph === "g") return drawSprite(px, py, size, SPRITES.ghost);
+  if (glyph === "W") return drawSprite(px, py, size, SPRITES.boss);
 }
 
 function draw() {
@@ -137,23 +327,27 @@ function draw() {
   const oy = Math.floor((canvas.height - h * t) / 2);
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = "#08101d";
+  ctx.fillStyle = "#060c18";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.font = `${t}px ui-monospace, Menlo, Consolas, monospace`;
-  ctx.textBaseline = "top";
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
-      const ch = tileGlyph(x, y);
-      ctx.fillStyle = palette(ch);
-      ctx.fillText(ch, ox + x * t, oy + y * t);
+      const glyph = tileGlyph(x, y);
+      drawTile(glyph, ox + x * t, oy + y * t, t);
+    }
+  }
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const glyph = tileGlyph(x, y);
+      drawActor(glyph, ox + x * t, oy + y * t, t);
     }
   }
 
   const hp = api.php();
   const max = api.pmax();
   const alive = api.bossAlive();
-  const enemyCount = api.enemyCount ? api.enemyCount() : (api.game_glyph ? 0 : null);
+  const enemyCount = api.enemyCount ? api.enemyCount() : null;
 
   hpEl.textContent = `HP: ${hp}/${max}`;
   bossEl.textContent = alive
@@ -188,12 +382,11 @@ window.addEventListener(
   (e) => {
     if (!api) return;
     const input = stepFromKey(e);
-    if (input) {
-      e.preventDefault();
-      api.game_step(input);
-      saveGame({ silent: true }).catch(() => {});
-      draw();
-    }
+    if (!input) return;
+    e.preventDefault();
+    api.game_step(input);
+    saveGame({ silent: true }).catch(() => {});
+    draw();
   },
   { passive: false }
 );
@@ -279,6 +472,7 @@ async function loadGame() {
     uiLog("저장 데이터가 없습니다.");
     return false;
   }
+
   const size = api.saveSize();
   if (bytes.length !== size) {
     uiLog("세이브 버전이 달라 New Run이 필요합니다.");
