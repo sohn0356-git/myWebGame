@@ -1,0 +1,16 @@
+{
+  "bosses": [
+    {
+      "floor": 1,
+      "id": "chain_harbor_warden",
+      "name": "사슬수문장",
+      "episode": "EP1. 소금비가 내린 날",
+      "stats": { "hp": 22, "atk": 3 },
+      "patterns": [
+        { "type": "CHARGE", "cooldown": 3, "steps": 2, "aoeOnCrash": 1 },
+        { "type": "SLAM", "cooldown": 0, "knockback": 2, "bonusDmg": 1 }
+      ],
+      "enrage": { "hpPercent": 50, "cooldownDelta": -1, "extraMove": 0 }
+    }
+  ]
+}

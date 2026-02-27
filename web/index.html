@@ -3,14 +3,15 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>WASM Roguelike</title>
+    <title>검은 파도 위의 등대도시</title>
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
     <div class="wrap">
       <header>
-        <h1>Text/Tile Roguelike</h1>
+        <h1>검은 파도 위의 등대도시</h1>
         <div class="hud">
+          <span id="stage"></span>
           <span id="hp"></span>
           <span id="boss"></span>
           <span id="turn"></span>
@@ -20,9 +21,7 @@
           <button id="save">Save</button>
           <button id="load">Continue</button>
         </div>
-        <p class="help">
-          이동: ↑↓←→ / 대시: Shift+방향키 (2칸) / 자동공격: 적에게 부딪히기
-        </p>
+        <p class="help">이동: 방향키 / 대시: Shift+방향키 / 공격: 적에게 몸통박치기</p>
       </header>
 
       <main>
