@@ -1,20 +1,23 @@
-# WASM Roguelike (C → WebAssembly) on GitHub Pages
+# WASM Roguelike (C + WebAssembly + React UI)
 
-- C로 만든 코어 로직을 WebAssembly로 빌드하여 브라우저에서 실행
-- 저장은 IndexedDB 1슬롯(이어하기)
-- 배포는 GitHub Actions로 자동
+## Overview
+
+- Core gameplay logic is implemented in C and compiled to WebAssembly.
+- UI is rendered with React (CDN ESM).
+- Rendering and game loop are still canvas + WASM for performance.
 
 ## Controls
 
-- Move: Arrow keys
-- Dash: Shift + Arrow (2 tiles)
-- Attack: bump into enemies
+- Move: WASD / Arrow keys / Click
+- Dash: Shift + Move
+- Attack: Space or F (auto-hit adjacent target)
 
 ## Deploy
 
-Push to `main` → Actions builds WASM and publishes `/web` to `gh-pages`.
+Push to `main` and GitHub Actions builds WASM and publishes `/web` to `gh-pages`.
 
-## Notes
+## Runtime Script
 
-- MVP라서 1층/보스/간단 AI만 포함
-- 다음 확장: 층 생성, 아이템, 이벤트/스토리 노드, 보스 패턴 다양화
+The UI loader tries to load WASM runtime in this order:
+1. `web/rogue.js` (CI build output)
+2. `web/game.js` (legacy/local file name)

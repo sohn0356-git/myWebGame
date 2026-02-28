@@ -14,6 +14,13 @@ const btnContinue = document.getElementById("btnContinue");
 const btnClear = document.getElementById("btnClear");
 
 const SAVE_KEY = "wasm_rogue_save_v3";
+const STORY_EFFECTS = {
+  heal_2: 1,
+  heal_3: 2,
+  atk_1: 3,
+  shield_1: 4,
+  dash_buff: 5,
+};
 
 let Module = null;
 let api = null;
@@ -38,7 +45,6 @@ function clamp(n, a, b) {
 // ---------- WASM bindings ----------
 function bind() {
   api = {
-    // core
     game_new: Module.cwrap("game_new", null, ["number"]),
     game_w: Module.cwrap("game_w", "number", []),
     game_h: Module.cwrap("game_h", "number", []),
@@ -53,46 +59,24 @@ function bind() {
     game_boss_alive: Module.cwrap("game_boss_alive", "number", []),
     game_boss_hp: Module.cwrap("game_boss_hp", "number", []),
     game_boss_maxhp: Module.cwrap("game_boss_maxhp", "number", []),
+    game_enemy_x: Module.cwrap("game_enemy_x", "number", []),
+    game_enemy_y: Module.cwrap("game_enemy_y", "number", []),
+    game_boss_x: Module.cwrap("game_boss_x", "number", []),
+    game_boss_y: Module.cwrap("game_boss_y", "number", []),
 
-    // save/load
     game_save_size: Module.cwrap("game_save_size", "number", []),
     game_save_write: Module.cwrap("game_save_write", null, ["number"]),
-    game_load_read: Module.cwrap("game_load_read", "number", [
-      "number",
-      "number",
-    ]),
+    game_load_read: Module.cwrap("game_load_read", "number", ["number", "number"]),
 
-    // story
     story_get_flags: Module.cwrap("story_get_flags", "number", []),
     story_set_flag_bit: Module.cwrap("story_set_flag_bit", null, ["number"]),
     story_apply_effect: Module.cwrap("story_apply_effect", null, ["number"]),
 
-    // boss inject
-    boss_config_begin: Module.cwrap("boss_config_begin", null, [
-      "number",
-      "number",
-      "number",
-    ]),
-    boss_config_add_pattern: Module.cwrap("boss_config_add_pattern", null, [
-      "number",
-      "number",
-      "number",
-      "number",
-      "number",
-    ]),
-    boss_config_set_enrage: Module.cwrap("boss_config_set_enrage", null, [
-      "number",
-      "number",
-      "number",
-      "number",
-      "number",
-    ]),
+    boss_config_begin: Module.cwrap("boss_config_begin", null, ["number", "number", "number"]),
+    boss_config_add_pattern: Module.cwrap("boss_config_add_pattern", null, ["number", "number", "number", "number", "number"]),
+    boss_config_set_enrage: Module.cwrap("boss_config_set_enrage", null, ["number", "number", "number", "number", "number"]),
     boss_config_end: Module.cwrap("boss_config_end", null, []),
-    boss_apply_stats_from_config: Module.cwrap(
-      "boss_apply_stats_from_config",
-      null,
-      []
-    ),
+    boss_apply_stats_from_config: Module.cwrap("boss_apply_stats_from_config", null, []),
   };
 }
 
@@ -115,10 +99,10 @@ function configureBossForFloor(floor) {
   for (let i = 0; i < Math.min(3, b.patterns.length); i++) {
     const p = b.patterns[i];
     const type = PAT[p.type] ?? 0;
-    let cd = p.cooldown ?? 0;
-    let p1 = 0,
-      p2 = 0,
-      p3 = 0;
+    const cd = p.cooldown ?? 0;
+    let p1 = 0;
+    let p2 = 0;
+    let p3 = 0;
 
     if (p.type === "CHARGE") {
       p1 = p.steps ?? 2;
@@ -167,7 +151,6 @@ function saveToLocal() {
 
   const b64 = btoa(String.fromCharCode(...bytes));
   localStorage.setItem(SAVE_KEY, b64);
-  logLine("Saved (1-slot).");
 }
 
 function loadFromLocal() {
@@ -207,7 +190,6 @@ function setBit(bit) {
 function renderStoryEvent(ev) {
   elStory.textContent = ev.text;
 
-  // choices
   const row = document.createElement("div");
   row.className = "choiceRow";
 
@@ -217,8 +199,11 @@ function renderStoryEvent(ev) {
     if (idx === 0) b.classList.add("primary");
 
     b.onclick = () => {
-      if (typeof c.effect === "number") api.story_apply_effect(c.effect);
+      const effectId =
+        typeof c.effect === "number" ? c.effect : STORY_EFFECTS[c.effect] ?? 0;
+      if (effectId > 0) api.story_apply_effect(effectId);
       if (typeof c.setBit === "number") setBit(c.setBit);
+      if (c.log) logLine(c.log);
       elStory.textContent = "";
       row.remove();
       draw();
@@ -259,11 +244,80 @@ function tryTriggerStory() {
 const TILE = 16;
 const VIEW_W = 40;
 const VIEW_H = 22;
+const SPRITES = {};
 
-function tileColor(ch) {
-  if (ch === "#".charCodeAt(0)) return "#1a2130";
-  if (ch === ".".charCodeAt(0)) return "#0f141e";
-  return "#0f141e";
+function makeSprite(drawFn) {
+  const c = document.createElement("canvas");
+  c.width = TILE;
+  c.height = TILE;
+  const s = c.getContext("2d");
+  s.imageSmoothingEnabled = false;
+  drawFn(s);
+  return c;
+}
+
+function drawShadow(x, y, alpha = 0.3) {
+  ctx.fillStyle = `rgba(0,0,0,${alpha})`;
+  ctx.fillRect(x * TILE + 2, y * TILE + TILE - 4, TILE - 4, 2);
+}
+
+function initSprites() {
+  SPRITES.floor = makeSprite((s) => {
+    s.fillStyle = "#1a202c";
+    s.fillRect(0, 0, TILE, TILE);
+    s.fillStyle = "#222b3a";
+    s.fillRect(0, 0, TILE, 2);
+    s.fillRect(0, 0, 2, TILE);
+    s.fillStyle = "#2d384a";
+    for (let i = 2; i < TILE - 2; i += 4) {
+      s.fillRect(i, 6 + (i % 3), 1, 1);
+      s.fillRect((i + 5) % TILE, 12, 1, 1);
+    }
+  });
+
+  SPRITES.wall = makeSprite((s) => {
+    s.fillStyle = "#10151f";
+    s.fillRect(0, 0, TILE, TILE);
+    s.fillStyle = "#2b3647";
+    for (let y = 0; y < TILE; y += 4) s.fillRect(0, y, TILE, 1);
+    s.fillStyle = "#3e4d66";
+    for (let x = 0; x < TILE; x += 6) s.fillRect(x, 0, 1, TILE);
+    s.fillStyle = "#1b2433";
+    s.fillRect(0, TILE - 2, TILE, 2);
+  });
+
+  SPRITES.player = makeSprite((s) => {
+    s.fillStyle = "#000000";
+    s.fillRect(4, 3, 8, 11);
+    s.fillStyle = "#f8d763";
+    s.fillRect(5, 4, 6, 3);
+    s.fillStyle = "#89c6ff";
+    s.fillRect(5, 8, 6, 5);
+    s.fillStyle = "#e8f1ff";
+    s.fillRect(7, 5, 2, 1);
+  });
+
+  SPRITES.enemy = makeSprite((s) => {
+    s.fillStyle = "#000000";
+    s.fillRect(4, 4, 8, 9);
+    s.fillStyle = "#e36b6b";
+    s.fillRect(5, 5, 6, 6);
+    s.fillStyle = "#ffd1d1";
+    s.fillRect(6, 7, 1, 1);
+    s.fillRect(9, 7, 1, 1);
+  });
+
+  SPRITES.boss = makeSprite((s) => {
+    s.fillStyle = "#000000";
+    s.fillRect(2, 2, 12, 12);
+    s.fillStyle = "#9a7cff";
+    s.fillRect(3, 3, 10, 10);
+    s.fillStyle = "#ccbaff";
+    s.fillRect(5, 6, 2, 2);
+    s.fillRect(9, 6, 2, 2);
+    s.fillStyle = "#6e54b8";
+    s.fillRect(4, 11, 8, 2);
+  });
 }
 
 function draw() {
@@ -271,37 +325,47 @@ function draw() {
   const h = api.game_h();
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.imageSmoothingEnabled = false;
 
-  // map
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const t = api.game_tile(x, y);
-      ctx.fillStyle = tileColor(t);
-      ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
-
-      // faint grid
-      ctx.strokeStyle = "rgba(255,255,255,0.03)";
-      ctx.strokeRect(x * TILE, y * TILE, TILE, TILE);
+      ctx.drawImage(t === "#".charCodeAt(0) ? SPRITES.wall : SPRITES.floor, x * TILE, y * TILE);
     }
   }
 
-  // actors
   const px = api.game_player_x();
   const py = api.game_player_y();
+  drawShadow(px, py);
+  ctx.drawImage(SPRITES.player, px * TILE, py * TILE);
 
-  ctx.fillStyle = "#ffd24a";
-  ctx.fillRect(px * TILE + 2, py * TILE + 2, TILE - 4, TILE - 4);
-
-  // minion (enemy)
   if (api.game_enemy_alive() === 1) {
-    // enemy position isn't exported; simple 표시만: boss 옆에 나올 때가 많아서 최소표현
-    // (원하면 enemy x/y export 추가해줄게)
+    const ex = api.game_enemy_x();
+    const ey = api.game_enemy_y();
+    drawShadow(ex, ey, 0.35);
+    ctx.drawImage(SPRITES.enemy, ex * TILE, ey * TILE);
   }
 
-  // boss (position isn't exported either -> 최소표현: 미니맵 같은 HUD로만)
-  // (원하면 boss x/y export 추가해줄게)
+  if (api.game_boss_alive() === 1) {
+    const bx = api.game_boss_x();
+    const by = api.game_boss_y();
+    drawShadow(bx, by, 0.38);
+    ctx.drawImage(SPRITES.boss, bx * TILE, by * TILE);
+  }
 
-  // HUD
+  const vignette = ctx.createRadialGradient(
+    canvas.width / 2,
+    canvas.height / 2,
+    10,
+    canvas.width / 2,
+    canvas.height / 2,
+    canvas.width * 0.65
+  );
+  vignette.addColorStop(0, "rgba(0,0,0,0)");
+  vignette.addColorStop(1, "rgba(0,0,0,0.35)");
+  ctx.fillStyle = vignette;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
   const hp = api.game_player_hp();
   const mhp = api.game_player_maxhp();
   elHP.textContent = `HP: ${hp}/${mhp}`;
@@ -317,13 +381,17 @@ function draw() {
 
   elTurn.textContent = `Turn: ${api.game_turn()}`;
 
-  // trigger story after draw (so UI updates)
   if (elStory.textContent.trim() === "") tryTriggerStory();
 }
 
 // ---------- Input ----------
+function stepWithCode(code) {
+  api.game_step(code);
+  draw();
+  saveToLocal();
+}
+
 function inputToCode(key, shift) {
-  // 1 up,2 down,3 left,4 right, 5~8 dash
   const dash = shift ? 4 : 0;
 
   if (key === "ArrowUp" || key === "w" || key === "W") return 1 + dash;
@@ -333,17 +401,93 @@ function inputToCode(key, shift) {
   return 0;
 }
 
+function dirToCode(dx, dy, dash = false) {
+  if (dx === 0 && dy === -1) return dash ? 5 : 1;
+  if (dx === 0 && dy === 1) return dash ? 6 : 2;
+  if (dx === -1 && dy === 0) return dash ? 7 : 3;
+  if (dx === 1 && dy === 0) return dash ? 8 : 4;
+  return 0;
+}
+
+function tryAutoAttack() {
+  const px = api.game_player_x();
+  const py = api.game_player_y();
+  const candidates = [];
+
+  if (api.game_enemy_alive() === 1) {
+    candidates.push({ x: api.game_enemy_x(), y: api.game_enemy_y(), priority: 1 });
+  }
+  if (api.game_boss_alive() === 1) {
+    candidates.push({ x: api.game_boss_x(), y: api.game_boss_y(), priority: 0 });
+  }
+
+  candidates.sort((a, b) => a.priority - b.priority);
+
+  for (const t of candidates) {
+    const md = Math.abs(t.x - px) + Math.abs(t.y - py);
+    if (md !== 1) continue;
+
+    const code = dirToCode(Math.sign(t.x - px), Math.sign(t.y - py), false);
+    if (!code) continue;
+
+    stepWithCode(code);
+    return true;
+  }
+
+  return false;
+}
+
+function stepToward(tx, ty, dash = false) {
+  const px = api.game_player_x();
+  const py = api.game_player_y();
+  const ddx = tx - px;
+  const ddy = ty - py;
+
+  if (ddx === 0 && ddy === 0) {
+    tryAutoAttack();
+    return;
+  }
+
+  let dx = 0;
+  let dy = 0;
+  if (Math.abs(ddx) >= Math.abs(ddy)) dx = Math.sign(ddx);
+  else dy = Math.sign(ddy);
+
+  const code = dirToCode(dx, dy, dash);
+  if (!code) return;
+
+  stepWithCode(code);
+}
+
 window.addEventListener("keydown", (e) => {
   if (!api) return;
-  if (elStory.textContent.trim() !== "") return; // 스토리 선택 중엔 이동 막기
+  if (elStory.textContent.trim() !== "") return;
+
+  if (e.key === " " || e.key === "f" || e.key === "F") {
+    e.preventDefault();
+    tryAutoAttack();
+    return;
+  }
 
   const code = inputToCode(e.key, e.shiftKey);
   if (!code) return;
 
   e.preventDefault();
-  api.game_step(code);
-  draw();
-  saveToLocal();
+  stepWithCode(code);
+});
+
+canvas.addEventListener("pointerdown", (e) => {
+  if (!api) return;
+  if (elStory.textContent.trim() !== "") return;
+
+  const rect = canvas.getBoundingClientRect();
+  const sx = canvas.width / rect.width;
+  const sy = canvas.height / rect.height;
+
+  const tx = clamp(Math.floor(((e.clientX - rect.left) * sx) / TILE), 0, VIEW_W - 1);
+  const ty = clamp(Math.floor(((e.clientY - rect.top) * sy) / TILE), 0, VIEW_H - 1);
+
+  stepToward(tx, ty, e.shiftKey);
 });
 
 // ---------- Buttons ----------
@@ -370,15 +514,13 @@ btnClear.onclick = () => clearSave();
 
 // ---------- Boot ----------
 async function boot() {
-  Module = await createModule({
-    locateFile: (p) => `./${p}`,
-  });
+  Module = await createModule({ locateFile: (p) => `./${p}` });
 
   bind();
   await loadBosses();
   await loadStory();
+  initSprites();
 
-  // auto-load if exists
   if (!loadFromLocal()) {
     api.game_new(randSeed());
     configureBossForFloor(1);
@@ -389,3 +531,4 @@ async function boot() {
 }
 
 boot();
+

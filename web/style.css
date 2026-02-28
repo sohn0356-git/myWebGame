@@ -4,53 +4,57 @@
   --panel2: #0f131a;
   --text: #e9edf3;
   --muted: #9aa7b7;
-  --line: #263044;
+  --line: #2a3448;
   --accent: #ffd24a;
 }
 
 * {
   box-sizing: border-box;
 }
+
 body {
   margin: 0;
-  background: linear-gradient(180deg, #0a0c10, #0d0f14);
+  background:
+    radial-gradient(circle at 20% 0%, rgba(52, 75, 112, 0.2), transparent 45%),
+    linear-gradient(180deg, #090b11, #0d0f14 45%, #0c0f14);
   color: var(--text);
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
-    "Noto Sans KR", Arial;
+  font-family: "Noto Sans KR", "Segoe UI", Tahoma, sans-serif;
 }
 
 .top {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
   padding: 14px 18px;
   border-bottom: 1px solid var(--line);
-  background: rgba(12, 14, 20, 0.7);
-  backdrop-filter: blur(6px);
+  background: rgba(10, 14, 22, 0.82);
+  backdrop-filter: blur(8px);
 }
 
 .brand {
-  font-weight: 800;
-  letter-spacing: 0.5px;
+  font-weight: 900;
+  letter-spacing: 0.4px;
 }
+
 .hint {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .layout {
   display: grid;
-  grid-template-columns: 700px 1fr;
+  grid-template-columns: minmax(560px, 700px) minmax(280px, 1fr);
   gap: 16px;
   padding: 16px;
 }
 
 .panel {
-  background: var(--panel);
+  background: linear-gradient(180deg, #161c27, #111620);
   border: 1px solid var(--line);
   border-radius: 14px;
   padding: 14px;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.4);
 }
 
 canvas {
@@ -59,7 +63,10 @@ canvas {
   height: auto;
   border-radius: 12px;
   background: #0b0d12;
-  border: 1px solid #1f2838;
+  border: 1px solid #22314a;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  touch-action: none;
 }
 
 .hud {
@@ -70,10 +77,18 @@ canvas {
   font-size: 13px;
 }
 
+.hud > div {
+  border: 1px solid #2e3d56;
+  background: #101722;
+  border-radius: 10px;
+  padding: 6px 9px;
+}
+
 .buttons {
   display: flex;
   gap: 10px;
   margin-top: 12px;
+  flex-wrap: wrap;
 }
 
 button {
@@ -86,9 +101,11 @@ button {
   cursor: pointer;
   font-weight: 700;
 }
+
 button:hover {
-  border-color: #3a4a6c;
+  border-color: #4b5d83;
 }
+
 button:active {
   transform: translateY(1px);
 }
@@ -100,7 +117,7 @@ button:active {
 }
 
 .box {
-  background: var(--panel);
+  background: linear-gradient(180deg, #161b25, #121823);
   border: 1px solid var(--line);
   border-radius: 14px;
   padding: 14px;
@@ -126,11 +143,29 @@ button:active {
   gap: 8px;
   margin-top: 10px;
 }
+
 .choiceRow button {
   flex: 1;
   border-color: #33405c;
 }
+
 .choiceRow button.primary {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(255, 210, 74, 0.15) inset;
 }
+
+@media (max-width: 1080px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .top {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .hint {
+    line-height: 1.35;
+  }
+}
+
