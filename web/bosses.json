@@ -2,15 +2,54 @@
   "bosses": [
     {
       "floor": 1,
-      "id": "chain_harbor_warden",
-      "name": "사슬수문장",
-      "episode": "EP1. 소금비가 내린 날",
-      "stats": { "hp": 22, "atk": 3 },
+      "id": "stackspeed_cop",
+      "name": "책장 사이의 과속단속반",
+      "stats": { "hp": 18, "atk": 3 },
       "patterns": [
         { "type": "CHARGE", "cooldown": 3, "steps": 2, "aoeOnCrash": 1 },
         { "type": "SLAM", "cooldown": 0, "knockback": 2, "bonusDmg": 1 }
       ],
-      "enrage": { "hpPercent": 50, "cooldownDelta": -1, "extraMove": 0 }
+      "enrage": { "hpPercent": 50, "cooldownDelta": -1 }
+    },
+    {
+      "floor": 2,
+      "id": "the_eraser",
+      "name": "삭제자",
+      "stats": { "hp": 20, "atk": 3 },
+      "patterns": [
+        { "type": "MARK", "cooldown": 2, "delay": 1, "radius": 0 },
+        { "type": "WIPE_LINE", "cooldown": 4, "range": 99 }
+      ],
+      "enrage": { "hpPercent": 50, "markRadiusDelta": 1 }
+    },
+    {
+      "floor": 3,
+      "id": "the_reader",
+      "name": "낭독자",
+      "stats": { "hp": 22, "atk": 3 },
+      "patterns": [
+        { "type": "CROSS", "cooldown": 3, "range": 8 },
+        {
+          "type": "SUMMON",
+          "cooldown": 4,
+          "minionHp": 6,
+          "minionAtk": 2,
+          "shieldTurns": 1
+        }
+      ],
+      "enrage": { "hpPercent": 50, "crossRangeDelta": 2 }
+    },
+    {
+      "floor": 4,
+      "id": "the_archivist",
+      "name": "사서장",
+      "stats": { "hp": 26, "atk": 4 },
+      "patterns": [
+        { "type": "CHARGE", "cooldown": 3, "steps": 2, "aoeOnCrash": 0 },
+        { "type": "MARK", "cooldown": 3, "delay": 1, "radius": 0 },
+        { "type": "CROSS", "cooldown": 4, "range": 6 }
+      ],
+      "enrage": { "hpPercent": 50, "extraMove": 1, "cooldownDelta": -1 }
     }
   ]
 }

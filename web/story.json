@@ -1,0 +1,291 @@
+{
+  "meta": {
+    "tone": "comedy_light",
+    "world": "말장난 도서관",
+    "notes": "이벤트는 onceFlagBit으로 1회성 제어. setFlagBit은 선택 시 플래그 세팅."
+  },
+  "effects": {
+    "heal_2": "HP +2 (최대치까지만)",
+    "heal_3": "HP +3 (최대치까지만)",
+    "atk_1": "공격력 +1",
+    "shield_1": "다음 피해 1회 -1",
+    "dash_buff": "대시 1회 이동 +1",
+    "key_1": "열쇠 +1(문/상자용)",
+    "coin_5": "코인 +5(상점/거래용)",
+    "curse_funny": "이상한 저주(대사만 바뀌고 실제 패널티 없음)"
+  },
+  "events": [
+    {
+      "id": "intro",
+      "onceFlagBit": 0,
+      "title": "입장",
+      "text": "당신은 도서관에 들어왔는데… 안내문이 이렇게 말한다.\n\n“조용히 하세요.\n소리를 내면 책이 소리를 냅니다.”\n\n벌써부터 불길하다.",
+      "choices": [
+        {
+          "label": "고개를 끄덕인다(예의)",
+          "setFlagBit": 0,
+          "effect": "heal_2",
+          "log": "예의가 HP를 2 회복시켰다. 말이 되냐고? 도서관이니까."
+        },
+        {
+          "label": "콧웃음 친다(도발)",
+          "setFlagBit": 0,
+          "effect": "atk_1",
+          "log": "도발이 공격력을 +1 올렸다. 싸움은 준비 자세부터다."
+        }
+      ]
+    },
+
+    {
+      "id": "first_corridor_sign",
+      "onceFlagBit": 4,
+      "title": "복도 표지판",
+      "text": "복도에 표지판이 하나 더 있다.\n\n“뛰지 마시오.\n뛰면 ‘물리적 설득’ 들어갑니다.”\n\n도서관이 왜 이렇게 폭력적이지?",
+      "choices": [
+        {
+          "label": "규정을 지킨다(그럴 사람이었나?)",
+          "setFlagBit": 4,
+          "effect": "shield_1",
+          "log": "규정 준수 보너스: 다음 피해 1회 -1."
+        },
+        {
+          "label": "규정을 읽지 않는다(현대인)",
+          "setFlagBit": 4,
+          "effect": "curse_funny",
+          "log": "저주 획득: '안 읽음'. 효과는 없다. 대신 자존심이 아프다."
+        }
+      ]
+    },
+
+    {
+      "id": "note_pillar",
+      "onceFlagBit": 1,
+      "title": "메모",
+      "text": "기둥 뒤에 낡은 메모가 붙어 있다.\n\n“기둥은 친구다.\n과속단속반은 기둥을 싫어한다.”\n\n…이 도서관, 안내가 너무 구체적이다.",
+      "choices": [
+        {
+          "label": "메모를 챙긴다",
+          "setFlagBit": 1,
+          "effect": "shield_1",
+          "log": "‘기둥친구’ 효과: 다음 피해 1회 감소(오늘부터 기둥과 사귐)."
+        },
+        {
+          "label": "메모를 찢는다",
+          "setFlagBit": 1,
+          "effect": "atk_1",
+          "log": "찢는 순간, 마음이 강해졌다. 공격력 +1. (정신력 기반 딜?)"
+        }
+      ]
+    },
+
+    {
+      "id": "merchant_footnote",
+      "onceFlagBit": 5,
+      "title": "각주 상인",
+      "text": "바닥에서 작은 글씨가 튀어나온다.\n\n“각주 상점임. (※환불불가)\n(※설명 안 읽고 쓰면 본인 책임)”\n\n가게가 아니라 글씨다.",
+      "choices": [
+        {
+          "label": "코인 5 받기(왜 주는지 모름)",
+          "setFlagBit": 5,
+          "effect": "coin_5",
+          "log": "코인 +5. 각주: (※이게 왜 생겼는지 물으면 안 됨)"
+        },
+        {
+          "label": "열쇠 1 받기(쓸모 있어 보임)",
+          "setFlagBit": 5,
+          "effect": "key_1",
+          "log": "열쇠 +1. 어딘가 문이 있을 것 같은 기분이 든다."
+        }
+      ]
+    },
+
+    {
+      "id": "preboss_f1",
+      "onceFlagBit": 2,
+      "title": "경고문",
+      "text": "보스 방 문 앞 표지판.\n\n“도서관 내 달리기 금지.\n위반 시 ‘물리적 설득’ 실시.”\n\n문틈 너머에서 ‘신호위반’ 같은 단어가 들린다.",
+      "choices": [
+        {
+          "label": "정중히 사과한다",
+          "setFlagBit": 2,
+          "effect": "heal_3",
+          "log": "사과는 강력하다. HP +3."
+        },
+        {
+          "label": "대시 준비(반항)",
+          "setFlagBit": 2,
+          "effect": "dash_buff",
+          "log": "오늘만큼은 합법적으로 빨라진다. 대시가 1번 더 길어졌다(임시)."
+        }
+      ]
+    },
+
+    {
+      "id": "boss_defeat_f1",
+      "onceFlagBit": 3,
+      "title": "승리 후",
+      "text": "과속단속반이 쓰러지며 마지막으로 중얼거린다.\n\n“조용히… 하라… 했…잖…”\n\n당신은 조용히 승리했다. (조용히 안 했지만)",
+      "choices": [
+        {
+          "label": "조용히 고개 숙인다",
+          "setFlagBit": 3,
+          "effect": "atk_1",
+          "log": "조용한 승리는 멋있다. 공격력 +1."
+        },
+        {
+          "label": "승리의 세레모니(소리)",
+          "setFlagBit": 3,
+          "effect": "none",
+          "log": "세레모니는 멋졌고, 도서관은 더 화났다. (다음 층에서 보자)"
+        }
+      ]
+    },
+
+    {
+      "id": "stairs_down_f2",
+      "onceFlagBit": 6,
+      "title": "다음 층",
+      "text": "계단 아래로 내려가자 공기가 더 차가워진다.\n\n책들이 서로 수군거린다.\n“2층은 삭제가 심해.”\n\n삭제가 심하다는 말이 뭔데.",
+      "choices": [
+        {
+          "label": "침착하게 내려간다",
+          "setFlagBit": 6,
+          "effect": "shield_1",
+          "log": "침착함 +1(실제 효과: 다음 피해 1회 -1)"
+        },
+        {
+          "label": "호기심에 빨리 내려간다",
+          "setFlagBit": 6,
+          "effect": "dash_buff",
+          "log": "호기심은 발이 빠르다. 대시 1회 강화(임시)."
+        }
+      ]
+    },
+
+    {
+      "id": "preboss_f2",
+      "onceFlagBit": 7,
+      "title": "삭제 경고",
+      "text": "벽에 지워진 글씨가 남아 있다.\n\n“여기서는 말이 지워지고,\n다음은… 너일 수도.”\n\n마지막 줄은 너무 과하다.",
+      "choices": [
+        {
+          "label": "연필로 덧쓴다(반항)",
+          "setFlagBit": 7,
+          "effect": "atk_1",
+          "log": "연필의 반항: 공격력 +1."
+        },
+        {
+          "label": "지워질 걸 대비해 숨을 참고 간다",
+          "setFlagBit": 7,
+          "effect": "heal_2",
+          "log": "숨참기 버프(뭔지 모름): HP +2."
+        }
+      ]
+    },
+
+    {
+      "id": "boss_defeat_f2",
+      "onceFlagBit": 8,
+      "title": "삭제자 퇴장",
+      "text": "삭제자가 마지막으로 외친다.\n\n“너… 저장… 했지?”\n\n순간 뜨끔했다. 하지만 이어하기는 1슬롯뿐이다.",
+      "choices": [
+        {
+          "label": "“했지!”(당당)",
+          "setFlagBit": 8,
+          "effect": "shield_1",
+          "log": "당당함: 다음 피해 1회 -1."
+        },
+        {
+          "label": "“…안 했는데?”(정직)",
+          "setFlagBit": 8,
+          "effect": "heal_3",
+          "log": "정직 보너스: HP +3."
+        }
+      ]
+    },
+
+    {
+      "id": "stairs_down_f3",
+      "onceFlagBit": 9,
+      "title": "3층 공지",
+      "text": "3층은 조용하다.\n너무 조용해서 오히려 시끄럽다.\n\n바닥의 글씨가 속삭인다.\n“낭독은 폭력이다.”\n\n무슨 소리야.",
+      "choices": [
+        {
+          "label": "의미를 이해하려 노력한다",
+          "setFlagBit": 9,
+          "effect": "atk_1",
+          "log": "이해하려는 마음: 공격력 +1. (왜냐면… 이해가 힘이니까?)"
+        },
+        {
+          "label": "그냥 진행한다(현명)",
+          "setFlagBit": 9,
+          "effect": "shield_1",
+          "log": "현명함: 다음 피해 1회 -1."
+        }
+      ]
+    },
+
+    {
+      "id": "preboss_f3",
+      "onceFlagBit": 10,
+      "title": "낭독 안내",
+      "text": "문 앞에 안내문.\n\n“낭독 중에는 끼어들지 마시오.\n끼어들면 목소리가 끼어듭니다.”\n\n무섭다. 그리고 말장난이다.",
+      "choices": [
+        {
+          "label": "낭독에 박수 친다(예의)",
+          "setFlagBit": 10,
+          "effect": "heal_2",
+          "log": "박수는 마음을 치유한다. HP +2."
+        },
+        {
+          "label": "낭독을 끊을 준비를 한다(전투)",
+          "setFlagBit": 10,
+          "effect": "dash_buff",
+          "log": "끊을 준비: 대시 강화 1회(임시)."
+        }
+      ]
+    },
+
+    {
+      "id": "boss_defeat_f3",
+      "onceFlagBit": 11,
+      "title": "낭독자 침묵",
+      "text": "낭독자가 조용해진다.\n\n“결국… 다 읽었네.”\n\n너는 읽지 않았다. 몸으로 읽었다.",
+      "choices": [
+        {
+          "label": "조용히 넘긴다(상처 최소화)",
+          "setFlagBit": 11,
+          "effect": "shield_1",
+          "log": "상처 최소화: 다음 피해 1회 -1."
+        },
+        {
+          "label": "당당히 넘긴다(상처 최대화?)",
+          "setFlagBit": 11,
+          "effect": "atk_1",
+          "log": "당당함: 공격력 +1."
+        }
+      ]
+    },
+
+    {
+      "id": "final_door",
+      "onceFlagBit": 12,
+      "title": "사서장 앞",
+      "text": "마지막 문.\n문엔 아주 작은 글씨.\n\n“여기서부터는\n핑계가 저장되지 않습니다.”\n\n뭐가 저장된다는 거지?",
+      "choices": [
+        {
+          "label": "문을 연다",
+          "setFlagBit": 12,
+          "effect": "heal_3",
+          "log": "마지막 전 심호흡: HP +3."
+        },
+        {
+          "label": "문을 두드린다(예의)",
+          "setFlagBit": 12,
+          "effect": "shield_1",
+          "log": "예의: 다음 피해 1회 -1."
+        }
+      ]
+    }
+  ]
+}
