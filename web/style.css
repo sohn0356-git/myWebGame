@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   --bg: #0d0f14;
   --panel: #151a22;
   --panel2: #0f131a;
@@ -110,6 +110,11 @@ button:active {
   transform: translateY(1px);
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .side {
   display: flex;
   flex-direction: column;
@@ -154,6 +159,33 @@ button:active {
   box-shadow: 0 0 0 2px rgba(255, 210, 74, 0.15) inset;
 }
 
+.loadError {
+  margin-top: 12px;
+  border: 1px solid #7b3540;
+  color: #ffc4cb;
+  background: rgba(92, 24, 36, 0.35);
+  border-radius: 10px;
+  padding: 10px;
+  font-size: 12px;
+}
+
+.mutedText {
+  color: #8f9db1;
+}
+
+.eventTitle {
+  color: #e9d995;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.worldText {
+  color: #9fb0c7;
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+
 @media (max-width: 1080px) {
   .layout {
     grid-template-columns: 1fr;
@@ -168,4 +200,3 @@ button:active {
     line-height: 1.35;
   }
 }
-

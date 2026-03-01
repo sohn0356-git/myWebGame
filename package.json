@@ -1,0 +1,12 @@
+﻿{
+  "name": "mywebgame",
+  "private": true,
+  "scripts": {
+    "build:web": "esbuild web/ts/app.ts --format=esm --outfile=web/app.js && esbuild web/ts/ui.ts --format=esm --outfile=web/ui.js",
+    "typecheck:web": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "typescript": "^5.8.2"
+  }
+}

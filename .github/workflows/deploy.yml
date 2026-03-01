@@ -21,6 +21,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install frontend deps
+        run: npm ci
+
+      - name: Build TypeScript frontend
+        run: npm run build:web
+
       - name: Setup Emscripten
         uses: mymindstorm/setup-emsdk@v14
         with:

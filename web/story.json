@@ -1,290 +1,96 @@
-{
+﻿{
   "meta": {
-    "tone": "comedy_light",
-    "world": "말장난 도서관",
-    "notes": "이벤트는 onceFlagBit으로 1회성 제어. setFlagBit은 선택 시 플래그 세팅."
-  },
-  "effects": {
-    "heal_2": "HP +2 (최대치까지만)",
-    "heal_3": "HP +3 (최대치까지만)",
-    "atk_1": "공격력 +1",
-    "shield_1": "다음 피해 1회 -1",
-    "dash_buff": "대시 1회 이동 +1",
-    "key_1": "열쇠 +1(문/상자용)",
-    "coin_5": "코인 +5(상점/거래용)",
-    "curse_funny": "이상한 저주(대사만 바뀌고 실제 패널티 없음)"
+    "world": "심장으로 유지되는 지하세계",
+    "role": "심장 수리공/회수자",
+    "rule": "각 층은 원인, 책임, 대가를 하나씩 드러낸다"
   },
   "events": [
     {
-      "id": "intro",
-      "onceFlagBit": 0,
-      "title": "입장",
-      "text": "당신은 도서관에 들어왔는데… 안내문이 이렇게 말한다.\n\n“조용히 하세요.\n소리를 내면 책이 소리를 냅니다.”\n\n벌써부터 불길하다.",
+      "id": "f1_start",
+      "onceBit": 0,
+      "title": "Floor 1 · Ash Furnace",
+      "text": "재광로 심장이 균열나며 불꽃 대신 재가 분출된다. 이 재가 도시의 호흡기를 대신한다.",
+      "trigger": { "type": "FLOOR_START", "floor": 1 },
       "choices": [
-        {
-          "label": "고개를 끄덕인다(예의)",
-          "setFlagBit": 0,
-          "effect": "heal_2",
-          "log": "예의가 HP를 2 회복시켰다. 말이 되냐고? 도서관이니까."
-        },
-        {
-          "label": "콧웃음 친다(도발)",
-          "setFlagBit": 0,
-          "effect": "atk_1",
-          "log": "도발이 공격력을 +1 올렸다. 싸움은 준비 자세부터다."
-        }
+        { "label": "재마스크를 착용한다", "effect": "shield_1", "setBit": 0, "log": "재마스크: 다음 피해 1 감소" },
+        { "label": "송풍부츠를 점검한다", "effect": "dash_buff", "setBit": 0, "log": "송풍부츠: 대시 보정 +1" }
       ]
     },
-
     {
-      "id": "first_corridor_sign",
-      "onceFlagBit": 4,
-      "title": "복도 표지판",
-      "text": "복도에 표지판이 하나 더 있다.\n\n“뛰지 마시오.\n뛰면 ‘물리적 설득’ 들어갑니다.”\n\n도서관이 왜 이렇게 폭력적이지?",
+      "id": "f1_truth",
+      "onceBit": 1,
+      "title": "원인 기록",
+      "text": "과거 관리국은 산소 공급을 유지하려고 균열 경보를 무시했다. 재는 안전보다 생산성을 택한 대가였다.",
+      "trigger": { "type": "TURN_EQ", "value": 6, "floor": 1 },
       "choices": [
-        {
-          "label": "규정을 지킨다(그럴 사람이었나?)",
-          "setFlagBit": 4,
-          "effect": "shield_1",
-          "log": "규정 준수 보너스: 다음 피해 1회 -1."
-        },
-        {
-          "label": "규정을 읽지 않는다(현대인)",
-          "setFlagBit": 4,
-          "effect": "curse_funny",
-          "log": "저주 획득: '안 읽음'. 효과는 없다. 대신 자존심이 아프다."
-        }
+        { "label": "기록을 보존한다", "effect": "atk_1", "setBit": 1, "log": "진실 확보: 공격 +1" },
+        { "label": "지금은 생존이 우선", "effect": "heal_2", "setBit": 1, "log": "응급 처치: HP +2" }
       ]
     },
-
     {
-      "id": "note_pillar",
-      "onceFlagBit": 1,
-      "title": "메모",
-      "text": "기둥 뒤에 낡은 메모가 붙어 있다.\n\n“기둥은 친구다.\n과속단속반은 기둥을 싫어한다.”\n\n…이 도서관, 안내가 너무 구체적이다.",
+      "id": "f2_start",
+      "onceBit": 2,
+      "title": "Floor 2 · Magma Rift",
+      "text": "지열 심장의 박동이 균열을 만들고, 균열선은 심장 리듬에 맞춰 분출한다.",
+      "trigger": { "type": "FLOOR_START", "floor": 2 },
       "choices": [
-        {
-          "label": "메모를 챙긴다",
-          "setFlagBit": 1,
-          "effect": "shield_1",
-          "log": "‘기둥친구’ 효과: 다음 피해 1회 감소(오늘부터 기둥과 사귐)."
-        },
-        {
-          "label": "메모를 찢는다",
-          "setFlagBit": 1,
-          "effect": "atk_1",
-          "log": "찢는 순간, 마음이 강해졌다. 공격력 +1. (정신력 기반 딜?)"
-        }
+        { "label": "흑요석 망토를 고쳐 쓴다", "effect": "shield_1", "setBit": 2, "log": "흑요석 망토: 열 피해 완화" },
+        { "label": "균열부적을 켠다", "effect": "dash_buff", "setBit": 2, "log": "균열부적: 예고 읽기 강화" }
       ]
     },
-
     {
-      "id": "merchant_footnote",
-      "onceFlagBit": 5,
-      "title": "각주 상인",
-      "text": "바닥에서 작은 글씨가 튀어나온다.\n\n“각주 상점임. (※환불불가)\n(※설명 안 읽고 쓰면 본인 책임)”\n\n가게가 아니라 글씨다.",
+      "id": "f2_truth",
+      "onceBit": 3,
+      "title": "책임 소재",
+      "text": "동력위원회는 예비 심장을 봉인해 두고도 공개하지 않았다. 도시를 살린 건 정보 은폐였다.",
+      "trigger": { "type": "TURN_EQ", "value": 8, "floor": 2 },
       "choices": [
-        {
-          "label": "코인 5 받기(왜 주는지 모름)",
-          "setFlagBit": 5,
-          "effect": "coin_5",
-          "log": "코인 +5. 각주: (※이게 왜 생겼는지 물으면 안 됨)"
-        },
-        {
-          "label": "열쇠 1 받기(쓸모 있어 보임)",
-          "setFlagBit": 5,
-          "effect": "key_1",
-          "log": "열쇠 +1. 어딘가 문이 있을 것 같은 기분이 든다."
-        }
+        { "label": "폭로를 결심한다", "effect": "atk_1", "setBit": 3, "log": "결심: 공격 +1" },
+        { "label": "지금은 증거를 모은다", "effect": "heal_2", "setBit": 3, "log": "침착: HP +2" }
       ]
     },
-
     {
-      "id": "preboss_f1",
-      "onceFlagBit": 2,
-      "title": "경고문",
-      "text": "보스 방 문 앞 표지판.\n\n“도서관 내 달리기 금지.\n위반 시 ‘물리적 설득’ 실시.”\n\n문틈 너머에서 ‘신호위반’ 같은 단어가 들린다.",
+      "id": "f3_start",
+      "onceBit": 4,
+      "title": "Floor 3 · Frost Aqueduct",
+      "text": "수로 심장이 멈추자 물은 흐르지 않고 얼어붙었다. 길은 살아남는 법 대신 미끄러지는 법을 요구한다.",
+      "trigger": { "type": "FLOOR_START", "floor": 3 },
       "choices": [
-        {
-          "label": "정중히 사과한다",
-          "setFlagBit": 2,
-          "effect": "heal_3",
-          "log": "사과는 강력하다. HP +3."
-        },
-        {
-          "label": "대시 준비(반항)",
-          "setFlagBit": 2,
-          "effect": "dash_buff",
-          "log": "오늘만큼은 합법적으로 빨라진다. 대시가 1번 더 길어졌다(임시)."
-        }
+        { "label": "스파이크 부츠를 신는다", "effect": "shield_1", "setBit": 4, "log": "스파이크 부츠: 미끄럼 대응" },
+        { "label": "수문 키를 챙긴다", "effect": "heal_2", "setBit": 4, "log": "안전 루트 확보: HP +2" }
       ]
     },
-
     {
-      "id": "boss_defeat_f1",
-      "onceFlagBit": 3,
-      "title": "승리 후",
-      "text": "과속단속반이 쓰러지며 마지막으로 중얼거린다.\n\n“조용히… 하라… 했…잖…”\n\n당신은 조용히 승리했다. (조용히 안 했지만)",
+      "id": "f3_truth",
+      "onceBit": 5,
+      "title": "윤리 조항",
+      "text": "물 공급을 유지하려면 외곽 구역의 수로를 영구 동결해야 했다. 누군가의 생존은 누군가의 정지를 요구했다.",
+      "trigger": { "type": "TURN_EQ", "value": 10, "floor": 3 },
       "choices": [
-        {
-          "label": "조용히 고개 숙인다",
-          "setFlagBit": 3,
-          "effect": "atk_1",
-          "log": "조용한 승리는 멋있다. 공격력 +1."
-        },
-        {
-          "label": "승리의 세레모니(소리)",
-          "setFlagBit": 3,
-          "effect": "none",
-          "log": "세레모니는 멋졌고, 도서관은 더 화났다. (다음 층에서 보자)"
-        }
+        { "label": "동결 정책을 폐기한다", "effect": "atk_1", "setBit": 5, "log": "단절 선언: 공격 +1" },
+        { "label": "피해를 최소화한다", "effect": "heal_3", "setBit": 5, "log": "구호 실행: HP +3" }
       ]
     },
-
     {
-      "id": "stairs_down_f2",
-      "onceFlagBit": 6,
-      "title": "다음 층",
-      "text": "계단 아래로 내려가자 공기가 더 차가워진다.\n\n책들이 서로 수군거린다.\n“2층은 삭제가 심해.”\n\n삭제가 심하다는 말이 뭔데.",
+      "id": "f4_start",
+      "onceBit": 6,
+      "title": "Floor 4 · Umbral Mycelium",
+      "text": "생태 심장은 정화망 대신 균사 네트워크가 되었다. 포자는 공기뿐 아니라 판단까지 오염시킨다.",
+      "trigger": { "type": "FLOOR_START", "floor": 4 },
       "choices": [
-        {
-          "label": "침착하게 내려간다",
-          "setFlagBit": 6,
-          "effect": "shield_1",
-          "log": "침착함 +1(실제 효과: 다음 피해 1회 -1)"
-        },
-        {
-          "label": "호기심에 빨리 내려간다",
-          "setFlagBit": 6,
-          "effect": "dash_buff",
-          "log": "호기심은 발이 빠르다. 대시 1회 강화(임시)."
-        }
+        { "label": "정화등을 점화한다", "effect": "shield_1", "setBit": 6, "log": "정화등: 포자 노출 완화" },
+        { "label": "균사절단칼을 꺼낸다", "effect": "atk_1", "setBit": 6, "log": "절단 준비: 공격 +1" }
       ]
     },
-
     {
-      "id": "preboss_f2",
-      "onceFlagBit": 7,
-      "title": "삭제 경고",
-      "text": "벽에 지워진 글씨가 남아 있다.\n\n“여기서는 말이 지워지고,\n다음은… 너일 수도.”\n\n마지막 줄은 너무 과하다.",
+      "id": "final_choice",
+      "onceBit": 7,
+      "title": "최종 판단",
+      "text": "심장을 고치면 도시는 연명하지만 왜곡은 남는다. 심장을 끄면 왜곡은 멈추지만 도시도 꺼진다.",
+      "trigger": { "type": "BOSS_DEAD", "floor": 4 },
       "choices": [
-        {
-          "label": "연필로 덧쓴다(반항)",
-          "setFlagBit": 7,
-          "effect": "atk_1",
-          "log": "연필의 반항: 공격력 +1."
-        },
-        {
-          "label": "지워질 걸 대비해 숨을 참고 간다",
-          "setFlagBit": 7,
-          "effect": "heal_2",
-          "log": "숨참기 버프(뭔지 모름): HP +2."
-        }
-      ]
-    },
-
-    {
-      "id": "boss_defeat_f2",
-      "onceFlagBit": 8,
-      "title": "삭제자 퇴장",
-      "text": "삭제자가 마지막으로 외친다.\n\n“너… 저장… 했지?”\n\n순간 뜨끔했다. 하지만 이어하기는 1슬롯뿐이다.",
-      "choices": [
-        {
-          "label": "“했지!”(당당)",
-          "setFlagBit": 8,
-          "effect": "shield_1",
-          "log": "당당함: 다음 피해 1회 -1."
-        },
-        {
-          "label": "“…안 했는데?”(정직)",
-          "setFlagBit": 8,
-          "effect": "heal_3",
-          "log": "정직 보너스: HP +3."
-        }
-      ]
-    },
-
-    {
-      "id": "stairs_down_f3",
-      "onceFlagBit": 9,
-      "title": "3층 공지",
-      "text": "3층은 조용하다.\n너무 조용해서 오히려 시끄럽다.\n\n바닥의 글씨가 속삭인다.\n“낭독은 폭력이다.”\n\n무슨 소리야.",
-      "choices": [
-        {
-          "label": "의미를 이해하려 노력한다",
-          "setFlagBit": 9,
-          "effect": "atk_1",
-          "log": "이해하려는 마음: 공격력 +1. (왜냐면… 이해가 힘이니까?)"
-        },
-        {
-          "label": "그냥 진행한다(현명)",
-          "setFlagBit": 9,
-          "effect": "shield_1",
-          "log": "현명함: 다음 피해 1회 -1."
-        }
-      ]
-    },
-
-    {
-      "id": "preboss_f3",
-      "onceFlagBit": 10,
-      "title": "낭독 안내",
-      "text": "문 앞에 안내문.\n\n“낭독 중에는 끼어들지 마시오.\n끼어들면 목소리가 끼어듭니다.”\n\n무섭다. 그리고 말장난이다.",
-      "choices": [
-        {
-          "label": "낭독에 박수 친다(예의)",
-          "setFlagBit": 10,
-          "effect": "heal_2",
-          "log": "박수는 마음을 치유한다. HP +2."
-        },
-        {
-          "label": "낭독을 끊을 준비를 한다(전투)",
-          "setFlagBit": 10,
-          "effect": "dash_buff",
-          "log": "끊을 준비: 대시 강화 1회(임시)."
-        }
-      ]
-    },
-
-    {
-      "id": "boss_defeat_f3",
-      "onceFlagBit": 11,
-      "title": "낭독자 침묵",
-      "text": "낭독자가 조용해진다.\n\n“결국… 다 읽었네.”\n\n너는 읽지 않았다. 몸으로 읽었다.",
-      "choices": [
-        {
-          "label": "조용히 넘긴다(상처 최소화)",
-          "setFlagBit": 11,
-          "effect": "shield_1",
-          "log": "상처 최소화: 다음 피해 1회 -1."
-        },
-        {
-          "label": "당당히 넘긴다(상처 최대화?)",
-          "setFlagBit": 11,
-          "effect": "atk_1",
-          "log": "당당함: 공격력 +1."
-        }
-      ]
-    },
-
-    {
-      "id": "final_door",
-      "onceFlagBit": 12,
-      "title": "사서장 앞",
-      "text": "마지막 문.\n문엔 아주 작은 글씨.\n\n“여기서부터는\n핑계가 저장되지 않습니다.”\n\n뭐가 저장된다는 거지?",
-      "choices": [
-        {
-          "label": "문을 연다",
-          "setFlagBit": 12,
-          "effect": "heal_3",
-          "log": "마지막 전 심호흡: HP +3."
-        },
-        {
-          "label": "문을 두드린다(예의)",
-          "setFlagBit": 12,
-          "effect": "shield_1",
-          "log": "예의: 다음 피해 1회 -1."
-        }
+        { "label": "심장을 고친다", "effect": "heal_3", "setBit": 7, "log": "결정: 질서를 유지한다" },
+        { "label": "심장을 멈춘다", "effect": "atk_1", "setBit": 7, "log": "결정: 순환을 끝낸다" }
       ]
     }
   ]

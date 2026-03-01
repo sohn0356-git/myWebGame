@@ -1,4 +1,6 @@
+﻿// @ts-nocheck
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "https://esm.sh/react@18.3.1";
+
 const h = React.createElement;
 const SAVE_KEY = "wasm_rogue_save_v4";
 const STORY_EFFECTS = {
@@ -6,55 +8,62 @@ const STORY_EFFECTS = {
   heal_3: 2,
   atk_1: 3,
   shield_1: 4,
-  dash_buff: 5
+  dash_buff: 5,
 };
+
 const PAT = { CHARGE: 1, SLAM: 2, MARK: 3, WIPE_LINE: 4, CROSS: 5, SUMMON: 6 };
+
 const TILE = 16;
 const VIEW_W = 40;
 const VIEW_H = 22;
 const FLOOR_INFO = {
   1: {
-    name: "\uC7AC(\u7070)\uAD11\uB85C \uC9C0\uB300",
+    name: "재(灰)광로 지대",
     subtitle: "Ash Furnace",
-    hazard: "3\uD134\uB9C8\uB2E4 \uC7AC \uBD84\uCD9C\uAD6C \uBC1C\uB3D9 / \uC7AC \uD0C0\uC77C \uC704 \uB300\uC2DC \uBD09\uC778",
-    enemies: "\uC7AC\uB4F1\uB8E1, \uC1A1\uD48D\uCDA9",
-    items: "\uC7AC\uB9C8\uC2A4\uD06C, \uC1A1\uD48D\uBD80\uCE20"
+    hazard: "3턴마다 재 분출구 발동 / 재 타일 위 대시 봉인",
+    enemies: "재등룡, 송풍충",
+    items: "재마스크, 송풍부츠",
   },
   2: {
-    name: "\uC6A9\uC554\uC131 \uADE0\uC5F4",
+    name: "용암성 균열",
     subtitle: "Magma Rift",
-    hazard: "2\uD134\uB9C8\uB2E4 \uB77C\uC778 \uC608\uACE0, \uB2E4\uC74C \uD134 \uC6A9\uC554 \uBD84\uCD9C",
-    enemies: "\uC2AC\uB798\uADF8, \uD654\uC5FC \uAE30\uD3EC",
-    items: "\uD751\uC694\uC11D \uB9DD\uD1A0, \uADE0\uC5F4\uBD80\uC801"
+    hazard: "2턴마다 라인 예고, 다음 턴 용암 분출",
+    enemies: "슬래그, 화염 기포",
+    items: "흑요석 망토, 균열부적",
   },
   3: {
-    name: "\uBE59\uACB0 \uC218\uB85C",
+    name: "빙결 수로",
     subtitle: "Frost Aqueduct",
-    hazard: "4\uD134\uB9C8\uB2E4 \uACB0\uBE59 \uD30C\uB3D9(2\uD134), \uC5BC\uC74C \uC704 \uC774\uB3D9\uC740 \uBBF8\uB044\uB7EC\uC9D0",
-    enemies: "\uC218\uB85C \uBC40, \uBE59\uACB0 \uC218\uB9AC\uB85C\uBD07",
-    items: "\uC2A4\uD30C\uC774\uD06C \uBD80\uCE20, \uC218\uBB38 \uD0A4"
+    hazard: "4턴마다 결빙 파동(2턴), 얼음 위 이동은 미끄러짐",
+    enemies: "수로 뱀, 빙결 수리로봇",
+    items: "스파이크 부츠, 수문 키",
   },
   4: {
-    name: "\uC554\uD751 \uADE0\uC0AC\uB9BC",
+    name: "암흑 균사림",
     subtitle: "Umbral Mycelium",
-    hazard: "3\uD134\uB9C8\uB2E4 \uD3EC\uC790 \uD3ED\uBC1C, \uD3EC\uC790 \uC548\uC5D0\uC11C\uB294 \uC2DC\uC57C \uAD50\uB780",
-    enemies: "\uD3EC\uC790 \uC778\uD615, \uADE0\uC0AC \uC0AC\uB0E5\uAFBC",
-    items: "\uC815\uD654\uB4F1, \uADE0\uC0AC\uC808\uB2E8\uCE7C"
-  }
+    hazard: "3턴마다 포자 폭발, 포자 안에서는 시야 교란",
+    enemies: "포자 인형, 균사 사냥꾼",
+    items: "정화등, 균사절단칼",
+  },
 };
+
 function randSeed() {
-  return Math.random() * 4294967295 >>> 0;
+  return (Math.random() * 0xffffffff) >>> 0;
 }
+
 function clamp(n, a, b) {
   return Math.max(a, Math.min(b, n));
 }
+
 function tileKey(x, y) {
   return `${x},${y}`;
 }
+
 function parseTileKey(k) {
   const [sx, sy] = k.split(",");
   return [Number(sx), Number(sy)];
 }
+
 function makeSprite(drawFn) {
   const c = document.createElement("canvas");
   c.width = TILE;
@@ -64,6 +73,7 @@ function makeSprite(drawFn) {
   drawFn(s);
   return c;
 }
+
 function loadScript(src) {
   return new Promise((resolve, reject) => {
     const script = document.createElement("script");
@@ -73,9 +83,11 @@ function loadScript(src) {
     document.head.appendChild(script);
   });
 }
+
 async function loadWasmRuntime() {
   const candidates = ["./rogue.js", "./game.js"];
   let lastError = null;
+
   for (const src of candidates) {
     try {
       await loadScript(src);
@@ -84,10 +96,13 @@ async function loadWasmRuntime() {
       lastError = e;
     }
   }
+
   throw lastError || new Error("WASM runtime script not found.");
 }
+
 function buildSprites() {
   const sprites = {};
+
   sprites.floor = makeSprite((s) => {
     s.fillStyle = "#1a202c";
     s.fillRect(0, 0, TILE, TILE);
@@ -96,10 +111,11 @@ function buildSprites() {
     s.fillRect(0, 0, 2, TILE);
     s.fillStyle = "#2d384a";
     for (let i = 2; i < TILE - 2; i += 4) {
-      s.fillRect(i, 6 + i % 3, 1, 1);
+      s.fillRect(i, 6 + (i % 3), 1, 1);
       s.fillRect((i + 5) % TILE, 12, 1, 1);
     }
   });
+
   sprites.wall = makeSprite((s) => {
     s.fillStyle = "#10151f";
     s.fillRect(0, 0, TILE, TILE);
@@ -110,6 +126,7 @@ function buildSprites() {
     s.fillStyle = "#1b2433";
     s.fillRect(0, TILE - 2, TILE, 2);
   });
+
   sprites.player = makeSprite((s) => {
     s.fillStyle = "#000000";
     s.fillRect(4, 3, 8, 11);
@@ -120,6 +137,7 @@ function buildSprites() {
     s.fillStyle = "#e8f1ff";
     s.fillRect(7, 5, 2, 1);
   });
+
   sprites.enemy = makeSprite((s) => {
     s.fillStyle = "#000000";
     s.fillRect(4, 4, 8, 9);
@@ -129,6 +147,7 @@ function buildSprites() {
     s.fillRect(6, 7, 1, 1);
     s.fillRect(9, 7, 1, 1);
   });
+
   sprites.boss = makeSprite((s) => {
     s.fillStyle = "#000000";
     s.fillRect(2, 2, 12, 12);
@@ -140,17 +159,21 @@ function buildSprites() {
     s.fillStyle = "#6e54b8";
     s.fillRect(4, 11, 8, 2);
   });
+
   return sprites;
 }
+
 function drawShadow(ctx, x, y, alpha = 0.3) {
   ctx.fillStyle = `rgba(0,0,0,${alpha})`;
   ctx.fillRect(x * TILE + 2, y * TILE + TILE - 4, TILE - 4, 2);
 }
+
 function drawIntroMap(canvas, sprites, title = "PIXEL RPG FIELD") {
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
   ctx.imageSmoothingEnabled = false;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+
   const grass = makeSprite((s) => {
     s.fillStyle = "#284f2f";
     s.fillRect(0, 0, TILE, TILE);
@@ -161,6 +184,7 @@ function drawIntroMap(canvas, sprites, title = "PIXEL RPG FIELD") {
     s.fillRect(10, 10, 1, 2);
     s.fillRect(13, 4, 1, 2);
   });
+
   const path = makeSprite((s) => {
     s.fillStyle = "#7e6b49";
     s.fillRect(0, 0, TILE, TILE);
@@ -169,6 +193,7 @@ function drawIntroMap(canvas, sprites, title = "PIXEL RPG FIELD") {
     s.fillRect(10, 7, 1, 2);
     s.fillRect(6, 12, 2, 1);
   });
+
   const water = makeSprite((s) => {
     s.fillStyle = "#204a7a";
     s.fillRect(0, 0, TILE, TILE);
@@ -179,6 +204,7 @@ function drawIntroMap(canvas, sprites, title = "PIXEL RPG FIELD") {
     s.fillRect(3, 6, 2, 1);
     s.fillRect(12, 13, 2, 1);
   });
+
   const tree = makeSprite((s) => {
     s.fillStyle = "#1b2a10";
     s.fillRect(6, 10, 4, 5);
@@ -187,6 +213,7 @@ function drawIntroMap(canvas, sprites, title = "PIXEL RPG FIELD") {
     s.fillStyle = "#4d8a41";
     s.fillRect(5, 4, 6, 6);
   });
+
   const house = makeSprite((s) => {
     s.fillStyle = "#5a4132";
     s.fillRect(2, 7, 12, 8);
@@ -198,35 +225,43 @@ function drawIntroMap(canvas, sprites, title = "PIXEL RPG FIELD") {
     s.fillRect(4, 9, 2, 2);
     s.fillRect(10, 9, 2, 2);
   });
+
   for (let y = 0; y < VIEW_H; y++) {
     for (let x = 0; x < VIEW_W; x++) {
       ctx.drawImage(grass, x * TILE, y * TILE);
     }
   }
+
   for (let y = 3; y < 9; y++) {
     for (let x = 1; x < 10; x++) {
       ctx.drawImage(water, x * TILE, y * TILE);
     }
   }
+
   for (let x = 0; x < VIEW_W; x++) {
     ctx.drawImage(path, x * TILE, 14 * TILE);
     if (x % 7 === 0) ctx.drawImage(path, x * TILE, 13 * TILE);
   }
+
   for (let y = 9; y < 14; y++) {
     ctx.drawImage(path, 18 * TILE, y * TILE);
     ctx.drawImage(path, 19 * TILE, y * TILE);
   }
+
   for (let i = 0; i < 24; i++) {
     const x = (i * 7 + 3) % VIEW_W;
     const y = (i * 5 + 2) % VIEW_H;
-    if (y < 3 || y > 18 || x > 12 && x < 24 && y > 10 && y < 16) {
+    if (y < 3 || y > 18 || (x > 12 && x < 24 && y > 10 && y < 16)) {
       ctx.drawImage(tree, x * TILE, y * TILE);
     }
   }
+
   ctx.drawImage(house, 28 * TILE, 7 * TILE);
   ctx.drawImage(house, 31 * TILE, 9 * TILE);
+
   drawShadow(ctx, 20, 14, 0.35);
   ctx.drawImage(sprites.player, 20 * TILE, 14 * TILE);
+
   const vignette = ctx.createRadialGradient(
     canvas.width / 2,
     canvas.height / 2,
@@ -239,6 +274,7 @@ function drawIntroMap(canvas, sprites, title = "PIXEL RPG FIELD") {
   vignette.addColorStop(1, "rgba(0,0,0,0.32)");
   ctx.fillStyle = vignette;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+
   ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
   ctx.fillRect(10, 10, 240, 44);
   ctx.strokeStyle = "#ffd24a";
@@ -250,15 +286,18 @@ function drawIntroMap(canvas, sprites, title = "PIXEL RPG FIELD") {
   ctx.font = "11px monospace";
   ctx.fillText("WASM loading...", 20, 46);
 }
-function App() {
+
+export default function App() {
   const canvasRef = useRef(null);
+
   const runtimeRef = useRef({
     Module: null,
     api: null,
     BOSSES: null,
     STORY: null,
-    sprites: buildSprites()
+    sprites: buildSprites(),
   });
+
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [floor, setFloor] = useState(1);
@@ -266,42 +305,47 @@ function App() {
   const [bossText, setBossText] = useState("Boss: --/--");
   const [turnText, setTurnText] = useState("Turn: --");
   const [storyEvent, setStoryEvent] = useState(null);
-  const [logLines, setLogLines] = useState(["\uCD08\uAE30 \uB9F5 \uB80C\uB354\uB9C1 \uC644\uB8CC"]);
+  const [logLines, setLogLines] = useState(["초기 맵 렌더링 완료"]);
   const envRef = useRef({
     lastTurn: -1,
-    ash: /* @__PURE__ */ new Map(),
-    lava: /* @__PURE__ */ new Map(),
-    telegraph: /* @__PURE__ */ new Set(),
-    pending: /* @__PURE__ */ new Set(),
-    spores: /* @__PURE__ */ new Map(),
+    ash: new Map(),
+    lava: new Map(),
+    telegraph: new Set(),
+    pending: new Set(),
+    spores: new Map(),
     freezeUntil: 0,
     ice: (() => {
-      const s = /* @__PURE__ */ new Set();
+      const s = new Set();
       const rows = [2, 6, 10, 14, 18];
       const cols = [4, 10, 16, 22, 28, 34];
       for (const y of rows) for (let x = 1; x < VIEW_W - 1; x++) s.add(tileKey(x, y));
       for (const x of cols) for (let y = 1; y < VIEW_H - 1; y++) s.add(tileKey(x, y));
       return s;
-    })()
+    })(),
   });
+
   const logText = useMemo(() => logLines.join("\n"), [logLines]);
   const floorMeta = useMemo(() => FLOOR_INFO[floor] || FLOOR_INFO[1], [floor]);
+
   const logLine = useCallback((line) => {
     setLogLines((prev) => {
       const next = [line, ...prev];
       return next.slice(0, 120);
     });
   }, []);
+
   const hasBit = useCallback((bit) => {
     const api = runtimeRef.current.api;
     if (!api) return false;
     const f = api.story_get_flags() >>> 0;
-    return (f >>> bit & 1) === 1;
+    return ((f >>> bit) & 1) === 1;
   }, []);
+
   const setBit = useCallback((bit) => {
     const api = runtimeRef.current.api;
     if (api) api.story_set_flag_bit(bit);
   }, []);
+
   const resetEnvironment = useCallback(() => {
     const env = envRef.current;
     env.lastTurn = -1;
@@ -312,6 +356,7 @@ function App() {
     env.spores.clear();
     env.freezeUntil = 0;
   }, []);
+
   const applyEnvironment = useCallback(() => {
     const api = runtimeRef.current.api;
     if (!api) return;
@@ -319,12 +364,15 @@ function App() {
     const turn = api.game_turn();
     if (env.lastTurn === turn) return;
     env.lastTurn = turn;
+
     for (const [k, ttl] of env.ash) ttl <= 1 ? env.ash.delete(k) : env.ash.set(k, ttl - 1);
     for (const [k, ttl] of env.lava) ttl <= 1 ? env.lava.delete(k) : env.lava.set(k, ttl - 1);
     for (const [k, ttl] of env.spores) ttl <= 1 ? env.spores.delete(k) : env.spores.set(k, ttl - 1);
+
     const px = api.game_player_x();
     const py = api.game_player_y();
     const pKey = tileKey(px, py);
+
     if (floor === 1 && turn > 0 && turn % 3 === 0) {
       const vents = [[8, 6], [21, 7], [28, 16], [13, 16]];
       for (const [vx, vy] of vents) {
@@ -334,8 +382,9 @@ function App() {
           if (ax >= 0 && ay >= 0 && ax < VIEW_W && ay < VIEW_H) env.ash.set(tileKey(ax, ay), 2);
         }
       }
-      logLine("ASH VENT \uBC1C\uB3D9: \uC7AC \uD0C0\uC77C \uC0DD\uC131");
+      logLine("ASH VENT 발동: 재 타일 생성");
     }
+
     if (floor === 2) {
       if (env.pending.size > 0) {
         for (const k of env.pending) {
@@ -345,11 +394,12 @@ function App() {
         env.pending.clear();
         env.telegraph.clear();
       }
+
       if (turn > 0 && turn % 2 === 0) {
         const rows = [4, 7, 10, 13, 16];
         const cols = [9, 15, 21, 27, 33];
-        const row = rows[turn / 2 % rows.length];
-        const col = cols[turn / 3 % cols.length];
+        const row = rows[(turn / 2) % rows.length];
+        const col = cols[(turn / 3) % cols.length];
         env.telegraph.clear();
         for (let x = 1; x < VIEW_W - 1; x++) env.telegraph.add(tileKey(x, row));
         for (let y = 1; y < VIEW_H - 1; y++) env.telegraph.add(tileKey(col, y));
@@ -357,10 +407,12 @@ function App() {
       }
       if (env.lava.has(pKey)) api.game_apply_player_damage(1);
     }
+
     if (floor === 3 && turn > 0 && turn % 4 === 0) {
       env.freezeUntil = turn + 2;
-      logLine("FREEZE PULSE: \uC218\uB85C \uACB0\uBE59");
+      logLine("FREEZE PULSE: 수로 결빙");
     }
+
     if (floor === 4 && turn > 0 && turn % 3 === 0) {
       const hubs = [[9, 6], [29, 6], [11, 16], [31, 16], [20, 6], [20, 16]];
       for (const [x, y] of hubs) {
@@ -370,6 +422,7 @@ function App() {
       if (env.spores.has(pKey)) api.game_apply_player_damage(1);
     }
   }, [floor, logLine]);
+
   const draw = useCallback(() => {
     const rt = runtimeRef.current;
     const { api, sprites } = rt;
@@ -377,16 +430,20 @@ function App() {
     if (!api || !canvas) return;
     const ctx = canvas.getContext("2d");
     applyEnvironment();
+
     const w = api.game_w();
-    const h2 = api.game_h();
+    const h = api.game_h();
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.imageSmoothingEnabled = false;
-    for (let y = 0; y < h2; y++) {
+
+    for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const t = api.game_tile(x, y);
         ctx.drawImage(t === "#".charCodeAt(0) ? sprites.wall : sprites.floor, x * TILE, y * TILE);
       }
     }
+
     const env = envRef.current;
     for (const k of env.ash.keys()) {
       const [x, y] = parseTileKey(k);
@@ -415,22 +472,26 @@ function App() {
       ctx.fillStyle = "rgba(103,189,128,0.35)";
       ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
     }
+
     const px = api.game_player_x();
     const py = api.game_player_y();
     drawShadow(ctx, px, py);
     ctx.drawImage(sprites.player, px * TILE, py * TILE);
+
     if (api.game_enemy_alive() === 1) {
       const ex = api.game_enemy_x();
       const ey = api.game_enemy_y();
       drawShadow(ctx, ex, ey, 0.35);
       ctx.drawImage(sprites.enemy, ex * TILE, ey * TILE);
     }
+
     if (api.game_boss_alive() === 1) {
       const bx = api.game_boss_x();
       const by = api.game_boss_y();
       drawShadow(ctx, bx, by, 0.38);
       ctx.drawImage(sprites.boss, bx * TILE, by * TILE);
     }
+
     const vignette = ctx.createRadialGradient(
       canvas.width / 2,
       canvas.height / 2,
@@ -443,13 +504,15 @@ function App() {
     vignette.addColorStop(1, "rgba(0,0,0,0.35)");
     ctx.fillStyle = vignette;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+
     const hp = api.game_player_hp();
     const mhp = api.game_player_maxhp();
     setHpText(`HP: ${hp}/${mhp}`);
+
     const bossAlive = api.game_boss_alive() === 1;
     const inSpore = floor === 4 && env.spores.has(tileKey(px, py));
     if (bossAlive) {
-      if (inSpore) setBossText("Boss: ??? (\uD3EC\uC790 \uAC04\uC12D)");
+      if (inSpore) setBossText("Boss: ??? (포자 간섭)");
       else {
         const bhp = api.game_boss_hp();
         const bmhp = api.game_boss_maxhp();
@@ -458,18 +521,22 @@ function App() {
     } else {
       setBossText("Boss: defeated");
     }
+
     setTurnText(`Turn: ${api.game_turn()}`);
+
     if (!storyEvent && rt.STORY) {
       const turn = api.game_turn();
       for (const ev of rt.STORY.events) {
         if (typeof ev.onceBit === "number" && hasBit(ev.onceBit)) continue;
         const trigger = ev.trigger;
         if (!trigger) continue;
+
         let ok = false;
         if (trigger.type === "TURN_EQ" && turn === trigger.value) ok = true;
         if (trigger.type === "BOSS_DEAD" && api.game_boss_alive() !== 1) ok = true;
         if (trigger.type === "FLOOR_START" && turn === 0) ok = true;
         if (typeof trigger.floor === "number" && trigger.floor !== floor) ok = false;
+
         if (ok) {
           setStoryEvent(ev);
           break;
@@ -477,41 +544,53 @@ function App() {
       }
     }
   }, [applyEnvironment, floor, hasBit, storyEvent]);
+
   const saveToLocal = useCallback(() => {
     const rt = runtimeRef.current;
     const { api, Module } = rt;
     if (!api || !Module) return;
+
     const n = api.game_save_size();
     const ptr = Module._malloc(n);
     api.game_save_write(ptr);
     const bytes = Module.HEAPU8.slice(ptr, ptr + n);
     Module._free(ptr);
+
     const b64 = btoa(String.fromCharCode(...bytes));
     localStorage.setItem(SAVE_KEY, b64);
   }, []);
+
   const loadFromLocal = useCallback(() => {
     const rt = runtimeRef.current;
     const { api, Module } = rt;
     if (!api || !Module) return false;
+
     const b64 = localStorage.getItem(SAVE_KEY);
     if (!b64) return false;
+
     const raw = atob(b64);
     const bytes = new Uint8Array(raw.length);
     for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+
     const ptr = Module._malloc(bytes.length);
     Module.HEAPU8.set(bytes, ptr);
     const ok = api.game_load_read(ptr, bytes.length);
     Module._free(ptr);
+
     logLine(ok ? "Loaded save." : "Load failed (version mismatch).");
     return !!ok;
   }, [logLine]);
-  const configureBossForFloor = useCallback((floor2) => {
+
+  const configureBossForFloor = useCallback((floor) => {
     const rt = runtimeRef.current;
     const { BOSSES, api } = rt;
     if (!BOSSES || !api) return;
-    const boss = BOSSES.bosses.find((x) => x.floor === floor2);
+
+    const boss = BOSSES.bosses.find((x) => x.floor === floor);
     if (!boss) return;
+
     api.boss_config_begin(boss.floor, boss.stats.hp, boss.stats.atk);
+
     for (let i = 0; i < Math.min(3, boss.patterns.length); i++) {
       const p = boss.patterns[i];
       const type = PAT[p.type] ?? 0;
@@ -519,6 +598,7 @@ function App() {
       let p1 = 0;
       let p2 = 0;
       let p3 = 0;
+
       if (p.type === "CHARGE") {
         p1 = p.steps ?? 2;
         p2 = p.aoeOnCrash ?? 0;
@@ -537,8 +617,10 @@ function App() {
         p2 = p.minionAtk ?? 2;
         p3 = p.shieldTurns ?? 1;
       }
+
       api.boss_config_add_pattern(type, cd, p1, p2, p3);
     }
+
     const enrage = boss.enrage ?? {};
     api.boss_config_set_enrage(
       enrage.hpPercent ?? 50,
@@ -547,10 +629,12 @@ function App() {
       enrage.markRadiusDelta ?? 0,
       enrage.crossRangeDelta ?? 0
     );
+
     api.boss_config_end();
     api.boss_apply_stats_from_config();
-    logLine(`Boss loaded: ${boss.name} (floor ${floor2})`);
+    logLine(`Boss loaded: ${boss.name} (floor ${floor})`);
   }, [logLine]);
+
   const stepWithCode = useCallback((code) => {
     const api = runtimeRef.current.api;
     if (!api) return;
@@ -558,6 +642,7 @@ function App() {
     draw();
     saveToLocal();
   }, [draw, saveToLocal]);
+
   const dirToCode = useCallback((dx, dy, dash = false) => {
     if (dx === 0 && dy === -1) return dash ? 5 : 1;
     if (dx === 0 && dy === 1) return dash ? 6 : 2;
@@ -565,19 +650,24 @@ function App() {
     if (dx === 1 && dy === 0) return dash ? 8 : 4;
     return 0;
   }, []);
+
   const tryAutoAttack = useCallback(() => {
     const api = runtimeRef.current.api;
     if (!api) return false;
+
     const px = api.game_player_x();
     const py = api.game_player_y();
     const candidates = [];
+
     if (api.game_enemy_alive() === 1) {
       candidates.push({ x: api.game_enemy_x(), y: api.game_enemy_y(), priority: 1 });
     }
     if (api.game_boss_alive() === 1) {
       candidates.push({ x: api.game_boss_x(), y: api.game_boss_y(), priority: 0 });
     }
+
     candidates.sort((a, b) => a.priority - b.priority);
+
     for (const t of candidates) {
       const md = Math.abs(t.x - px) + Math.abs(t.y - py);
       if (md !== 1) continue;
@@ -586,26 +676,33 @@ function App() {
       stepWithCode(code);
       return true;
     }
+
     return false;
   }, [dirToCode, stepWithCode]);
+
   const stepToward = useCallback((tx, ty, dash = false) => {
     const api = runtimeRef.current.api;
     if (!api) return;
+
     const px = api.game_player_x();
     const py = api.game_player_y();
     const ddx = tx - px;
     const ddy = ty - py;
+
     if (ddx === 0 && ddy === 0) {
       tryAutoAttack();
       return;
     }
+
     let dx = 0;
     let dy = 0;
     if (Math.abs(ddx) >= Math.abs(ddy)) dx = Math.sign(ddx);
     else dy = Math.sign(ddy);
+
     const code = dirToCode(dx, dy, dash);
     if (code) stepWithCode(code);
   }, [dirToCode, stepWithCode, tryAutoAttack]);
+
   const inputToCode = useCallback((key, shift) => {
     const dash = shift ? 4 : 0;
     if (key === "ArrowUp" || key === "w" || key === "W") return 1 + dash;
@@ -614,6 +711,7 @@ function App() {
     if (key === "ArrowRight" || key === "d" || key === "D") return 4 + dash;
     return 0;
   }, []);
+
   const normalizeCodeWithEnvironment = useCallback((code) => {
     const api = runtimeRef.current.api;
     if (!api || !code) return code;
@@ -621,18 +719,23 @@ function App() {
     const py = api.game_player_y();
     const here = tileKey(px, py);
     const env = envRef.current;
+
     if (floor === 1 && code >= 5 && env.ash.has(here)) {
-      logLine("\uC7AC \uD0C0\uC77C: \uB300\uC2DC \uBD09\uC778");
+      logLine("재 타일: 대시 봉인");
       return code - 4;
     }
+
     if (floor === 3 && code >= 1 && code <= 4 && api.game_turn() < env.freezeUntil && env.ice.has(here)) {
       return code + 4;
     }
+
     return code;
   }, [floor, logLine]);
+
   const onNewRun = useCallback(() => {
     const api = runtimeRef.current.api;
     if (!api) return;
+
     resetEnvironment();
     api.game_new(randSeed());
     configureBossForFloor(1);
@@ -641,9 +744,11 @@ function App() {
     draw();
     saveToLocal();
   }, [configureBossForFloor, draw, resetEnvironment, saveToLocal]);
+
   const onContinue = useCallback(() => {
     const api = runtimeRef.current.api;
     if (!api) return;
+
     resetEnvironment();
     const ok = loadFromLocal();
     if (!ok) {
@@ -659,51 +764,66 @@ function App() {
     setStoryEvent(null);
     draw();
   }, [configureBossForFloor, draw, loadFromLocal, logLine, resetEnvironment]);
+
   const onNextFloor = useCallback(() => {
     const api = runtimeRef.current.api;
     if (!api) return;
     if (api.game_boss_alive() === 1) return;
+
     const next = clamp(floor + 1, 1, 4);
     if (next === floor) return;
+
     resetEnvironment();
     api.game_set_floor(next, randSeed(), 1);
     configureBossForFloor(next);
     setFloor(next);
     setStoryEvent(null);
-    logLine(`\uC2EC\uC7A5\uC2E4 \uC774\uB3D9: Floor ${next}`);
+    logLine(`심장실 이동: Floor ${next}`);
     draw();
     saveToLocal();
   }, [configureBossForFloor, draw, floor, logLine, resetEnvironment, saveToLocal]);
+
   const onClear = useCallback(() => {
     localStorage.removeItem(SAVE_KEY);
     logLine("Save cleared.");
   }, [logLine]);
+
   const onStoryChoice = useCallback((choice) => {
     const api = runtimeRef.current.api;
     if (!api) return;
-    const effectId = typeof choice.effect === "number" ? choice.effect : STORY_EFFECTS[choice.effect] ?? 0;
+
+    const effectId =
+      typeof choice.effect === "number" ? choice.effect : STORY_EFFECTS[choice.effect] ?? 0;
+
     if (effectId > 0) api.story_apply_effect(effectId);
     if (typeof choice.setBit === "number") setBit(choice.setBit);
     if (choice.log) logLine(choice.log);
+
     setStoryEvent(null);
     draw();
     saveToLocal();
   }, [draw, logLine, saveToLocal, setBit]);
+
   useEffect(() => {
     drawIntroMap(canvasRef.current, runtimeRef.current.sprites);
   }, []);
+
   useEffect(() => {
     let disposed = false;
+
     async function boot() {
       try {
         await loadWasmRuntime();
         if (disposed) return;
+
         const createModule = window.createModule;
         if (typeof createModule !== "function") {
           throw new Error("WASM runtime loaded but createModule is missing.");
         }
+
         const Module = await createModule({ locateFile: (p) => `./${p}` });
         if (disposed) return;
+
         const api = {
           game_new: Module.cwrap("game_new", null, ["number"]),
           game_set_floor: Module.cwrap("game_set_floor", null, ["number", "number", "number"]),
@@ -726,26 +846,32 @@ function App() {
           game_boss_x: Module.cwrap("game_boss_x", "number", []),
           game_boss_y: Module.cwrap("game_boss_y", "number", []),
           game_apply_player_damage: Module.cwrap("game_apply_player_damage", null, ["number"]),
+
           game_save_size: Module.cwrap("game_save_size", "number", []),
           game_save_write: Module.cwrap("game_save_write", null, ["number"]),
           game_load_read: Module.cwrap("game_load_read", "number", ["number", "number"]),
+
           story_get_flags: Module.cwrap("story_get_flags", "number", []),
           story_set_flag_bit: Module.cwrap("story_set_flag_bit", null, ["number"]),
           story_apply_effect: Module.cwrap("story_apply_effect", null, ["number"]),
+
           boss_config_begin: Module.cwrap("boss_config_begin", null, ["number", "number", "number"]),
           boss_config_add_pattern: Module.cwrap("boss_config_add_pattern", null, ["number", "number", "number", "number", "number"]),
           boss_config_set_enrage: Module.cwrap("boss_config_set_enrage", null, ["number", "number", "number", "number", "number"]),
           boss_config_end: Module.cwrap("boss_config_end", null, []),
-          boss_apply_stats_from_config: Module.cwrap("boss_apply_stats_from_config", null, [])
+          boss_apply_stats_from_config: Module.cwrap("boss_apply_stats_from_config", null, []),
         };
+
         const [bosses, story] = await Promise.all([
           fetch("./bosses.json").then((r) => r.json()),
-          fetch("./story.json").then((r) => r.json())
+          fetch("./story.json").then((r) => r.json()),
         ]);
+
         runtimeRef.current.Module = Module;
         runtimeRef.current.api = api;
         runtimeRef.current.BOSSES = bosses;
         runtimeRef.current.STORY = story;
+
         if (!loadFromLocal()) {
           api.game_new(randSeed());
           configureBossForFloor(1);
@@ -755,6 +881,7 @@ function App() {
           configureBossForFloor(f);
           setFloor(f);
         }
+
         setReady(true);
         draw();
         logLine("Ready.");
@@ -764,64 +891,80 @@ function App() {
         logLine("Game load failed.");
       }
     }
+
     boot();
+
     return () => {
       disposed = true;
     };
   }, [configureBossForFloor, draw, loadFromLocal, logLine]);
+
   useEffect(() => {
     function onKeyDown(e) {
       if (!runtimeRef.current.api || !ready || storyEvent) return;
+
       if (e.key === " " || e.key === "f" || e.key === "F") {
         e.preventDefault();
         tryAutoAttack();
         return;
       }
+
       const code = normalizeCodeWithEnvironment(inputToCode(e.key, e.shiftKey));
       if (!code) return;
       e.preventDefault();
       stepWithCode(code);
     }
+
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [inputToCode, normalizeCodeWithEnvironment, ready, stepWithCode, storyEvent, tryAutoAttack]);
+
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return void 0;
+    if (!canvas) return undefined;
+
     function onPointerDown(e) {
       if (!runtimeRef.current.api || !ready || storyEvent) return;
+
       const rect = canvas.getBoundingClientRect();
       const sx = canvas.width / rect.width;
       const sy = canvas.height / rect.height;
-      const tx = clamp(Math.floor((e.clientX - rect.left) * sx / TILE), 0, VIEW_W - 1);
-      const ty = clamp(Math.floor((e.clientY - rect.top) * sy / TILE), 0, VIEW_H - 1);
+
+      const tx = clamp(Math.floor(((e.clientX - rect.left) * sx) / TILE), 0, VIEW_W - 1);
+      const ty = clamp(Math.floor(((e.clientY - rect.top) * sy) / TILE), 0, VIEW_H - 1);
+
       stepToward(tx, ty, e.shiftKey);
     }
+
     canvas.addEventListener("pointerdown", onPointerDown);
     return () => canvas.removeEventListener("pointerdown", onPointerDown);
   }, [ready, stepToward, storyEvent]);
-  const storyBody = storyEvent ? [
-    h("div", { key: "story-text" }, storyEvent.text),
-    h(
-      "div",
-      { key: "story-choice", className: "choiceRow" },
-      storyEvent.choices.map(
-        (choice, idx) => h(
-          "button",
-          {
-            key: `${choice.label}-${idx}`,
-            className: idx === 0 ? "primary" : "",
-            onClick: () => onStoryChoice(choice)
-          },
-          choice.label
-        )
-      )
-    )
-  ] : h(
-    "div",
-    { className: "mutedText" },
-    ready ? "\uC774\uBCA4\uD2B8 \uC870\uAC74\uC744 \uB9CC\uC871\uD558\uBA74 \uC2A4\uD1A0\uB9AC\uAC00 \uD45C\uC2DC\uB429\uB2C8\uB2E4." : "WASM \uB85C\uB529 \uC911..."
-  );
+
+  const storyBody = storyEvent
+    ? [
+        h("div", { key: "story-text" }, storyEvent.text),
+        h(
+          "div",
+          { key: "story-choice", className: "choiceRow" },
+          storyEvent.choices.map((choice, idx) =>
+            h(
+              "button",
+              {
+                key: `${choice.label}-${idx}`,
+                className: idx === 0 ? "primary" : "",
+                onClick: () => onStoryChoice(choice),
+              },
+              choice.label
+            )
+          )
+        ),
+      ]
+    : h(
+        "div",
+        { className: "mutedText" },
+        ready ? "이벤트 조건을 만족하면 스토리가 표시됩니다." : "WASM 로딩 중..."
+      );
+
   return h(
     React.Fragment,
     null,
@@ -863,9 +1006,9 @@ function App() {
           "div",
           { className: "box" },
           h("div", { className: "boxTitle" }, `${floorMeta.name} | ${floorMeta.subtitle}`),
-          h("div", { className: "worldText" }, `\uD658\uACBD \uADDC\uCE59: ${floorMeta.hazard}`),
-          h("div", { className: "worldText" }, `\uCD9C\uD604 \uAC1C\uCCB4: ${floorMeta.enemies}`),
-          h("div", { className: "worldText" }, `\uD2B9\uC218 \uC544\uC774\uD15C: ${floorMeta.items}`)
+          h("div", { className: "worldText" }, `환경 규칙: ${floorMeta.hazard}`),
+          h("div", { className: "worldText" }, `출현 개체: ${floorMeta.enemies}`),
+          h("div", { className: "worldText" }, `특수 아이템: ${floorMeta.items}`)
         ),
         h(
           "div",
@@ -883,6 +1026,5 @@ function App() {
     )
   );
 }
-export {
-  App as default
-};
+
+
