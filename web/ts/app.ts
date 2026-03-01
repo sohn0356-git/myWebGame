@@ -100,6 +100,30 @@ async function loadWasmRuntime() {
   throw lastError || new Error("WASM runtime script not found.");
 }
 
+async function resolveRuntimeModule() {
+  const createModule = window.createModule;
+  if (typeof createModule === "function") {
+    return await createModule({ locateFile: (p) => `./${p}` });
+  }
+
+  const mod = window.Module;
+  if (!mod) {
+    throw new Error("WASM runtime loaded but neither createModule nor Module exists.");
+  }
+
+  if (mod.calledRun || mod.runtimeInitialized) {
+    return mod;
+  }
+
+  return await new Promise((resolve) => {
+    const prev = mod.onRuntimeInitialized;
+    mod.onRuntimeInitialized = () => {
+      if (typeof prev === "function") prev();
+      resolve(mod);
+    };
+  });
+}
+
 function buildSprites() {
   const sprites = {};
 
@@ -815,13 +839,7 @@ export default function App() {
       try {
         await loadWasmRuntime();
         if (disposed) return;
-
-        const createModule = window.createModule;
-        if (typeof createModule !== "function") {
-          throw new Error("WASM runtime loaded but createModule is missing.");
-        }
-
-        const Module = await createModule({ locateFile: (p) => `./${p}` });
+        const Module = await resolveRuntimeModule();
         if (disposed) return;
 
         const api = {

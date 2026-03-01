@@ -15,6 +15,7 @@ declare module "https://esm.sh/react-dom@18.3.1/client" {
 declare global {
   interface Window {
     createModule?: (opts: { locateFile: (path: string) => string }) => Promise<any>;
+    Module?: any;
   }
 }
 
