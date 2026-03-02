@@ -1,5 +1,5 @@
-ï»¿// @ts-nocheck
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "https://esm.sh/react@18.3.1";
+// @ts-nocheck
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import HeaderBar from "./components/HeaderBar.tsx";
 import GameOverlays from "./components/GameOverlays.tsx";
 import HudBar from "./components/HudBar.tsx";
@@ -22,32 +22,32 @@ const VIEW_W = 40;
 const VIEW_H = 22;
 const FLOOR_INFO = {
   1: {
-    name: "ì¬(ç°)ê´‘ë¡œ ì§€ëŒ€",
+    name: "Àç(üé)±¤·Î Áö´ë",
     subtitle: "Ash Furnace",
-    hazard: "3í„´ë§ˆë‹¤ ì¬ ë¶„ì¶œêµ¬ ë°œë™ / ì¬ íƒ€ì¼ ìœ„ ëŒ€ì‹œ ë´‰ì¸",
-    enemies: "ì¬ë“±ë£¡, ì†¡í’ì¶©",
-    items: "ì¬ë§ˆìŠ¤í¬, ì†¡í’ë¶€ì¸ ",
+    hazard: "3ÅÏ¸¶´Ù Àç ºĞÃâ±¸ ¹ßµ¿ / Àç Å¸ÀÏ À§ ´ë½Ã ºÀÀÎ",
+    enemies: "Àçµî·æ, ¼ÛÇ³Ãæ",
+    items: "Àç¸¶½ºÅ©, ¼ÛÇ³ºÎÃ÷",
   },
   2: {
-    name: "ìš©ì•”ì„± ê· ì—´",
+    name: "¿ë¾Ï¼º ±Õ¿­",
     subtitle: "Magma Rift",
-    hazard: "2í„´ë§ˆë‹¤ ë¼ì¸ ì˜ˆê³ , ë‹¤ìŒ í„´ ìš©ì•” ë¶„ì¶œ",
-    enemies: "ìŠ¬ë˜ê·¸, í™”ì—¼ ê¸°í¬",
-    items: "í‘ìš”ì„ ë§í† , ê· ì—´ë¶€ì ",
+    hazard: "2ÅÏ¸¶´Ù ¶óÀÎ ¿¹°í, ´ÙÀ½ ÅÏ ¿ë¾Ï ºĞÃâ",
+    enemies: "½½·¡±×, È­¿° ±âÆ÷",
+    items: "Èæ¿ä¼® ¸ÁÅä, ±Õ¿­ºÎÀû",
   },
   3: {
-    name: "ë¹™ê²° ìˆ˜ë¡œ",
+    name: "ºù°á ¼ö·Î",
     subtitle: "Frost Aqueduct",
-    hazard: "4í„´ë§ˆë‹¤ ê²°ë¹™ íŒŒë™(2í„´), ì–¼ìŒ ìœ„ ì´ë™ì€ ë¯¸ë„ëŸ¬ì§",
-    enemies: "ìˆ˜ë¡œ ë±€, ë¹™ê²° ìˆ˜ë¦¬ë¡œë´‡",
-    items: "ìŠ¤íŒŒì´í¬ ë¶€ì¸ , ìˆ˜ë¬¸ í‚¤",
+    hazard: "4ÅÏ¸¶´Ù °áºù ÆÄµ¿(2ÅÏ), ¾óÀ½ À§ ÀÌµ¿Àº ¹Ì²ô·¯Áü",
+    enemies: "¼ö·Î ¹ì, ºù°á ¼ö¸®·Îº¿",
+    items: "½ºÆÄÀÌÅ© ºÎÃ÷, ¼ö¹® Å°",
   },
   4: {
-    name: "ì•”í‘ ê· ì‚¬ë¦¼",
+    name: "¾ÏÈæ ±Õ»ç¸²",
     subtitle: "Umbral Mycelium",
-    hazard: "3í„´ë§ˆë‹¤ í¬ì í­ë°œ, í¬ì ì•ˆì—ì„œëŠ” ì‹œì•¼ êµë€",
-    enemies: "í¬ì ì¸í˜•, ê· ì‚¬ ì‚¬ëƒ¥ê¾¼",
-    items: "ì •í™”ë“±, ê· ì‚¬ì ˆë‹¨ì¹¼",
+    hazard: "3ÅÏ¸¶´Ù Æ÷ÀÚ Æø¹ß, Æ÷ÀÚ ¾È¿¡¼­´Â ½Ã¾ß ±³¶õ",
+    enemies: "Æ÷ÀÚ ÀÎÇü, ±Õ»ç »ç³É²Û",
+    items: "Á¤È­µî, ±Õ»çÀı´ÜÄ®",
   },
 };
 
@@ -56,69 +56,69 @@ const CONTROL_PRESETS = {
   arrows: "Arrow + WASD",
 };
 
-const BASE_GOAL_TEXT = "ëª©í‘œ: ìµœí•˜ì¸µ(Floor 4)ê¹Œì§€ ë‚´ë ¤ê°€ ë³´ìŠ¤ë¥¼ ì²˜ì¹˜í•˜ë¼.";
-const RUN_LOOP_TEXT = "íƒìƒ‰ -> ì „íˆ¬ -> ë³´ìƒ ì„ íƒ -> ìœ„í—˜ ìƒìŠ¹";
+const BASE_GOAL_TEXT = "¸ñÇ¥: ÃÖÇÏÃş(Floor 4)±îÁö ³»·Á°¡ º¸½º¸¦ Ã³Ä¡ÇÏ¶ó.";
+const RUN_LOOP_TEXT = "Å½»ö -> ÀüÅõ -> º¸»ó ¼±ÅÃ -> À§Çè »ó½Â";
 const SAVE_TOAST_MS = 1400;
 const SAFE_TURN_LIMIT = 12;
-const ARCHIVE_HOOK = "ì €ì¥ ìŠ¬ë¡¯ì€ í•˜ë‚˜. ë„¤ê°€ ì‚´ì•„ë‚¨ì„ìˆ˜ë¡, ëˆ„êµ°ê°€ê°€ ì§€ì›Œì§„ë‹¤.";
+const ARCHIVE_HOOK = "ÀúÀå ½½·ÔÀº ÇÏ³ª. ³×°¡ »ì¾Æ³²À»¼ö·Ï, ´©±º°¡°¡ Áö¿öÁø´Ù.";
 
 const LORE = {
   introPages: [
     "[BOOT] ONE-SLOT ARCHIVE v0.9 (DEGRADED)",
-    "[INFO] ê¸°ë¡ ì €ì¥ì†Œ.\n[WARN] ì €ì¥ ìŠ¬ë¡¯: 1",
-    "[RULE] ì €ì¥ = ë®ì–´ì“°ê¸°.\n[RULE] ë®ì–´ì“°ê¸° = ì‚­ì œ.",
-    "[PROC] RECOVERER spawned.\n[TASK] ì‚­ì œëœ ì¡°ê° íšŒìˆ˜.",
-    "[NOTE] ë³µêµ¬ ëŒ€ìƒ: ë¯¸ì§€ì •.\n[NOTE] ë³µêµ¬ ì£¼ì²´: ë¶ˆëª….",
-    "[ALERT] ê´€ë¦¬ì í”„ë¡œì„¸ìŠ¤ ê°ì§€.\n[ALERT] ì ‘ê·¼ ì°¨ë‹¨ ì¤‘.",
-    "[HINT] ì‚´ì•„ë‚¨ì•„ë¼.\n[HINT] ê·¸ë¦¬ê³ ... ë¬´ì—‡ì„ ì €ì¥í• ì§€ ì„ íƒí•´ë¼.",
+    "[INFO] ±â·Ï ÀúÀå¼Ò.\n[WARN] ÀúÀå ½½·Ô: 1",
+    "[RULE] ÀúÀå = µ¤¾î¾²±â.\n[RULE] µ¤¾î¾²±â = »èÁ¦.",
+    "[PROC] RECOVERER spawned.\n[TASK] »èÁ¦µÈ Á¶°¢ È¸¼ö.",
+    "[NOTE] º¹±¸ ´ë»ó: ¹ÌÁöÁ¤.\n[NOTE] º¹±¸ ÁÖÃ¼: ºÒ¸í.",
+    "[ALERT] °ü¸®ÀÚ ÇÁ·Î¼¼½º °¨Áö.\n[ALERT] Á¢±Ù Â÷´Ü Áß.",
+    "[HINT] »ì¾Æ³²¾Æ¶ó.\n[HINT] ±×¸®°í... ¹«¾ùÀ» ÀúÀåÇÒÁö ¼±ÅÃÇØ¶ó.",
   ],
   floorPages: {
-    1: ["1F: CACHE HALL", "[TIP] ì„ì‹œ ê¸°ì–µì€ ë¹ ë¥´ë‹¤. ëŒ€ì‹  ì‰½ê²Œ ì‚¬ë¼ì§„ë‹¤."],
-    2: ["2F: INDEX LIBRARY", "[WARN] ìƒ‰ì¸ ì†ìƒ. ëª©ì ì§€ê°€ 'ê°€ê¹Œì›Œ ë³´ì´ê²Œ' ì¬ë°°ì¹˜ë¨."],
-    3: ["3F: PERMISSION GATE", "[INFO] ê¶Œí•œ ìƒìŠ¹ ê°€ëŠ¥. ë‹¨, ê°ì‹œ ë ˆë²¨ë„ í•¨ê»˜ ìƒìŠ¹."],
-    4: ["4F: ROLLBACK GARDEN", "[WARN] ë™ì¼ êµ¬ê°„ ì¬ì§„ì… ì‹œ ìƒíƒœê°€ ê³¼ê±°ë¡œ ë˜ëŒì•„ê°."],
+    1: ["1F: CACHE HALL", "[TIP] ÀÓ½Ã ±â¾ïÀº ºü¸£´Ù. ´ë½Å ½±°Ô »ç¶óÁø´Ù."],
+    2: ["2F: INDEX LIBRARY", "[WARN] »öÀÎ ¼Õ»ó. ¸ñÀûÁö°¡ '°¡±î¿ö º¸ÀÌ°Ô' Àç¹èÄ¡µÊ."],
+    3: ["3F: PERMISSION GATE", "[INFO] ±ÇÇÑ »ó½Â °¡´É. ´Ü, °¨½Ã ·¹º§µµ ÇÔ²² »ó½Â."],
+    4: ["4F: ROLLBACK GARDEN", "[WARN] µ¿ÀÏ ±¸°£ ÀçÁøÀÔ ½Ã »óÅÂ°¡ °ú°Å·Î µÇµ¹¾Æ°¨."],
   },
   bossPages: {
     1: [
       "[KILL] CURATOR terminated.",
       "[DROP] ACCESS TOKEN (LOW)",
-      "[VOICE] ë„ˆëŠ” 'êµì²´'ë‹¤. ì›ë³¸ì€ ì´ë¯¸ ì €ì¥ëë‹¤.",
+      "[VOICE] ³Ê´Â '±³Ã¼'´Ù. ¿øº»Àº ÀÌ¹Ì ÀúÀåµÆ´Ù.",
       "[UNLOCK] Door opened: INDEX PATH",
     ],
     2: [
       "[KILL] AUDITOR suspended.",
-      "[REPORT] íŒê²°: íš¨ìœ¨ì .",
-      "[RULE] ONE SLOT. ë‘˜ ì¤‘ í•˜ë‚˜ë§Œ ì €ì¥ ê°€ëŠ¥.",
+      "[REPORT] ÆÇ°á: È¿À²Àû.",
+      "[RULE] ONE SLOT. µÑ Áß ÇÏ³ª¸¸ ÀúÀå °¡´É.",
       "[DROP] PARDON KEY / CONFESSION FILE",
     ],
     4: [
       "[KILL] SLOT ...?",
-      "[SYSTEM] ì €ì¥ ë™ì‘ì´ ë©ˆì·„ë‹¤.",
+      "[SYSTEM] ÀúÀå µ¿ÀÛÀÌ ¸ØÃè´Ù.",
       "[PROMPT] SAVE TARGET: SELF / WORLD / DELETED",
-      "[WARNING] ì €ì¥í•˜ë©´ ë®ì–´ì“´ë‹¤. ë®ì–´ì“°ë©´ ìŠëŠ”ë‹¤.",
+      "[WARNING] ÀúÀåÇÏ¸é µ¤¾î¾´´Ù. µ¤¾î¾²¸é ÀØ´Â´Ù.",
     ],
   },
   loreLines: [
-    "[LOG] ì…ë ¥ ì§€ì—° 0.03s. ëˆ„êµ°ê°€ ë„ˆë¥¼ ê´€ì°° ì¤‘.",
-    "[WARN] ë„ˆì˜ ì£½ìŒì€ ì‹¤íŒ¨ê°€ ì•„ë‹ˆë¼ ì—…ë°ì´íŠ¸ë‹¤.",
-    "[INFO] ì €ì¥ì—ëŠ” ì‘ì„±ìê°€ ìˆë‹¤. ì‘ì„±ìëŠ” ë“œëŸ¬ë‚˜ì§€ ì•ŠëŠ”ë‹¤.",
-    "[ERROR] ì›ë³¸ ë ˆì½”ë“œ: NOT FOUND",
-    "[HINT] ê¶Œí•œì„ ì–»ì„ìˆ˜ë¡, ë„ˆëŠ” ì‚¬ëŒì´ ì•„ë‹ˆë¼ í”„ë¡œì„¸ìŠ¤ê°€ ëœë‹¤.",
-    "[AUDIT] ë„¤ê°€ í›”ì¹œ ê±´ ì•„ì´í…œì´ ì•„ë‹ˆë¼ ê¸°íšŒë‹¤.",
-    "[NOTE] ì´ ë³µë„ëŠ” ë„ˆë¥¼ ìœ„í•œ ê¸¸ì´ ì•„ë‹ˆë‹¤.",
-    "[CACHE] ìµìˆ™í•¨ì€ ë¹ ë¥´ë‹¤. ê·¸ë¦¬ê³  ìœ„í—˜í•˜ë‹¤.",
-    "[WARN] ë³µêµ¬ë¼ëŠ” ë‹¨ì–´ëŠ” ë§ˆì¼€íŒ…ì´ë‹¤.",
-    "[LOG] Zë¥¼ ëˆ„ë¥¼ ë•Œë§ˆë‹¤, ë„ˆëŠ” ë” ìµìˆ™í•´ì§„ë‹¤.",
-    "[INFO] ë„¤ê°€ ê°•í•´ì§ˆìˆ˜ë¡, ê°ì‹œëŠ” ì •í™•í•´ì§„ë‹¤.",
-    "[ERROR] ê¸°ì–µ ì¡°ê° ë¬´ê²°ì„± ì†ìƒ: 12%",
-    "[NOTE] ë„ˆì˜ ì´ë¦„ì€ íŒŒì¼ëª…ì´ ì•„ë‹ˆë‹¤.",
-    "[SYSTEM] ë„¤ ì„ íƒì€ ì—¬ê¸°ì„œ ì‚­ì œë¡œ ë¶„ë¥˜ëœë‹¤.",
-    "[WARN] ì˜¤ë²„ë¼ì´íŠ¸ëŠ” ì–¸ì œë‚˜ ì¡°ìš©í•˜ë‹¤.",
-    "[ALERT] ë¬¸ì´ ì—´ë¦° ê²Œ ì•„ë‹ˆë‹¤. í—ˆë½ëœ ê²ƒì´ë‹¤.",
-    "[LOG] ëˆ„êµ°ê°€ ë„ˆë¥¼ ì´ë¯¸ ì €ì¥í–ˆë‹¤.",
-    "[INFO] ì§„ì§œ ì ì€ ëª¬ìŠ¤í„°ê°€ ì•„ë‹ˆë¼ ê·œì¹™ì´ë‹¤.",
-    "[AUDIT] ìë¹„ëŠ” ë¹„ìš©ì´ë‹¤.",
-    "[ERROR] ê°ì • ëª¨ë“ˆ ë¡œë“œ ì‹¤íŒ¨. (...ê·¼ë° ì™œ ì•„í”„ì§€?)",
+    "[LOG] ÀÔ·Â Áö¿¬ 0.03s. ´©±º°¡ ³Ê¸¦ °üÂû Áß.",
+    "[WARN] ³ÊÀÇ Á×À½Àº ½ÇÆĞ°¡ ¾Æ´Ï¶ó ¾÷µ¥ÀÌÆ®´Ù.",
+    "[INFO] ÀúÀå¿¡´Â ÀÛ¼ºÀÚ°¡ ÀÖ´Ù. ÀÛ¼ºÀÚ´Â µå·¯³ªÁö ¾Ê´Â´Ù.",
+    "[ERROR] ¿øº» ·¹ÄÚµå: NOT FOUND",
+    "[HINT] ±ÇÇÑÀ» ¾òÀ»¼ö·Ï, ³Ê´Â »ç¶÷ÀÌ ¾Æ´Ï¶ó ÇÁ·Î¼¼½º°¡ µÈ´Ù.",
+    "[AUDIT] ³×°¡ ÈÉÄ£ °Ç ¾ÆÀÌÅÛÀÌ ¾Æ´Ï¶ó ±âÈ¸´Ù.",
+    "[NOTE] ÀÌ º¹µµ´Â ³Ê¸¦ À§ÇÑ ±æÀÌ ¾Æ´Ï´Ù.",
+    "[CACHE] ÀÍ¼÷ÇÔÀº ºü¸£´Ù. ±×¸®°í À§ÇèÇÏ´Ù.",
+    "[WARN] º¹±¸¶ó´Â ´Ü¾î´Â ¸¶ÄÉÆÃÀÌ´Ù.",
+    "[LOG] Z¸¦ ´©¸¦ ¶§¸¶´Ù, ³Ê´Â ´õ ÀÍ¼÷ÇØÁø´Ù.",
+    "[INFO] ³×°¡ °­ÇØÁú¼ö·Ï, °¨½Ã´Â Á¤È®ÇØÁø´Ù.",
+    "[ERROR] ±â¾ï Á¶°¢ ¹«°á¼º ¼Õ»ó: 12%",
+    "[NOTE] ³ÊÀÇ ÀÌ¸§Àº ÆÄÀÏ¸íÀÌ ¾Æ´Ï´Ù.",
+    "[SYSTEM] ³× ¼±ÅÃÀº ¿©±â¼­ »èÁ¦·Î ºĞ·ùµÈ´Ù.",
+    "[WARN] ¿À¹ö¶óÀÌÆ®´Â ¾ğÁ¦³ª Á¶¿ëÇÏ´Ù.",
+    "[ALERT] ¹®ÀÌ ¿­¸° °Ô ¾Æ´Ï´Ù. Çã¶ôµÈ °ÍÀÌ´Ù.",
+    "[LOG] ´©±º°¡ ³Ê¸¦ ÀÌ¹Ì ÀúÀåÇß´Ù.",
+    "[INFO] ÁøÂ¥ ÀûÀº ¸ó½ºÅÍ°¡ ¾Æ´Ï¶ó ±ÔÄ¢ÀÌ´Ù.",
+    "[AUDIT] ÀÚºñ´Â ºñ¿ëÀÌ´Ù.",
+    "[ERROR] °¨Á¤ ¸ğµâ ·Îµå ½ÇÆĞ. (...±Ùµ¥ ¿Ö ¾ÆÇÁÁö?)",
   ],
 };
 
@@ -423,7 +423,7 @@ export default function App() {
   const [cutscenePages, setCutscenePages] = useState(LORE.introPages);
   const [cutsceneIndex, setCutsceneIndex] = useState(0);
   const [showCutscene, setShowCutscene] = useState(true);
-  const [logLines, setLogLines] = useState(["ì´ˆê¸° ë§µ ë Œë”ë§ ì™„ë£Œ"]);
+  const [logLines, setLogLines] = useState(["ÃÊ±â ¸Ê ·»´õ¸µ ¿Ï·á"]);
   const [fxState, setFxState] = useState({
     hitFlash: 0,
     damageFlash: 0,
@@ -593,7 +593,7 @@ export default function App() {
           if (ax >= 0 && ay >= 0 && ax < VIEW_W && ay < VIEW_H) env.ash.set(tileKey(ax, ay), 2);
         }
       }
-      logLine("ASH VENT ë°œë™: ì¬ íƒ€ì¼ ìƒì„±");
+      logLine("ASH VENT ¹ßµ¿: Àç Å¸ÀÏ »ı¼º");
     }
 
     if (floor === 2) {
@@ -621,7 +621,7 @@ export default function App() {
 
     if (floor === 3 && turn > 0 && turn % 4 === 0) {
       env.freezeUntil = turn + 2;
-      logLine("FREEZE PULSE: ìˆ˜ë¡œ ê²°ë¹™");
+      logLine("FREEZE PULSE: ¼ö·Î °áºù");
     }
 
     if (floor === 4 && turn > 0 && turn % 3 === 0) {
@@ -716,12 +716,12 @@ export default function App() {
       ctx.fillText(">", stair.x * TILE + 5, stair.y * TILE + 11);
       const nextGoal = bossDead
         ? onStair
-          ? "ì¶œêµ¬ í™œì„±í™”: Eë¥¼ ëˆŒëŸ¬ ë‹¤ìŒ ì¸µìœ¼ë¡œ ë‚´ë ¤ê°€ì„¸ìš”."
-          : "ë³´ìŠ¤ ì²˜ì¹˜ ì™„ë£Œ: ì´ˆë¡ ê³„ë‹¨ íƒ€ì¼ë¡œ ì´ë™í•˜ì„¸ìš”."
-        : "í˜„ì¬ ëª©í‘œ: ë³´ìŠ¤ë¥¼ ì²˜ì¹˜í•´ ì¶œêµ¬ ê³„ë‹¨ì„ í™œì„±í™”í•˜ì„¸ìš”.";
+          ? "Ãâ±¸ È°¼ºÈ­: E¸¦ ´­·¯ ´ÙÀ½ ÃşÀ¸·Î ³»·Á°¡¼¼¿ä."
+          : "º¸½º Ã³Ä¡ ¿Ï·á: ÃÊ·Ï °è´Ü Å¸ÀÏ·Î ÀÌµ¿ÇÏ¼¼¿ä."
+        : "ÇöÀç ¸ñÇ¥: º¸½º¸¦ Ã³Ä¡ÇØ Ãâ±¸ °è´ÜÀ» È°¼ºÈ­ÇÏ¼¼¿ä.";
       setGoalText((prev) => (prev === nextGoal ? prev : nextGoal));
     } else {
-      const nextGoal = "ìµœì¢…ì¸µì…ë‹ˆë‹¤. ë³´ìŠ¤ë¥¼ ì²˜ì¹˜í•˜ê³  ëŸ°ì„ ì™„ìˆ˜í•˜ì„¸ìš”.";
+      const nextGoal = "ÃÖÁ¾ÃşÀÔ´Ï´Ù. º¸½º¸¦ Ã³Ä¡ÇÏ°í ·±À» ¿Ï¼öÇÏ¼¼¿ä.";
       setGoalText((prev) => (prev === nextGoal ? prev : nextGoal));
     }
 
@@ -746,7 +746,7 @@ export default function App() {
     const bossAlive = api.game_boss_alive() === 1;
     const inSpore = floor === 4 && env.spores.has(tileKey(px, py));
     if (bossAlive) {
-      if (inSpore) setBossText("Boss: ??? (í¬ì ê°„ì„­)");
+      if (inSpore) setBossText("Boss: ??? (Æ÷ÀÚ °£¼·)");
       else {
         const bhp = api.game_boss_hp();
         const bmhp = api.game_boss_maxhp();
@@ -839,7 +839,7 @@ export default function App() {
     const b64 = btoa(String.fromCharCode(...bytes));
     localStorage.setItem(SAVE_KEY, b64);
     setHasSave(true);
-    showToast("ì €ì¥ë¨");
+    showToast("ÀúÀåµÊ");
   }, [showToast]);
 
   const loadFromLocal = useCallback(() => {
@@ -860,7 +860,7 @@ export default function App() {
     Module._free(ptr);
 
     logLine(ok ? "Loaded save." : "Load failed (version mismatch).");
-    if (ok) showToast("ì €ì¥ ë¶ˆëŸ¬ì˜¤ê¸° ì™„ë£Œ");
+    if (ok) showToast("ÀúÀå ºÒ·¯¿À±â ¿Ï·á");
     setHasSave(!!ok || !!localStorage.getItem(SAVE_KEY));
     return !!ok;
   }, [logLine, showToast]);
@@ -940,11 +940,11 @@ export default function App() {
 
   const makeUpgradeChoices = useCallback(() => {
     const pool = [
-      { label: "ê³µê²© ì¦í­", effect: STORY_EFFECTS.atk_1, tag: "ATK", desc: "+1 ATK (ìƒì‹œ)" },
-      { label: "ê°•ì²  ë°©íŒ¨", effect: STORY_EFFECTS.shield_1, tag: "SHIELD", desc: "í”¼ê²© ì™„í™”" },
-      { label: "ëŒ€ì‹œ ë¶€ìŠ¤í„°", effect: STORY_EFFECTS.dash_buff, tag: "DASH", desc: "ëŒ€ì‹œ íš¨ìœ¨ ì¦ê°€" },
-      { label: "ì‘ê¸‰ ì¹˜ë£Œ", effect: STORY_EFFECTS.heal_2, tag: "HEAL", desc: "HP +2" },
-      { label: "ì‘ê¸‰ ìˆ˜í˜ˆ+", effect: STORY_EFFECTS.heal_3, tag: "HEAL", desc: "HP +3" },
+      { label: "°ø°İ ÁõÆø", effect: STORY_EFFECTS.atk_1, tag: "ATK", desc: "+1 ATK (»ó½Ã)" },
+      { label: "°­Ã¶ ¹æÆĞ", effect: STORY_EFFECTS.shield_1, tag: "SHIELD", desc: "ÇÇ°İ ¿ÏÈ­" },
+      { label: "´ë½Ã ºÎ½ºÅÍ", effect: STORY_EFFECTS.dash_buff, tag: "DASH", desc: "´ë½Ã È¿À² Áõ°¡" },
+      { label: "ÀÀ±Ş Ä¡·á", effect: STORY_EFFECTS.heal_2, tag: "HEAL", desc: "HP +2" },
+      { label: "ÀÀ±Ş ¼öÇ÷+", effect: STORY_EFFECTS.heal_3, tag: "HEAL", desc: "HP +3" },
     ];
     const picked = [];
     while (picked.length < 3 && pool.length > 0) {
@@ -956,24 +956,24 @@ export default function App() {
 
   const inferDamageCause = useCallback((snapshot) => {
     const api = runtimeRef.current.api;
-    if (!api) return "í”¼í•´ ì›ì¸ ë¯¸í™•ì¸";
+    if (!api) return "ÇÇÇØ ¿øÀÎ ¹ÌÈ®ÀÎ";
     const px = api.game_player_x();
     const py = api.game_player_y();
     const env = envRef.current;
     const here = tileKey(px, py);
-    if (floor === 2 && (env.lava.has(here) || env.pending.has(here) || env.telegraph.has(here))) return "ìš©ì•” ë¶„ì¶œ ë¼ì¸";
-    if (floor === 4 && env.spores.has(here)) return "í¬ì í­ë°œ ì¥íŒ";
-    if (floor === 1 && env.ash.has(here)) return "ì¬ ë¶„ì¶œêµ¬ í™”ìƒ";
+    if (floor === 2 && (env.lava.has(here) || env.pending.has(here) || env.telegraph.has(here))) return "¿ë¾Ï ºĞÃâ ¶óÀÎ";
+    if (floor === 4 && env.spores.has(here)) return "Æ÷ÀÚ Æø¹ß ÀåÆÇ";
+    if (floor === 1 && env.ash.has(here)) return "Àç ºĞÃâ±¸ È­»ó";
     if (api.game_enemy_alive() === 1) {
       const d = Math.abs(api.game_enemy_x() - px) + Math.abs(api.game_enemy_y() - py);
-      if (d <= 1) return "ê·¼ì ‘ ì  ê³µê²©";
+      if (d <= 1) return "±ÙÁ¢ Àû °ø°İ";
     }
     if (api.game_boss_alive() === 1) {
       const d = Math.abs(api.game_boss_x() - px) + Math.abs(api.game_boss_y() - py);
-      if (d <= 2) return "ë³´ìŠ¤ íŒ¨í„´ ê³µê²©";
+      if (d <= 2) return "º¸½º ÆĞÅÏ °ø°İ";
     }
-    if (snapshot.turn <= SAFE_TURN_LIMIT) return "ì´ˆë°˜ êµì „ í”¼í•´";
-    return "ì§€í˜• ë˜ëŠ” ì  íŒ¨í„´ í”¼í•´";
+    if (snapshot.turn <= SAFE_TURN_LIMIT) return "ÃÊ¹İ ±³Àü ÇÇÇØ";
+    return "ÁöÇü ¶Ç´Â Àû ÆĞÅÏ ÇÇÇØ";
   }, [floor]);
 
   const stepWithCode = useCallback((code) => {
@@ -1014,22 +1014,22 @@ export default function App() {
       damageCauseRef.current = cause;
       emitFx({ damageFlash: 5 });
       playSfx("damage");
-      logLine(`í”¼ê²©: ${cause}`);
+      logLine(`ÇÇ°İ: ${cause}`);
     }
 
     if (after.hp <= 0) {
       setDeathSummary({
         floor,
         turn: after.turn,
-        reason: damageCauseRef.current || "ì›ì¸ ë¯¸ìƒ",
-        build: buildTags.length ? buildTags.join(" + ") : "ê¸°ë³¸ ë¹Œë“œ",
+        reason: damageCauseRef.current || "¿øÀÎ ¹Ì»ó",
+        build: buildTags.length ? buildTags.join(" + ") : "±âº» ºôµå",
       });
     }
 
     if (after.turn > 0 && after.turn % 6 === 0 && !upgradeEvent && !storyEvent && after.hp > 0) {
       setUpgradeEvent({
-        title: "ë³´ìƒ ì„ íƒ",
-        subtitle: "ì§€ê¸ˆ ë¹Œë“œë¥¼ ê°•í™”í•  íŠ¹ì„±ì„ í•˜ë‚˜ ì„ íƒí•˜ì„¸ìš”.",
+        title: "º¸»ó ¼±ÅÃ",
+        subtitle: "Áö±İ ºôµå¸¦ °­È­ÇÒ Æ¯¼ºÀ» ÇÏ³ª ¼±ÅÃÇÏ¼¼¿ä.",
         choices: makeUpgradeChoices(),
       });
       emitFx({ lootFlash: 3 });
@@ -1117,13 +1117,13 @@ export default function App() {
     const api = runtimeRef.current.api;
     if (!api || floor >= 4) return false;
     if (api.game_boss_alive() === 1) {
-      showToast("ë³´ìŠ¤ë¥¼ ì²˜ì¹˜í•´ì•¼ ê³„ë‹¨ì´ ì—´ë¦½ë‹ˆë‹¤.");
+      showToast("º¸½º¸¦ Ã³Ä¡ÇØ¾ß °è´ÜÀÌ ¿­¸³´Ï´Ù.");
       return false;
     }
     const stair = getDescendTile(api);
     const onStair = api.game_player_x() === stair.x && api.game_player_y() === stair.y;
     if (!onStair) {
-      showToast("ì´ˆë¡ ê³„ë‹¨ íƒ€ì¼ ìœ„ì—ì„œ Eë¥¼ ëˆ„ë¥´ì„¸ìš”.");
+      showToast("ÃÊ·Ï °è´Ü Å¸ÀÏ À§¿¡¼­ E¸¦ ´©¸£¼¼¿ä.");
       return false;
     }
     onNextFloor();
@@ -1139,7 +1139,7 @@ export default function App() {
     const env = envRef.current;
 
     if (floor === 1 && code >= 5 && env.ash.has(here)) {
-      logLine("ì¬ íƒ€ì¼: ëŒ€ì‹œ ë´‰ì¸");
+      logLine("Àç Å¸ÀÏ: ´ë½Ã ºÀÀÎ");
       return code - 4;
     }
 
@@ -1169,7 +1169,7 @@ export default function App() {
     setShowStart(false);
     cutsceneQueueRef.current = [];
     queueCutscene(LORE.floorPages[1]);
-    logLine("ì´ˆë°˜ ì•ˆì „ êµ¬ê°„: ê¸°ë³¸ ë³´í˜¸ë§‰ ì ìš©");
+    logLine("ÃÊ¹İ ¾ÈÀü ±¸°£: ±âº» º¸È£¸· Àû¿ë");
     draw();
     saveToLocal();
   }, [configureBossForFloor, draw, logLine, queueCutscene, resetEnvironment, saveToLocal]);
@@ -1221,7 +1221,7 @@ export default function App() {
     setUpgradeEvent(null);
     prevFloorRef.current = next;
     prevBossAliveRef.current = 1;
-    logLine(`ì‹¬ì¥ì‹¤ ì´ë™: Floor ${next}`);
+    logLine(`½ÉÀå½Ç ÀÌµ¿: Floor ${next}`);
     queueCutscene(LORE.floorPages[next] || []);
     draw();
     saveToLocal();
@@ -1231,7 +1231,7 @@ export default function App() {
     localStorage.removeItem(SAVE_KEY);
     logLine("Save cleared.");
     setHasSave(false);
-    showToast("ì €ì¥ ì‚­ì œë¨");
+    showToast("ÀúÀå »èÁ¦µÊ");
   }, [logLine, showToast]);
 
   const onStoryChoice = useCallback((choice) => {
@@ -1260,7 +1260,7 @@ export default function App() {
         return next.slice(-6);
       });
     }
-    logLine(`íšë“: ${choice.label} (${choice.desc})`);
+    logLine(`È¹µæ: ${choice.label} (${choice.desc})`);
     emitFx({ lootFlash: 5 });
     playSfx("loot");
     setUpgradeEvent(null);
@@ -1279,9 +1279,9 @@ export default function App() {
     ].join("\n");
     try {
       await navigator.clipboard.writeText(text);
-      showToast("ê²°ê³¼ ì¹´ë“œ ë³µì‚¬ë¨");
+      showToast("°á°ú Ä«µå º¹»çµÊ");
     } catch {
-      showToast("í´ë¦½ë³´ë“œ ë³µì‚¬ ì‹¤íŒ¨");
+      showToast("Å¬¸³º¸µå º¹»ç ½ÇÆĞ");
     }
   }, [deathSummary, showToast]);
 
@@ -1430,7 +1430,7 @@ export default function App() {
     function pauseByFocus() {
       if (!ready || showStart || deathSummary) return;
       setPaused(true);
-      setPauseReason("í¬ì»¤ìŠ¤ ì•„ì›ƒ: ì¼ì‹œì •ì§€ë¨");
+      setPauseReason("Æ÷Ä¿½º ¾Æ¿ô: ÀÏ½ÃÁ¤ÁöµÊ");
     }
     function onVisibility() {
       if (document.hidden) pauseByFocus();
@@ -1469,7 +1469,7 @@ export default function App() {
     : h(
         "div",
         { className: "mutedText" },
-        ready ? "ì´ë²¤íŠ¸ ì¡°ê±´ì„ ë§Œì¡±í•˜ë©´ ìŠ¤í† ë¦¬ê°€ í‘œì‹œë©ë‹ˆë‹¤." : "WASM ë¡œë”© ì¤‘..."
+        ready ? "ÀÌº¥Æ® Á¶°ÇÀ» ¸¸Á·ÇÏ¸é ½ºÅä¸®°¡ Ç¥½ÃµË´Ï´Ù." : "WASM ·Îµù Áß..."
       );
   const cutsceneText = cutscenePages[cutsceneIndex] || "";
 

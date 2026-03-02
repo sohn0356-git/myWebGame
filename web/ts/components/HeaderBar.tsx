@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React from "https://esm.sh/react@18.3.1";
+import React from "react";
 
 export default function HeaderBar({ controlPreset, setControlPreset, controlPresets }) {
   return (
