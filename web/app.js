@@ -1,79 +1,39 @@
-const CFG = {
-  WORLD_W: 3200,
-  WORLD_H: 3200,
-  SIM_HZ: 30,
-  CAMERA_SPEED: 900,
-  BUILD_SNAP: 20,
-  CENTRAL_HP: 12000,
-  MONSTER_COUNT: 32,
-  MONSTER_AGGRO_TIME: 7,
-  MINIMAP_SIZE: 210,
-  LEVEL_MAX: 8,
-  HQ_INCOME_PER_SEC: 7,
-  MONSTER_BOUNTY: 38,
-};
-
-const BUILDINGS = {
-  HQ: { name: "HQ", hp: 2600, size: 34, cost: 0, r: 320, range: 220, damage: 20, fireCd: 0.8, projSpeed: 620, prereq: [], trait: "Passive crystal income + base defense" },
-  RELAY: { name: "Relay", hp: 1000, size: 22, cost: 70, r: 250, range: 0, damage: 0, fireCd: 0, projSpeed: 0, prereq: ["HQ"], trait: "Territory extension node" },
-  MEDBAY: { name: "Medbay", hp: 980, size: 20, cost: 120, r: 210, range: 0, damage: 0, fireCd: 0, projSpeed: 0, heal: 44, healRange: 240, healCd: 1.1, prereq: ["RELAY"], trait: "Heals nearby buildings over time" },
-  BARRACKS: { name: "Barracks", hp: 1200, size: 24, cost: 110, r: 220, range: 0, damage: 0, fireCd: 0, projSpeed: 0, prereq: ["RELAY"], produces: "MARINE", spawnCd: 4.8, trait: "Produces Marines, soldiers do the fighting" },
-  WORKSHOP: { name: "Workshop", hp: 1300, size: 26, cost: 150, r: 240, range: 0, damage: 0, fireCd: 0, projSpeed: 0, prereq: ["BARRACKS"], produces: "DRONE", spawnCd: 7.4, trait: "Auto-produces Drones" },
-  REACTOR: { name: "Reactor", hp: 1400, size: 25, cost: 170, r: 260, range: 0, damage: 0, fireCd: 0, projSpeed: 0, prereq: ["WORKSHOP"], trait: "Nearby towers: +20% damage, -20% cooldown/production time" },
-  CANNON: { name: "Cannon", hp: 900, size: 18, cost: 95, r: 180, range: 300, damage: 40, fireCd: 0.7, projSpeed: 800, prereq: ["RELAY"], monsterMult: 1.35, trait: "Anti-monster turret" },
-  MISSILE: { name: "Missile", hp: 850, size: 18, cost: 160, r: 170, range: 420, damage: 68, fireCd: 1.2, projSpeed: 980, prereq: ["CANNON", "REACTOR"], splashRadius: 42, trait: "Long range splash missiles" },
-  ARTILLERY: { name: "Artillery", hp: 760, size: 18, cost: 240, r: 150, range: 620, damage: 125, fireCd: 2.4, projSpeed: 720, prereq: ["WORKSHOP", "REACTOR"], towerMult: 1.35, trait: "Mobile siege platform (right click empty ground to move)" },
-};
-
-const UNIT_TYPES = {
-  MARINE: { hp: 110, r: 8, speed: 145, range: 170, atk: 19, fireCd: 0.55, col: "#88e7ff" },
-  DRONE: { hp: 210, r: 10, speed: 112, range: 220, atk: 46, fireCd: 1.15, col: "#ffcf89" },
-};
-
-const MONSTER_ARCHETYPES = [
-  { name: "Fangling", hp: 100, atk: 18, speed: 126, r: 11, body: "#8ac0ff", horn: "#cfe4ff", eye: "#0b1022" },
-  { name: "Brute", hp: 170, atk: 26, speed: 92, r: 15, body: "#ffb08a", horn: "#ffd3b8", eye: "#2a0d08" },
-  { name: "Crawler", hp: 130, atk: 20, speed: 116, r: 12, body: "#b4f29a", horn: "#e5ffd7", eye: "#0e1f0c" },
-];
-
-const BUILD_ORDER = ["RELAY", "MEDBAY", "BARRACKS", "WORKSHOP", "REACTOR", "CANNON", "MISSILE", "ARTILLERY"];
 const root = document.getElementById("root") || document.body;
 root.innerHTML = "";
 
 function mk(tag, style = "") {
-  const n = document.createElement(tag);
-  if (style) n.style.cssText = style;
-  return n;
+  const el = document.createElement(tag);
+  if (style) el.style.cssText = style;
+  return el;
 }
-function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
-function len(x, y) { return Math.hypot(x, y); }
-function norm(x, y) { const l = Math.hypot(x, y) || 1; return { x: x / l, y: y / l }; }
-function rand(a, b) { return a + Math.random() * (b - a); }
 
-const wrap = mk("div", "position:fixed;inset:0;background:#050912;overflow:hidden;color:#e5eeff;font-family:Segoe UI,Arial,sans-serif");
-const canvas = mk("canvas", "position:absolute;inset:0;width:100%;height:100%;display:block");
-const hud = mk("div", "position:absolute;left:12px;top:10px;z-index:8;font-size:12px;white-space:pre-wrap;line-height:1.45;pointer-events:none;text-shadow:0 1px 0 #000");
-const right = mk("div", "position:absolute;right:12px;top:10px;z-index:8;font-size:12px;white-space:pre-wrap;line-height:1.45;pointer-events:none;text-align:right;text-shadow:0 1px 0 #000");
-const banner = mk("div", "position:absolute;left:50%;top:14px;transform:translateX(-50%);z-index:9;padding:8px 12px;border-radius:9px;display:none;font-size:12px;font-weight:800");
+const BUILD_ORDER = ["RELAY", "MEDBAY", "BARRACKS", "WORKSHOP", "REACTOR", "SIEGEWORKS", "CANNON", "MISSILE", "ARTILLERY"];
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const dist = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by);
+
+const wrap = mk("div", "position:fixed;inset:0;background:#050912;overflow:hidden;color:#e8f2ff;font-family:Segoe UI,Arial,sans-serif");
+const canvas = mk("canvas", "position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none");
+const hud = mk("div", "position:absolute;left:10px;top:10px;z-index:8;font-size:12px;line-height:1.4;white-space:pre-wrap;pointer-events:none;text-shadow:0 1px 0 #000");
+const right = mk("div", "position:absolute;right:10px;top:10px;z-index:8;font-size:12px;line-height:1.4;white-space:pre-wrap;pointer-events:none;text-align:right;text-shadow:0 1px 0 #000");
+const info = mk("div", "position:absolute;left:10px;bottom:96px;z-index:8;font-size:12px;line-height:1.4;white-space:pre-wrap;pointer-events:none;text-shadow:0 1px 0 #000;max-width:min(64vw,560px)");
+const banner = mk("div", "position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:9;padding:8px 12px;border-radius:10px;background:rgba(18,50,92,.85);display:none;font-size:12px;font-weight:700");
 const center = mk("div", "position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:9;font-size:30px;font-weight:900;pointer-events:none;text-shadow:0 2px 0 #000");
+const buildPanel = mk("div", "position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:10;display:flex;gap:8px;flex-wrap:wrap;justify-content:center;width:min(96vw,1100px)");
+const actionPanel = mk("div", "position:absolute;right:10px;bottom:10px;z-index:10;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;width:min(96vw,520px)");
 
-const buildPanel = mk("div", "position:absolute;left:50%;bottom:14px;transform:translateX(-50%);z-index:10;display:flex;gap:8px;flex-wrap:wrap;justify-content:center;width:min(95vw,920px)");
-const infoPanel = mk("div", "position:absolute;left:12px;bottom:12px;z-index:8;font-size:12px;line-height:1.45;white-space:pre-wrap;pointer-events:none;text-shadow:0 1px 0 #000");
-
-const startOverlay = mk("div", "position:absolute;inset:0;z-index:11;display:flex;align-items:center;justify-content:center;background:rgba(8,13,22,0.22)");
-const card = mk("div", "width:min(480px,92vw);padding:16px;border-radius:14px;border:1px solid rgba(120,160,230,.5);background:rgba(11,18,31,.58);backdrop-filter:blur(2px)");
-card.innerHTML = `<div style="font-size:20px;font-weight:900;letter-spacing:.04em">CRYSTAL CORE HUNT</div>
-<div style="margin-top:6px;color:#b9cdee;font-size:12px">Build outward territory and destroy the central tower first.</div>`;
-const nickInput = mk("input", "margin-top:10px;width:100%;padding:10px;border-radius:10px;border:1px solid #45638f;background:rgba(7,12,20,.82);color:#eef6ff;outline:none");
-nickInput.placeholder = "Nickname";
-nickInput.maxLength = 16;
-nickInput.value = "Commander";
+const overlay = mk("div", "position:absolute;inset:0;z-index:11;display:flex;align-items:center;justify-content:center;background:rgba(8,13,22,.28)");
+const card = mk("div", "width:min(520px,92vw);padding:16px;border-radius:14px;border:1px solid rgba(120,170,230,.55);background:rgba(11,18,31,.64);backdrop-filter:blur(3px)");
+card.innerHTML = `<div style="font-size:20px;font-weight:900">Crystal Core Hunt Online</div>
+<div style="margin-top:6px;color:#b7cff5;font-size:12px">최대 8명 동시 플레이. 빈 슬롯은 봇으로 자동 대체.</div>`;
+const nick = mk("input", "margin-top:10px;width:100%;padding:10px;border-radius:10px;border:1px solid #4b6899;background:rgba(7,12,20,.82);color:#eef6ff;outline:none");
+nick.maxLength = 16;
+nick.value = "Commander";
 const startBtn = mk("button", "margin-top:10px;width:100%;padding:10px;border-radius:10px;border:1px solid #8ab4ff;background:rgba(30,50,84,.9);color:#fff;font-weight:800;cursor:pointer");
-startBtn.textContent = "Start";
-card.append(nickInput, startBtn);
-startOverlay.append(card);
+startBtn.textContent = "Start Online";
+card.append(nick, startBtn);
+overlay.append(card);
 
-wrap.append(canvas, hud, right, banner, center, buildPanel, infoPanel, startOverlay);
+wrap.append(canvas, hud, right, info, banner, center, buildPanel, actionPanel, overlay);
 root.append(wrap);
 
 const ctx = canvas.getContext("2d");
@@ -90,751 +50,279 @@ function resize() {
 resize();
 addEventListener("resize", resize);
 
-const keys = new Set();
-const mouse = { x: 0, y: 0, down: false };
-addEventListener("keydown", (e) => {
-  keys.add(e.code);
-  if (startOverlay.style.display !== "none" && e.code === "Enter") start();
-  if (!state.started || state.over) return;
-  if (e.code === "Escape") {
-    state.placingType = "";
-    buildButtons();
-    return;
-  }
-  if (e.code.startsWith("Digit")) {
-    const idx = Number(e.code.slice(5)) - 1;
-    if (idx >= 0 && idx < BUILD_ORDER.length) {
-      const type = BUILD_ORDER[idx];
-      if (canBuildType(type)) {
-        state.placingType = state.placingType === type ? "" : type;
-        state.commandMode = false;
-        showBanner(state.placingType ? `Build mode: ${type} (left click map)` : "Build mode canceled");
-        buildButtons();
-      }
-    }
-  }
-});
-addEventListener("keyup", (e) => keys.delete(e.code));
-addEventListener("mousemove", (e) => { mouse.x = e.clientX; mouse.y = e.clientY; });
-addEventListener("mousedown", () => mouse.down = true);
-addEventListener("mouseup", () => mouse.down = false);
-
 const state = {
-  started: false,
-  over: false,
-  win: false,
-  time: 0,
-  money: 180,
-  incomeTick: 0,
+  connected: false,
+  myId: "",
+  placingType: "",
+  selectedBuildingId: "",
+  artilleryMoveMode: false,
+  rallyMode: false,
   camX: 0,
   camY: 0,
-  selectedBuildingId: "",
-  commandMode: false,
-  placingType: "",
-  lastClick: 0,
+  drag: false,
+  dragStartX: 0,
+  dragStartY: 0,
+  camStartX: 0,
+  camStartY: 0,
+  initCamera: false,
+  world: {
+    cfg: { worldW: 3200, worldH: 3200, buildSnap: 20, limits: {}, buildingDefs: {}, unitDefs: {} },
+    me: null,
+    players: [],
+    buildings: [],
+    units: [],
+    monsters: [],
+    guardians: [],
+    central: { x: 1600, y: 1600, hp: 1, hpMax: 1, r: 64, lastHitOwner: "" },
+    match: { over: false, winnerId: "", reason: "", winnerName: "" },
+  },
+  bannerUntil: 0,
+  time: 0,
 };
 
-let idSeed = 1;
-function id(prefix) { return `${prefix}${idSeed++}`; }
-
-const player = {
-  name: "Commander",
-  hqId: "",
-  level: 1,
-  exp: 0,
-  expNext: 110,
-};
-const buildings = [];
-const monsters = [];
-const projectiles = [];
-const effects = [];
-const units = [];
-const enemyTower = {
-  id: "enemy-core",
-  x: CFG.WORLD_W * 0.5,
-  y: CFG.WORLD_H * 0.5,
-  hp: CFG.CENTRAL_HP,
-  hpMax: CFG.CENTRAL_HP,
-  r: 64,
-  fireCd: 0,
-};
-
-function addBuilding(type, x, y) {
-  const t = BUILDINGS[type];
-  const b = {
-    id: id("b"),
-    type,
-    x,
-    y,
-    hp: t.hp,
-    hpMax: t.hp,
-    fireCd: 0,
-    healCd: t.healCd || 0,
-    spawnCd: t.spawnCd || 0,
-    forceTarget: "",
-  };
-  buildings.push(b);
-  return b;
+function showBanner(text, sec = 1.4) {
+  banner.textContent = text;
+  banner.style.display = "block";
+  state.bannerUntil = state.time + sec;
 }
 
-function addUnit(type, ownerBuildingId, x, y) {
-  const t = UNIT_TYPES[type];
-  if (!t) return null;
-  const u = {
-    id: id("u"),
-    type,
-    ownerBuildingId,
-    x,
-    y,
-    homeX: x,
-    homeY: y,
-    hp: t.hp,
-    hpMax: t.hp,
-    r: t.r,
-    speed: t.speed,
-    range: t.range,
-    atk: t.atk,
-    fireCd: 0,
-    targetId: "",
-  };
-  units.push(u);
-  return u;
+function wsUrl() {
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  return `${proto}://${location.host}/ws`;
 }
 
-function initGame() {
-  buildings.length = 0;
-  monsters.length = 0;
-  projectiles.length = 0;
-  effects.length = 0;
-  units.length = 0;
-  state.money = 180;
-  state.incomeTick = 0;
-  state.over = false;
-  state.win = false;
-  state.time = 0;
-  state.selectedBuildingId = "";
-  state.commandMode = false;
-  state.placingType = "";
-  enemyTower.hp = enemyTower.hpMax;
-  enemyTower.fireCd = 0;
-  player.level = 1;
-  player.exp = 0;
-  player.expNext = 110;
-
-  const hq = addBuilding("HQ", CFG.WORLD_W * 0.2, CFG.WORLD_H * 0.8);
-  player.hqId = hq.id;
-
-  for (let i = 0; i < CFG.MONSTER_COUNT; i++) {
-    const ang = rand(0, Math.PI * 2);
-    const ar = MONSTER_ARCHETYPES[(Math.random() * MONSTER_ARCHETYPES.length) | 0];
-    monsters.push({
-      id: id("m"),
-      x: rand(130, CFG.WORLD_W - 130),
-      y: rand(130, CFG.WORLD_H - 130),
-      hp: ar.hp,
-      hpMax: ar.hp,
-      r: ar.r,
-      atk: ar.atk,
-      speed: ar.speed,
-      archetype: ar,
-      aggroId: "",
-      aggroUntil: 0,
-      hitCd: 0,
-      alive: true,
-      vx: Math.cos(ang) * rand(32, 72),
-      vy: Math.sin(ang) * rand(32, 72),
-      wanderT: rand(0.4, 1.8),
-    });
-  }
-}
-
-function hasType(type) {
-  return buildings.some((b) => b.type === type && b.hp > 0);
-}
-function canBuildType(type) {
-  const t = BUILDINGS[type];
-  if (!t) return false;
-  return t.prereq.every(hasType);
-}
-
-function buildButtons() {
-  buildPanel.innerHTML = "";
-  BUILD_ORDER.forEach((type, idx) => {
-    const t = BUILDINGS[type];
-    const btn = mk("button", "padding:8px 10px;border-radius:10px;border:1px solid #4b6490;background:rgba(12,20,34,.88);color:#e9f2ff;cursor:pointer;font-size:12px");
-    const ok = canBuildType(type) && state.money >= t.cost;
-    const unlocked = canBuildType(type);
-    if (!ok) btn.style.opacity = "0.45";
-    if (state.placingType === type) btn.style.borderColor = "#9fd0ff";
-    btn.textContent = `${idx + 1}.${type} (${t.cost})`;
-    btn.title = `${t.trait} | prereq: ${t.prereq.join(", ") || "none"}`;
-    btn.onclick = () => {
-      if (!unlocked) {
-        showBanner(`Locked: need ${t.prereq.join(", ")}`, "rgba(148,57,35,.82)");
-        return;
+let ws = null;
+function connect(name) {
+  ws = new WebSocket(wsUrl());
+  ws.addEventListener("open", () => {
+    state.connected = true;
+    ws.send(JSON.stringify({ type: "join", name }));
+  });
+  ws.addEventListener("close", () => {
+    state.connected = false;
+    showBanner("Disconnected from server", 2.2);
+  });
+  ws.addEventListener("message", (ev) => {
+    let msg;
+    try { msg = JSON.parse(ev.data); } catch { return; }
+    if (msg.type === "welcome") {
+      state.myId = msg.playerId;
+      showBanner(`Connected. Slot ${msg.slot + 1}/${msg.maxPlayers}`);
+      return;
+    }
+    if (msg.type === "snapshot") {
+      state.world = msg;
+      const me = msg.me;
+      if (me && !state.initCamera) {
+        const hq = msg.buildings.find((b) => b.ownerId === me.id && b.type === "HQ" && b.hp > 0);
+        if (hq) {
+          state.camX = clamp(hq.x - W * 0.5, 0, Math.max(0, msg.cfg.worldW - W));
+          state.camY = clamp(hq.y - H * 0.5, 0, Math.max(0, msg.cfg.worldH - H));
+          state.initCamera = true;
+        }
       }
-      state.placingType = state.placingType === type ? "" : type;
-      state.commandMode = false;
-      if (state.placingType) showBanner(`Build mode: ${type} (left click map)`);
-      buildButtons();
-    };
-    buildPanel.append(btn);
+      rebuildBuildButtons();
+    }
   });
 }
 
-function showBanner(text, color = "rgba(29,76,146,.82)") {
-  banner.textContent = text;
-  banner.style.background = color;
-  banner.style.display = "block";
-  banner.dataset.until = String(state.time + 1.4);
-}
-
-function territorySources() {
-  return buildings.filter((b) => b.hp > 0).map((b) => ({
-    x: b.x,
-    y: b.y,
-    r: BUILDINGS[b.type].r,
-  }));
-}
-function inTerritory(x, y) {
-  return territorySources().some((s) => len(x - s.x, y - s.y) <= s.r);
-}
-
-function overlapsBuilding(x, y, size, ignoreId = "") {
-  for (const b of buildings) {
-    if (ignoreId && b.id === ignoreId) continue;
-    if (b.hp <= 0) continue;
-    const other = BUILDINGS[b.type].size;
-    if (len(x - b.x, y - b.y) < size + other + 8) return true;
-  }
-  if (len(x - enemyTower.x, y - enemyTower.y) < size + enemyTower.r + 24) return true;
-  return false;
+function send(obj) {
+  if (!ws || ws.readyState !== ws.OPEN) return;
+  ws.send(JSON.stringify(obj));
 }
 
 function screenToWorld(sx, sy) {
   return { x: sx + state.camX, y: sy + state.camY };
 }
 
+function meObj() { return state.world.me; }
+
+function playersById() {
+  const m = new Map();
+  for (const p of state.world.players) m.set(p.id, p);
+  return m;
+}
+
+function myBuildings() {
+  const me = meObj();
+  if (!me) return [];
+  return state.world.buildings.filter((b) => b.ownerId === me.id && b.hp > 0);
+}
+
 function selectedBuilding() {
-  return buildings.find((b) => b.id === state.selectedBuildingId);
+  return state.world.buildings.find((b) => b.id === state.selectedBuildingId && b.hp > 0) || null;
 }
 
-function livingHQ() {
-  return buildings.find((b) => b.id === player.hqId && b.hp > 0);
-}
-
-function enemyAtPoint(x, y) {
-  if (enemyTower.hp > 0 && len(x - enemyTower.x, y - enemyTower.y) <= enemyTower.r) return { kind: "tower", id: enemyTower.id };
-  for (const m of monsters) {
-    if (m.alive && len(x - m.x, y - m.y) <= m.r + 4) return { kind: "monster", id: m.id };
+function ownBuildingAt(x, y) {
+  const me = meObj();
+  if (!me) return null;
+  for (const b of state.world.buildings) {
+    if (b.ownerId !== me.id || b.hp <= 0) continue;
+    const s = state.world.cfg.buildingDefs[b.type]?.size || 20;
+    if (dist(x, y, b.x, b.y) <= s + 6) return b;
   }
   return null;
 }
 
-function ownBuildingAtPoint(x, y) {
-  for (const b of buildings) {
-    if (b.hp <= 0) continue;
-    const s = BUILDINGS[b.type].size;
-    if (len(x - b.x, y - b.y) <= s + 4) return b;
-  }
-  return null;
+function ownedCount(type) {
+  const me = meObj();
+  if (!me) return 0;
+  return state.world.buildings.filter((b) => b.ownerId === me.id && b.type === type && b.hp > 0).length;
 }
 
-canvas.addEventListener("click", (e) => {
-  if (!state.started || state.over) return;
+function rebuildBuildButtons() {
+  buildPanel.innerHTML = "";
+  const me = meObj();
+  if (!me) return;
+  for (const type of BUILD_ORDER) {
+    const def = state.world.cfg.buildingDefs[type];
+    if (!def) continue;
+    const cur = ownedCount(type);
+    const limit = state.world.cfg.limits[type] || 99;
+    const btn = mk("button", "padding:8px 10px;border-radius:10px;border:1px solid #4d6b99;background:rgba(11,20,34,.9);color:#e9f2ff;cursor:pointer;font-size:12px");
+    const canAfford = me.money >= def.cost;
+    const canLimit = cur < limit;
+    if (!canAfford || !canLimit) btn.style.opacity = "0.45";
+    if (state.placingType === type) btn.style.borderColor = "#9fd0ff";
+    btn.textContent = `${type} ${cur}/${limit} (${def.cost})`;
+    btn.title = def.trait || "";
+    btn.onclick = () => {
+      if (!canLimit) {
+        showBanner(`Limit reached: ${type}`);
+        return;
+      }
+      state.placingType = state.placingType === type ? "" : type;
+      state.artilleryMoveMode = false;
+      state.rallyMode = false;
+      showBanner(state.placingType ? `Build mode: ${state.placingType}` : "Build mode canceled");
+      rebuildBuildButtons();
+      rebuildActionButtons();
+    };
+    buildPanel.append(btn);
+  }
+}
+
+function rebuildActionButtons() {
+  actionPanel.innerHTML = "";
+
+  const moveBtn = mk("button", "padding:8px 10px;border-radius:10px;border:1px solid #759cd3;background:rgba(22,38,63,.92);color:#f2f7ff;cursor:pointer;font-size:12px");
+  moveBtn.textContent = state.artilleryMoveMode ? "Cancel Move" : "Move Artillery";
+  moveBtn.onclick = () => {
+    const sel = selectedBuilding();
+    if (!sel || sel.type !== "ARTILLERY") {
+      showBanner("Select your ARTILLERY first");
+      return;
+    }
+    state.artilleryMoveMode = !state.artilleryMoveMode;
+    if (state.artilleryMoveMode) state.rallyMode = false;
+    showBanner(state.artilleryMoveMode ? "Tap map to move artillery" : "Move canceled");
+    rebuildActionButtons();
+  };
+  actionPanel.append(moveBtn);
+
+  const rallyBtn = mk("button", "padding:8px 10px;border-radius:10px;border:1px solid #9dbf7a;background:rgba(38,62,33,.9);color:#efffea;cursor:pointer;font-size:12px");
+  rallyBtn.textContent = state.rallyMode ? "Cancel Rally" : "Rally All Units";
+  rallyBtn.onclick = () => {
+    const sel = selectedBuilding();
+    if (!sel || sel.type !== "ARTILLERY") {
+      showBanner("Select your ARTILLERY first");
+      return;
+    }
+    state.rallyMode = !state.rallyMode;
+    if (state.rallyMode) state.artilleryMoveMode = false;
+    showBanner(state.rallyMode ? "Tap map to rally all units" : "Rally canceled");
+    rebuildActionButtons();
+  };
+  actionPanel.append(rallyBtn);
+}
+
+canvas.addEventListener("pointerdown", (e) => {
+  state.drag = true;
+  state.dragStartX = e.clientX;
+  state.dragStartY = e.clientY;
+  state.camStartX = state.camX;
+  state.camStartY = state.camY;
+  canvas.setPointerCapture(e.pointerId);
+});
+
+canvas.addEventListener("pointermove", (e) => {
+  if (!state.drag) return;
+  const dx = e.clientX - state.dragStartX;
+  const dy = e.clientY - state.dragStartY;
+  state.camX = clamp(state.camStartX - dx, 0, Math.max(0, state.world.cfg.worldW - W));
+  state.camY = clamp(state.camStartY - dy, 0, Math.max(0, state.world.cfg.worldH - H));
+});
+
+canvas.addEventListener("pointerup", (e) => {
+  if (!state.drag) return;
+  const moved = Math.hypot(e.clientX - state.dragStartX, e.clientY - state.dragStartY) > 8;
+  state.drag = false;
+  canvas.releasePointerCapture(e.pointerId);
+  if (moved) return;
+
   const w = screenToWorld(e.clientX, e.clientY);
+  const snap = state.world.cfg.buildSnap || 20;
+  const x = Math.round(w.x / snap) * snap;
+  const y = Math.round(w.y / snap) * snap;
 
   if (state.placingType) {
-    const type = state.placingType;
-    const t = BUILDINGS[type];
-    if (!canBuildType(type)) return;
-    const x = Math.round(w.x / CFG.BUILD_SNAP) * CFG.BUILD_SNAP;
-    const y = Math.round(w.y / CFG.BUILD_SNAP) * CFG.BUILD_SNAP;
-    if (x < 20 || y < 20 || x > CFG.WORLD_W - 20 || y > CFG.WORLD_H - 20) return;
-    if (!inTerritory(x, y)) {
-      showBanner("Outside of your build range", "rgba(148,57,35,.82)");
-      return;
-    }
-    if (overlapsBuilding(x, y, t.size)) {
-      showBanner("Cannot place here", "rgba(148,57,35,.82)");
-      return;
-    }
-    if (state.money < t.cost) {
-      showBanner("Not enough crystal", "rgba(148,57,35,.82)");
-      return;
-    }
-    state.money -= t.cost;
-    const b = addBuilding(type, x, y);
-    state.selectedBuildingId = b.id;
-    state.placingType = "";
-    buildButtons();
+    send({ type: "build", buildingType: state.placingType, x, y });
     return;
   }
 
-  const own = ownBuildingAtPoint(w.x, w.y);
+  const own = ownBuildingAt(w.x, w.y);
   if (own) {
     state.selectedBuildingId = own.id;
-    state.commandMode = BUILDINGS[own.type].range > 0;
-    showBanner(`${own.type}: ${BUILDINGS[own.type].trait}`);
+    state.artilleryMoveMode = false;
+    state.rallyMode = false;
+    rebuildActionButtons();
+    showBanner(`${own.type} selected`);
     return;
   }
 
-  const sel = selectedBuilding();
-  if (sel && state.commandMode) {
-    const target = enemyAtPoint(w.x, w.y);
-    if (target) {
-      sel.forceTarget = target.id;
-      showBanner(`${sel.type} target locked`, "rgba(27,88,145,.82)");
+  if (state.artilleryMoveMode) {
+    const sel = selectedBuilding();
+    if (sel && sel.type === "ARTILLERY") {
+      send({ type: "move_artillery", buildingId: sel.id, x, y });
+      state.artilleryMoveMode = false;
+      rebuildActionButtons();
+      return;
+    }
+  }
+
+  if (state.rallyMode) {
+    const sel = selectedBuilding();
+    if (sel && sel.type === "ARTILLERY") {
+      send({ type: "rally_all", buildingId: sel.id, x, y });
+      state.rallyMode = false;
+      rebuildActionButtons();
       return;
     }
   }
 
   state.selectedBuildingId = "";
-  state.commandMode = false;
 });
 
 canvas.addEventListener("contextmenu", (e) => {
   e.preventDefault();
   const sel = selectedBuilding();
-  if (!sel) return;
+  if (!sel || sel.type !== "ARTILLERY") return;
   const w = screenToWorld(e.clientX, e.clientY);
-  const atEnemy = enemyAtPoint(w.x, w.y);
-  if (!atEnemy && sel.type === "ARTILLERY" && moveBuildingIfAllowed(sel, w.x, w.y)) return;
-  sel.forceTarget = "";
-  showBanner("Target cleared");
+  send({ type: "move_artillery", buildingId: sel.id, x: w.x, y: w.y });
 });
 
-function spawnProjectile(owner, tx, ty, damage, speed, color, targetId) {
-  const n = norm(tx - owner.x, ty - owner.y);
-  projectiles.push({
-    id: id("p"),
-    ownerId: owner.id,
-    x: owner.x,
-    y: owner.y,
-    vx: n.x * speed,
-    vy: n.y * speed,
-    life: 1.6,
-    damage,
-    color,
-    targetId,
-    splashRadius: owner.splashRadius || 0,
-    monsterMult: owner.monsterMult || 1,
-    towerMult: owner.towerMult || 1,
-  });
-}
-
-function levelAttackMult() {
-  return 1 + (player.level - 1) * 0.07;
-}
-
-function levelIncomeMult() {
-  return 1 + (player.level - 1) * 0.08;
-}
-
-function levelProdCdMult() {
-  return Math.max(0.72, 1 - (player.level - 1) * 0.03);
-}
-
-function gainExp(v) {
-  if (player.level >= CFG.LEVEL_MAX || v <= 0) return;
-  player.exp += v;
-  while (player.level < CFG.LEVEL_MAX && player.exp >= player.expNext) {
-    player.exp -= player.expNext;
-    player.level += 1;
-    player.expNext = Math.floor(player.expNext * 1.34 + 26);
-    showBanner(`LEVEL UP ${player.level}!`, "rgba(38,118,78,.88)");
-  }
-  if (player.level >= CFG.LEVEL_MAX) {
-    player.level = CFG.LEVEL_MAX;
-    player.exp = 0;
-  }
-}
-
-function hasReactorAura(x, y) {
-  return buildings.some((b) => b.hp > 0 && b.type === "REACTOR" && len(b.x - x, b.y - y) <= BUILDINGS.REACTOR.r);
-}
-
-function nearestEnemyForBuilding(b, range) {
-  let best = null;
-  let bestD = range;
-  for (const m of monsters) {
-    if (!m.alive) continue;
-    const d = len(m.x - b.x, m.y - b.y);
-    if (d < bestD) {
-      bestD = d;
-      best = { id: m.id, x: m.x, y: m.y };
-    }
-  }
-  if (enemyTower.hp > 0) {
-    const d = len(enemyTower.x - b.x, enemyTower.y - b.y);
-    if (d < bestD) {
-      bestD = d;
-      best = { id: enemyTower.id, x: enemyTower.x, y: enemyTower.y };
-    }
-  }
-  return best;
-}
-
-function targetById(id) {
-  if (!id) return null;
-  if (id === enemyTower.id && enemyTower.hp > 0) return { id: enemyTower.id, x: enemyTower.x, y: enemyTower.y };
-  const m = monsters.find((x) => x.id === id && x.alive);
-  if (m) return { id: m.id, x: m.x, y: m.y };
-  return null;
-}
-
-function moveBuildingIfAllowed(b, tx, ty) {
-  if (!b || b.hp <= 0 || b.type !== "ARTILLERY") return false;
-  const t = BUILDINGS[b.type];
-  const x = Math.round(tx / CFG.BUILD_SNAP) * CFG.BUILD_SNAP;
-  const y = Math.round(ty / CFG.BUILD_SNAP) * CFG.BUILD_SNAP;
-  if (x < 20 || y < 20 || x > CFG.WORLD_W - 20 || y > CFG.WORLD_H - 20) return false;
-  if (!inTerritory(x, y)) {
-    showBanner("Outside of your build range", "rgba(148,57,35,.82)");
-    return false;
-  }
-  if (overlapsBuilding(x, y, t.size, b.id)) {
-    showBanner("Cannot move there", "rgba(148,57,35,.82)");
-    return false;
-  }
-  b.x = x;
-  b.y = y;
-  showBanner("Artillery relocated", "rgba(27,88,145,.82)");
-  return true;
-}
-
-function updateBuildings(dt) {
-  for (const b of buildings) {
-    if (b.hp <= 0) continue;
-    const reactorBuff = hasReactorAura(b.x, b.y);
-    if (b.fireCd > 0) b.fireCd -= dt;
-    if (b.healCd > 0) b.healCd -= dt;
-    const t = BUILDINGS[b.type];
-    if (t.produces && b.spawnCd > 0) {
-      b.spawnCd -= dt;
-      if (b.spawnCd <= 0) {
-        const a = rand(0, Math.PI * 2);
-        const dist = t.size + 16;
-        addUnit(t.produces, b.id, b.x + Math.cos(a) * dist, b.y + Math.sin(a) * dist);
-        const prodBuff = reactorBuff ? 0.8 : 1;
-        b.spawnCd = t.spawnCd * levelProdCdMult() * prodBuff;
-      }
-    }
-
-    if (t.heal && t.healRange && b.healCd <= 0) {
-      let healed = false;
-      for (const ob of buildings) {
-        if (ob.hp <= 0 || ob.hp >= ob.hpMax) continue;
-        if (len(ob.x - b.x, ob.y - b.y) <= t.healRange) {
-          ob.hp = Math.min(ob.hpMax, ob.hp + t.heal);
-          healed = true;
-        }
-      }
-      if (healed) effects.push({ x: b.x, y: b.y, t: 0.22, c: "#7fffcd" });
-      b.healCd = t.healCd;
-    }
-    if (t.range <= 0) continue;
-    if (b.fireCd > 0) continue;
-
-    let target = targetById(b.forceTarget);
-    if (target && len(target.x - b.x, target.y - b.y) > t.range) target = null;
-    if (!target) target = nearestEnemyForBuilding(b, t.range);
-    if (!target) continue;
-    const atkBuff = levelAttackMult() * (reactorBuff ? 1.2 : 1);
-    const speedBuff = reactorBuff ? 0.8 : 1;
-    b.fireCd = t.fireCd * speedBuff;
-    spawnProjectile({
-      id: b.id,
-      x: b.x,
-      y: b.y,
-      splashRadius: t.splashRadius || 0,
-      monsterMult: t.monsterMult || 1,
-      towerMult: t.towerMult || 1,
-    }, target.x, target.y, t.damage * atkBuff, t.projSpeed, "#d7edff", target.id);
-  }
-}
-
-function damageMonster(m, dmg, fromX, fromY) {
-  m.hp -= dmg;
-  effects.push({ x: m.x, y: m.y, t: 0.18, c: "#ffd5a5" });
-  if (m.hp <= 0) {
-    m.alive = false;
-    state.money += CFG.MONSTER_BOUNTY;
-    gainExp(18);
-    return;
-  }
-  const nearest = buildings.filter((b) => b.hp > 0).sort((a, z) => len(a.x - m.x, a.y - m.y) - len(z.x - m.x, z.y - m.y))[0];
-  if (nearest) {
-    m.aggroId = nearest.id;
-    m.aggroUntil = state.time + CFG.MONSTER_AGGRO_TIME;
-  }
-}
-
-function damageBuilding(b, dmg) {
-  b.hp -= dmg;
-  effects.push({ x: b.x, y: b.y, t: 0.2, c: "#ff98a8" });
-  if (b.hp <= 0) {
-    b.hp = 0;
-    if (b.id === player.hqId) {
-      state.over = true;
-      state.win = false;
-    }
-  }
-}
-
-function updateProjectiles(dt) {
-  for (let i = projectiles.length - 1; i >= 0; i--) {
-    const p = projectiles[i];
-    p.life -= dt;
-    if (p.life <= 0) { projectiles.splice(i, 1); continue; }
-    p.x += p.vx * dt;
-    p.y += p.vy * dt;
-    if (p.x < 0 || p.y < 0 || p.x > CFG.WORLD_W || p.y > CFG.WORLD_H) { projectiles.splice(i, 1); continue; }
-
-    if (enemyTower.hp > 0 && len(p.x - enemyTower.x, p.y - enemyTower.y) <= enemyTower.r + 3) {
-      enemyTower.hp -= p.damage * p.towerMult;
-      effects.push({ x: enemyTower.x, y: enemyTower.y, t: 0.2, c: "#fff0a0" });
-      if (enemyTower.hp <= 0) {
-        enemyTower.hp = 0;
-        state.over = true;
-        state.win = true;
-      }
-      if (p.splashRadius > 0) {
-        for (const m of monsters) {
-          if (!m.alive) continue;
-          const d = len(m.x - p.x, m.y - p.y);
-          if (d <= p.splashRadius) damageMonster(m, p.damage * p.monsterMult * 0.55, p.x, p.y);
-        }
-      }
-      gainExp(6);
-      projectiles.splice(i, 1);
-      continue;
-    }
-
-    let hit = false;
-    for (const m of monsters) {
-      if (!m.alive) continue;
-      if (len(p.x - m.x, p.y - m.y) <= m.r + 3) {
-        damageMonster(m, p.damage * p.monsterMult, p.x, p.y);
-        if (p.splashRadius > 0) {
-          for (const other of monsters) {
-            if (!other.alive || other.id === m.id) continue;
-            const d = len(other.x - p.x, other.y - p.y);
-            if (d <= p.splashRadius) damageMonster(other, p.damage * p.monsterMult * 0.45, p.x, p.y);
-          }
-        }
-        hit = true;
-        break;
-      }
-    }
-    if (hit) {
-      projectiles.splice(i, 1);
-      continue;
-    }
-  }
-}
-
-function nearestEnemyForUnit(u, detect) {
-  let best = null;
-  let bestD = detect;
-  for (const m of monsters) {
-    if (!m.alive) continue;
-    const d = len(m.x - u.x, m.y - u.y);
-    if (d < bestD) {
-      bestD = d;
-      best = { id: m.id, x: m.x, y: m.y, kind: "monster" };
-    }
-  }
-  if (enemyTower.hp > 0) {
-    const d = len(enemyTower.x - u.x, enemyTower.y - u.y);
-    if (d < bestD) {
-      bestD = d;
-      best = { id: enemyTower.id, x: enemyTower.x, y: enemyTower.y, kind: "tower" };
-    }
-  }
-  return best;
-}
-
-function applyUnitDamage(unit, target) {
-  if (target.kind === "tower" && enemyTower.hp > 0) {
-    const bonus = unit.type === "DRONE" ? 1.2 : 1;
-    enemyTower.hp -= unit.atk * levelAttackMult() * bonus;
-    effects.push({ x: enemyTower.x, y: enemyTower.y, t: 0.18, c: "#fff0a0" });
-    gainExp(4);
-    if (enemyTower.hp <= 0) {
-      enemyTower.hp = 0;
-      state.over = true;
-      state.win = true;
-    }
-    return;
-  }
-  if (target.kind === "monster") {
-    const m = monsters.find((x) => x.id === target.id && x.alive);
-    if (m) damageMonster(m, unit.atk * levelAttackMult(), unit.x, unit.y);
-  }
-}
-
-function updateUnits(dt) {
-  for (let i = units.length - 1; i >= 0; i--) {
-    const u = units[i];
-    if (u.hp <= 0) {
-      units.splice(i, 1);
-      continue;
-    }
-    if (u.fireCd > 0) u.fireCd -= dt;
-    const owner = buildings.find((b) => b.id === u.ownerBuildingId && b.hp > 0);
-    const forced = owner ? targetById(owner.forceTarget) : null;
-    let target = null;
-    if (forced) {
-      target = { id: forced.id, x: forced.x, y: forced.y, kind: forced.id === enemyTower.id ? "tower" : "monster" };
-    } else {
-      target = nearestEnemyForUnit(u, 460);
-    }
-    if (target) {
-      const dx = target.x - u.x;
-      const dy = target.y - u.y;
-      const d = len(dx, dy);
-      const n = norm(dx, dy);
-      if (d > u.range - 8) {
-        u.x += n.x * u.speed * dt;
-        u.y += n.y * u.speed * dt;
-      } else if (u.fireCd <= 0) {
-        u.fireCd = UNIT_TYPES[u.type].fireCd;
-        applyUnitDamage(u, target);
-      }
-      u.targetId = target.id;
-    } else {
-      const hx = owner ? owner.x : u.homeX;
-      const hy = owner ? owner.y : u.homeY;
-      const d = len(hx - u.x, hy - u.y);
-      if (d > 24) {
-        const n = norm(hx - u.x, hy - u.y);
-        u.x += n.x * (u.speed * 0.72) * dt;
-        u.y += n.y * (u.speed * 0.72) * dt;
-      }
-      u.targetId = "";
-    }
-    u.x = clamp(u.x, 0, CFG.WORLD_W);
-    u.y = clamp(u.y, 0, CFG.WORLD_H);
-  }
-}
-
-function updateMonsters(dt) {
-  for (const m of monsters) {
-    if (!m.alive) continue;
-    if (m.hitCd > 0) m.hitCd -= dt;
-
-    if (m.aggroUntil <= state.time) {
-      m.aggroId = "";
-      m.wanderT -= dt;
-      if (m.wanderT <= 0) {
-        const a = rand(0, Math.PI * 2);
-        const s = rand(34, 82);
-        m.vx = Math.cos(a) * s;
-        m.vy = Math.sin(a) * s;
-        m.wanderT = rand(0.6, 2.1);
-      }
-      m.x += m.vx * dt;
-      m.y += m.vy * dt;
-      if (m.x < 20 || m.x > CFG.WORLD_W - 20) m.vx *= -1;
-      if (m.y < 20 || m.y > CFG.WORLD_H - 20) m.vy *= -1;
-      m.x = clamp(m.x, 20, CFG.WORLD_W - 20);
-      m.y = clamp(m.y, 20, CFG.WORLD_H - 20);
-      continue;
-    }
-
-    const target = buildings.find((b) => b.id === m.aggroId && b.hp > 0);
-    if (!target) {
-      m.aggroId = "";
-      continue;
-    }
-
-    const d = len(target.x - m.x, target.y - m.y);
-    const n = norm(target.x - m.x, target.y - m.y);
-    const speed = m.speed;
-    if (d > 26) {
-      m.x += n.x * speed * dt;
-      m.y += n.y * speed * dt;
-    } else if (m.hitCd <= 0) {
-      m.hitCd = 0.95;
-      damageBuilding(target, m.atk);
-    }
-  }
-}
-
-function updateEnemyTower(dt) {
-  if (enemyTower.hp <= 0) return;
-  enemyTower.fireCd -= dt;
-  if (enemyTower.fireCd > 0) return;
-  const target = buildings
-    .filter((b) => b.hp > 0)
-    .sort((a, z) => len(a.x - enemyTower.x, a.y - enemyTower.y) - len(z.x - enemyTower.x, z.y - enemyTower.y))[0];
-  if (!target) return;
-  if (len(target.x - enemyTower.x, target.y - enemyTower.y) > 760) return;
-  enemyTower.fireCd = 1.25;
-  spawnProjectile({ id: enemyTower.id, x: enemyTower.x, y: enemyTower.y }, target.x, target.y, 70, 760, "#ffb4b4", target.id);
-}
-
-function updateEffects(dt) {
-  for (let i = effects.length - 1; i >= 0; i--) {
-    effects[i].t -= dt;
-    if (effects[i].t <= 0) effects.splice(i, 1);
-  }
-}
-
-function update(dt) {
-  if (!state.started || state.over) return;
-  state.time += dt;
-  state.incomeTick += dt;
-  while (state.incomeTick >= 1) {
-    state.incomeTick -= 1;
-    if (livingHQ()) {
-      state.money += Math.floor(CFG.HQ_INCOME_PER_SEC * levelIncomeMult());
-    }
-  }
-
-  if (banner.style.display === "block" && Number(banner.dataset.until || 0) < state.time) {
-    banner.style.display = "none";
-  }
-
-  const speed = CFG.CAMERA_SPEED * dt;
-  if (keys.has("KeyA") || keys.has("ArrowLeft")) state.camX -= speed;
-  if (keys.has("KeyD") || keys.has("ArrowRight")) state.camX += speed;
-  if (keys.has("KeyW") || keys.has("ArrowUp")) state.camY -= speed;
-  if (keys.has("KeyS") || keys.has("ArrowDown")) state.camY += speed;
-  state.camX = clamp(state.camX, 0, Math.max(0, CFG.WORLD_W - W));
-  state.camY = clamp(state.camY, 0, Math.max(0, CFG.WORLD_H - H));
-
-  updateBuildings(dt);
-  updateUnits(dt);
-  updateMonsters(dt);
-  updateEnemyTower(dt);
-  updateProjectiles(dt);
-  updateEffects(dt);
-  buildButtons();
-}
-
-function drawBar(x, y, w, h, ratio, fg, bg = "rgba(0,0,0,.38)") {
+function drawBar(x, y, w, h, ratio, fg, bg = "rgba(0,0,0,.4)") {
   ctx.fillStyle = bg;
   ctx.fillRect(x, y, w, h);
   ctx.fillStyle = fg;
-  ctx.fillRect(x, y, Math.max(0, w * clamp(ratio, 0, 1)), h);
+  ctx.fillRect(x, y, w * clamp(ratio, 0, 1), h);
 }
 
-function drawWorldGrid() {
-  ctx.strokeStyle = "rgba(122,152,212,.1)";
-  for (let x = -state.camX % 50; x < W; x += 50) {
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
-  }
-  for (let y = -state.camY % 50; y < H; y += 50) {
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
-  }
-  ctx.strokeStyle = "rgba(255,255,255,.28)";
-  ctx.lineWidth = 2;
-  ctx.strokeRect(-state.camX, -state.camY, CFG.WORLD_W, CFG.WORLD_H);
+function levelForOwner(ownerId, pmap) {
+  return pmap.get(ownerId)?.level || 1;
 }
 
-function drawBuildingVisual(b, x, y, s) {
+function drawBuildingVisual(b, x, y, s, own, ownerLv) {
   const palette = {
     HQ: ["#5df2c7", "#1f7f67"],
     RELAY: ["#85d8ff", "#2a5e8d"],
@@ -842,86 +330,68 @@ function drawBuildingVisual(b, x, y, s) {
     BARRACKS: ["#86b6ff", "#30518f"],
     WORKSHOP: ["#ffcf95", "#875d2f"],
     REACTOR: ["#b79bff", "#54408d"],
+    SIEGEWORKS: ["#d3b5ff", "#655092"],
     CANNON: ["#ff9bb3", "#8a394b"],
     MISSILE: ["#ffd88f", "#8a6638"],
     ARTILLERY: ["#ffb38a", "#8f4f2d"],
   };
   const p = palette[b.type] || ["#9ac8ff", "#3c5f8d"];
-  const g = ctx.createLinearGradient(x - s, y - s, x + s, y + s);
+  const lvScale = 1 + (ownerLv - 1) * 0.03;
+  const ss = s * lvScale;
+  const g = ctx.createLinearGradient(x - ss, y - ss, x + ss, y + ss);
   g.addColorStop(0, p[0]);
   g.addColorStop(1, p[1]);
   ctx.fillStyle = g;
   if (b.type === "RELAY" || b.type === "REACTOR" || b.type === "MEDBAY") {
     ctx.beginPath();
-    ctx.arc(x, y, s, 0, Math.PI * 2);
+    ctx.arc(x, y, ss, 0, Math.PI * 2);
     ctx.fill();
   } else {
-    ctx.fillRect(x - s, y - s, s * 2, s * 2);
+    ctx.fillRect(x - ss, y - ss, ss * 2, ss * 2);
   }
-  ctx.strokeStyle = "rgba(255,255,255,.92)";
-  ctx.lineWidth = 1.4;
+  ctx.strokeStyle = own ? "rgba(238,255,232,.95)" : "rgba(255,255,255,.6)";
+  ctx.lineWidth = own ? 1.8 : 1.2;
   if (b.type === "RELAY" || b.type === "REACTOR" || b.type === "MEDBAY") {
     ctx.beginPath();
-    ctx.arc(x, y, s, 0, Math.PI * 2);
+    ctx.arc(x, y, ss, 0, Math.PI * 2);
     ctx.stroke();
   } else {
-    ctx.strokeRect(x - s, y - s, s * 2, s * 2);
+    ctx.strokeRect(x - ss, y - ss, ss * 2, ss * 2);
   }
-
-  ctx.globalAlpha = 0.16;
-  ctx.fillStyle = p[0];
-  ctx.beginPath();
-  ctx.arc(x, y, s + 8, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.globalAlpha = 1;
-
-  if (b.type === "HQ") {
-    ctx.fillStyle = "rgba(255,255,255,.9)";
-    ctx.fillRect(x - 5, y - 5, 10, 10);
-    ctx.strokeStyle = "rgba(185,255,227,.85)";
-    ctx.beginPath();
-    ctx.moveTo(x - 9, y);
-    ctx.lineTo(x + 9, y);
-    ctx.moveTo(x, y - 9);
-    ctx.lineTo(x, y + 9);
-    ctx.stroke();
-  } else if (b.type === "BARRACKS") {
-    ctx.fillStyle = "rgba(230,242,255,.9)";
-    ctx.fillRect(x - 8, y - 5, 16, 10);
-    ctx.fillRect(x - 3, y - 10, 6, 5);
-  } else if (b.type === "MEDBAY") {
-    ctx.strokeStyle = "rgba(255,255,255,.95)";
+  if (b.type === "MEDBAY") {
+    ctx.strokeStyle = "#efffff";
     ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(x - 6, y); ctx.lineTo(x + 6, y); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(x, y - 6); ctx.lineTo(x, y + 6); ctx.stroke();
-  } else if (b.type === "ARTILLERY") {
-    ctx.strokeStyle = "rgba(255,248,220,.95)";
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + s + 8, y - 10); ctx.stroke();
-  } else if (b.type === "REACTOR") {
-    ctx.strokeStyle = "rgba(229,215,255,.92)";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(x, y, s * 0.48, 0, Math.PI * 2);
-    ctx.stroke();
-  } else if (b.type === "MISSILE") {
-    ctx.fillStyle = "rgba(255,247,218,.95)";
-    ctx.fillRect(x - 3, y - s + 4, 6, s + 2);
-  } else if (b.type === "CANNON") {
-    ctx.strokeStyle = "rgba(255,230,230,.95)";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(x + s + 2, y);
-    ctx.stroke();
   }
 }
 
-function drawMonsterSprite(m, x, y) {
-  const a = m.archetype || MONSTER_ARCHETYPES[0];
-  const pulse = 1 + Math.sin(state.time * 5 + x * 0.01) * 0.05;
-  const r = m.r * pulse;
-  ctx.fillStyle = a.body;
+function drawUnit(u, x, y, own, ownerLv) {
+  const boost = 1 + (ownerLv - 1) * 0.04;
+  const r = (u.r || 8) * boost;
+  if (u.type === "INFANTRY") {
+    ctx.fillStyle = own ? "#99f1ff" : "#ffdcae";
+    ctx.fillRect(x - r * 0.8, y - r, r * 1.6, r * 2);
+    ctx.fillStyle = "#e7fbff";
+    ctx.beginPath(); ctx.arc(x, y - r * 1.1, r * 0.52, 0, Math.PI * 2); ctx.fill();
+  } else if (u.type === "CAVALRY") {
+    ctx.fillStyle = own ? "#6ff5cf" : "#ffc08f";
+    ctx.beginPath();
+    ctx.ellipse(x, y, r * 1.5, r * 0.95, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#e7fbff";
+    ctx.beginPath(); ctx.arc(x + r * 0.7, y - r * 0.7, r * 0.48, 0, Math.PI * 2); ctx.fill();
+  } else {
+    ctx.fillStyle = own ? "#c6c7ff" : "#ffc4b8";
+    ctx.fillRect(x - r * 1.2, y - r * 0.9, r * 2.4, r * 1.8);
+    ctx.strokeStyle = "rgba(20,16,36,.9)";
+    ctx.strokeRect(x - r * 1.2, y - r * 0.9, r * 2.4, r * 1.8);
+  }
+}
+
+function drawMonster(m, x, y) {
+  const r = m.r || 12;
+  ctx.fillStyle = m.archetype === "Brute" ? "#ffb08a" : m.archetype === "Crawler" ? "#b4f29a" : "#8ac0ff";
   ctx.beginPath();
   ctx.moveTo(x, y - r);
   ctx.lineTo(x + r * 0.86, y - r * 0.2);
@@ -932,276 +402,149 @@ function drawMonsterSprite(m, x, y) {
   ctx.closePath();
   ctx.fill();
   ctx.strokeStyle = "rgba(8,12,22,.9)";
-  ctx.lineWidth = 1.4;
   ctx.stroke();
-  ctx.fillStyle = a.horn;
-  ctx.beginPath();
-  ctx.moveTo(x - r * 0.28, y - r * 0.9);
-  ctx.lineTo(x - r * 0.06, y - r * 1.36);
-  ctx.lineTo(x + r * 0.06, y - r * 0.88);
-  ctx.closePath();
-  ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(x + r * 0.24, y - r * 0.84);
-  ctx.lineTo(x + r * 0.46, y - r * 1.2);
-  ctx.lineTo(x + r * 0.56, y - r * 0.72);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = a.eye;
-  ctx.beginPath();
-  ctx.arc(x - r * 0.24, y - r * 0.14, Math.max(1.8, r * 0.13), 0, Math.PI * 2);
-  ctx.arc(x + r * 0.2, y - r * 0.12, Math.max(1.8, r * 0.13), 0, Math.PI * 2);
-  ctx.fill();
 }
 
-function buildingDetailText(sel) {
-  const cfg = BUILDINGS[sel.type];
-  const lines = [
-    `Selected: ${sel.type}`,
-    `HP ${Math.max(0, sel.hp).toFixed(0)} / ${sel.hpMax}`,
-    `Trait: ${cfg.trait || "-"}`,
-    `Cost: ${cfg.cost}`,
-    `Prereq: ${cfg.prereq.join(", ") || "none"}`,
-  ];
-  if (cfg.produces) lines.push(`Production: ${cfg.produces} every ${cfg.spawnCd}s (base)`);
-  if (cfg.heal) lines.push(`Healing: +${cfg.heal} HP / ${cfg.healCd}s within ${cfg.healRange}`);
-  if (cfg.range > 0) lines.push(`Attack range: ${cfg.range}`);
-  if (sel.type === "ARTILLERY") lines.push("Move: right click empty ground");
-  lines.push(`Forced target: ${sel.forceTarget || "none"}`);
-  return lines.join("\n");
+function drawGuardian(g, x, y) {
+  const r = g.r || 14;
+  ctx.fillStyle = "#ff5a7c";
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#ffe0ea";
+  ctx.stroke();
+  ctx.fillStyle = "#310015";
+  ctx.beginPath();
+  ctx.arc(x - 4, y - 2, 2, 0, Math.PI * 2);
+  ctx.arc(x + 4, y - 2, 2, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 function render() {
+  state.time += 1 / 60;
+  if (banner.style.display === "block" && state.time > state.bannerUntil) banner.style.display = "none";
+
+  const world = state.world;
+  const pmap = playersById();
+
   ctx.clearRect(0, 0, W, H);
   const bg = ctx.createLinearGradient(0, 0, 0, H);
   bg.addColorStop(0, "#081021");
   bg.addColorStop(1, "#040a15");
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
-  drawWorldGrid();
 
-  // build range always visible
-  for (const s of territorySources()) {
-    const x = s.x - state.camX;
-    const y = s.y - state.camY;
-    ctx.strokeStyle = "rgba(98,217,255,.16)";
+  ctx.strokeStyle = "rgba(122,152,212,.1)";
+  for (let x = -state.camX % 50; x < W; x += 50) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let y = -state.camY % 50; y < H; y += 50) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+  ctx.strokeStyle = "rgba(255,255,255,.28)";
+  ctx.strokeRect(-state.camX, -state.camY, world.cfg.worldW, world.cfg.worldH);
+
+  for (const b of myBuildings()) {
+    const def = world.cfg.buildingDefs[b.type];
+    if (!def) continue;
+    const x = b.x - state.camX;
+    const y = b.y - state.camY;
+    ctx.strokeStyle = "rgba(98,217,255,.2)";
     ctx.fillStyle = "rgba(98,217,255,.05)";
     ctx.beginPath();
-    ctx.arc(x, y, s.r, 0, Math.PI * 2);
+    ctx.arc(x, y, def.radius || 180, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
   }
 
-  // enemy central tower
-  const ex = enemyTower.x - state.camX;
-  const ey = enemyTower.y - state.camY;
-  if (enemyTower.hp > 0) {
-    ctx.fillStyle = "#9d5fff";
-    ctx.beginPath();
-    ctx.arc(ex, ey, enemyTower.r, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = "rgba(255,255,255,.9)";
-    ctx.stroke();
-    drawBar(ex - 60, ey + enemyTower.r + 8, 120, 7, enemyTower.hp / enemyTower.hpMax, "#ff8aaf");
-    ctx.fillStyle = "#efe7ff";
-    ctx.font = "11px Segoe UI";
-    ctx.fillText("CENTRAL TOWER", ex - 48, ey - enemyTower.r - 10);
-  }
+  const ex = world.central.x - state.camX;
+  const ey = world.central.y - state.camY;
+  ctx.fillStyle = "#9d5fff";
+  ctx.beginPath(); ctx.arc(ex, ey, world.central.r, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "#efe3ff";
+  ctx.stroke();
+  drawBar(ex - 80, ey + world.central.r + 8, 160, 7, world.central.hp / world.central.hpMax, "#ff8aaf");
+  ctx.fillStyle = "#f2e8ff";
+  ctx.font = "11px Segoe UI";
+  ctx.fillText("CENTRAL PYLON", ex - 46, ey - world.central.r - 10);
 
-  // units
-  for (const u of units) {
-    const x = u.x - state.camX;
-    const y = u.y - state.camY;
-    if (x < -30 || y < -30 || x > W + 30 || y > H + 30) continue;
-    ctx.fillStyle = UNIT_TYPES[u.type].col;
-    ctx.beginPath();
-    ctx.arc(x, y, u.r, 0, Math.PI * 2);
-    ctx.fill();
-    drawBar(x - 10, y - u.r - 8, 20, 3, u.hp / u.hpMax, "#d9f7ff");
-  }
-
-  // buildings
-  for (const b of buildings) {
+  for (const b of world.buildings) {
     if (b.hp <= 0) continue;
     const x = b.x - state.camX;
     const y = b.y - state.camY;
-    const s = BUILDINGS[b.type].size;
-    if (x < -50 || y < -50 || x > W + 50 || y > H + 50) continue;
-    drawBuildingVisual(b, x, y, s);
-    drawBar(x - s, y + s + 4, s * 2, 5, b.hp / b.hpMax, "#7ef5df");
+    const s = world.cfg.buildingDefs[b.type]?.size || 20;
+    if (x < -80 || y < -80 || x > W + 80 || y > H + 80) continue;
+    const own = world.me && b.ownerId === world.me.id;
+    const ownerLv = levelForOwner(b.ownerId, pmap);
+    drawBuildingVisual(b, x, y, s, own, ownerLv);
+    drawBar(x - s, y + s + 4, s * 2, 4, b.hp / b.hpMax, own ? "#95ffd7" : "#b6d2ff");
     if (b.id === state.selectedBuildingId) {
-      ctx.strokeStyle = "#fff8a1";
+      ctx.strokeStyle = "#fff29a";
       ctx.lineWidth = 2;
       ctx.strokeRect(x - s - 3, y - s - 3, s * 2 + 6, s * 2 + 6);
-      const r = BUILDINGS[b.type].range;
-      if (r > 0) {
-        ctx.strokeStyle = "rgba(255,243,153,.4)";
-        ctx.beginPath();
-        ctx.arc(x, y, r, 0, Math.PI * 2);
-        ctx.stroke();
-      }
-      const hr = BUILDINGS[b.type].healRange || 0;
-      if (hr > 0) {
-        ctx.strokeStyle = "rgba(112,255,199,.4)";
-        ctx.beginPath();
-        ctx.arc(x, y, hr, 0, Math.PI * 2);
-        ctx.stroke();
-      }
-      if (b.forceTarget) {
-        const t = targetById(b.forceTarget);
-        if (t) {
-          ctx.strokeStyle = "rgba(255,160,114,.9)";
-          ctx.beginPath();
-          ctx.moveTo(x, y);
-          ctx.lineTo(t.x - state.camX, t.y - state.camY);
-          ctx.stroke();
-        }
-      }
     }
-    ctx.fillStyle = "#eff6ff";
-    ctx.font = "10px Segoe UI";
-    ctx.fillText(b.type, x - s, y - s - 6);
   }
 
-  // monsters (drawn after buildings so they are not hidden in fights)
-  for (const m of monsters) {
-    if (!m.alive) continue;
+  for (const u of world.units) {
+    const x = u.x - state.camX;
+    const y = u.y - state.camY;
+    if (x < -40 || y < -40 || x > W + 40 || y > H + 40) continue;
+    const own = world.me && u.ownerId === world.me.id;
+    const ownerLv = levelForOwner(u.ownerId, pmap);
+    drawUnit(u, x, y, own, ownerLv);
+  }
+
+  for (const g of world.guardians || []) {
+    const x = g.x - state.camX;
+    const y = g.y - state.camY;
+    if (x < -30 || y < -30 || x > W + 30 || y > H + 30) continue;
+    drawGuardian(g, x, y);
+    drawBar(x - 16, y - (g.r || 14) - 9, 32, 4, g.hp / g.hpMax, "#ffb7c8");
+  }
+
+  for (const m of world.monsters) {
     const x = m.x - state.camX;
     const y = m.y - state.camY;
     if (x < -30 || y < -30 || x > W + 30 || y > H + 30) continue;
-    drawMonsterSprite(m, x, y);
-    drawBar(x - 14, y - m.r - 9, 28, 4, m.hp / m.hpMax, "#ffe1a8");
+    drawMonster(m, x, y);
+    drawBar(x - 13, y - (m.r || 12) - 8, 26, 4, m.hp / m.hpMax, "#ffe1a8");
   }
 
-  // projectiles
-  for (const p of projectiles) {
-    const x = p.x - state.camX;
-    const y = p.y - state.camY;
-    ctx.fillStyle = p.color;
-    ctx.beginPath();
-    ctx.arc(x, y, 3, 0, Math.PI * 2);
-    ctx.fill();
-  }
+  const me = world.me;
+  hud.textContent = me
+    ? `Online RTS\nMoney: ${Math.floor(me.money)}\nLevel: ${me.level}\nBuild: ${state.placingType || "-"}\nAlive: ${me.alive ? "YES" : "NO"}\nConnection: ${state.connected ? "OK" : "OFF"}\nIncome slowed for longer macro`
+    : "Connecting...";
 
-  // hit effects
-  for (const e of effects) {
-    const x = e.x - state.camX;
-    const y = e.y - state.camY;
-    const a = clamp(e.t / 0.2, 0, 1);
-    ctx.globalAlpha = a;
-    ctx.strokeStyle = e.c;
-    ctx.beginPath();
-    ctx.arc(x, y, 12 + (1 - a) * 16, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.globalAlpha = 1;
-  }
-
-  // placement preview
-  if (state.placingType) {
-    const t = BUILDINGS[state.placingType];
-    const w = screenToWorld(mouse.x, mouse.y);
-    const x = Math.round(w.x / CFG.BUILD_SNAP) * CFG.BUILD_SNAP;
-    const y = Math.round(w.y / CFG.BUILD_SNAP) * CFG.BUILD_SNAP;
-    const ok = inTerritory(x, y) && !overlapsBuilding(x, y, t.size) && state.money >= t.cost;
-    ctx.fillStyle = ok ? "rgba(126,245,205,.35)" : "rgba(255,120,120,.35)";
-    ctx.fillRect(x - state.camX - t.size, y - state.camY - t.size, t.size * 2, t.size * 2);
-    ctx.strokeStyle = ok ? "#9dffcf" : "#ff9d9d";
-    ctx.strokeRect(x - state.camX - t.size, y - state.camY - t.size, t.size * 2, t.size * 2);
-  }
-
-  // minimap left
-  const mm = CFG.MINIMAP_SIZE;
-  const mx = 12;
-  const my = H - mm - 12;
-  ctx.fillStyle = "rgba(8,14,24,.72)";
-  ctx.fillRect(mx, my, mm, mm);
-  ctx.strokeStyle = "rgba(170,197,238,.65)";
-  ctx.strokeRect(mx, my, mm, mm);
-  const sx = mm / CFG.WORLD_W;
-  const sy = mm / CFG.WORLD_H;
-  for (const b of buildings) {
-    if (b.hp <= 0) continue;
-    ctx.fillStyle = b.id === player.hqId ? "#7effd4" : "#9ad0ff";
-    ctx.fillRect(mx + b.x * sx - 2, my + b.y * sy - 2, 4, 4);
-  }
-  for (const m of monsters) {
-    if (!m.alive) continue;
-    ctx.fillStyle = m.aggroId ? "#ffb07a" : "#a7c8ff";
-    ctx.fillRect(mx + m.x * sx - 1, my + m.y * sy - 1, 2, 2);
-  }
-  for (const u of units) {
-    ctx.fillStyle = UNIT_TYPES[u.type].col;
-    ctx.fillRect(mx + u.x * sx - 1, my + u.y * sy - 1, 2, 2);
-  }
-  if (enemyTower.hp > 0) {
-    ctx.fillStyle = "#caa0ff";
-    ctx.fillRect(mx + enemyTower.x * sx - 3, my + enemyTower.y * sy - 3, 6, 6);
-  }
-  ctx.strokeStyle = "#ffffff";
-  ctx.strokeRect(mx + state.camX * sx, my + state.camY * sy, W * sx, H * sy);
-
-  const hq = buildings.find((b) => b.id === player.hqId) || { hp: 0, hpMax: 1 };
-  hud.textContent =
-`Crystal Core Hunt
-Money: ${Math.floor(state.money)}
-LV: ${player.level} / ${CFG.LEVEL_MAX}  EXP: ${player.level >= CFG.LEVEL_MAX ? "MAX" : `${Math.floor(player.exp)} / ${player.expNext}`}
-Build: ${state.placingType || "-"}
-Command mode: ${state.commandMode ? "ON (click enemy)" : "OFF"}
-Time: ${state.time.toFixed(1)}s
-HQ HP: ${Math.max(0, hq.hp).toFixed(0)} / ${hq.hpMax}
-Central HP: ${Math.max(0, enemyTower.hp).toFixed(0)} / ${enemyTower.hpMax}
-Controls: WASD/Arrows camera | Left click select/place | Right click clear target
-Build: press 1-8 or click build button, then left click map
-Traits: Barracks=unit production, Medbay=building heal, Artillery=mobile`;
-
-  const aliveBuilds = buildings.filter((b) => b.hp > 0).length;
-  right.textContent =
-`BUILD SUMMARY
-Alive buildings: ${aliveBuilds}
-Units alive: ${units.length}
-Monsters alive: ${monsters.filter((m) => m.alive).length}
-Monster types: ${MONSTER_ARCHETYPES.map((m) => m.name).join(", ")}
-Tech unlocked:
-${Object.keys(BUILDINGS).filter((k) => k === "HQ" || canBuildType(k)).join(", ")}`;
+  right.textContent = `PLAYERS (${world.players.length}/8)\n${world.players
+    .slice()
+    .sort((a, b) => a.slot - b.slot)
+    .map((p) => `${p.slot + 1}. ${p.name}${p.isBot ? " [BOT]" : ""}${p.alive ? "" : " [DEAD]"}`)
+    .join("\n")}`;
 
   const sel = selectedBuilding();
-  infoPanel.textContent = sel
-    ? buildingDetailText(sel)
-    : "Build guide: 1-8 key or build button -> left click to place inside cyan territory circles. Select combat tower -> click enemy to force target.";
+  if (sel) {
+    const def = world.cfg.buildingDefs[sel.type] || {};
+    const limit = world.cfg.limits[sel.type] || 99;
+    info.textContent = `Selected: ${sel.type}\nHP: ${Math.floor(sel.hp)} / ${sel.hpMax}\nTrait: ${def.trait || "-"}\nCost: ${def.cost || 0}\nLimit: ${ownedCount(sel.type)} / ${limit}\nPrereq: ${(def.prereq || []).join(", ") || "none"}`;
+  } else {
+    info.textContent = "Mobile build: choose bottom building button, then tap map.\nFinal command: select ARTILLERY -> Rally All Units -> tap target point.";
+  }
 
-  if (state.over) {
-    center.textContent = state.win ? "VICTORY - CENTRAL TOWER DESTROYED" : "DEFEAT - HQ DESTROYED";
+  if (world.match?.over) {
+    const won = me && world.match.winnerId === me.id;
+    center.textContent = won ? `VICTORY (${world.match.reason})` : `DEFEAT - ${world.match.winnerName || "Unknown"} won`;
   } else {
     center.textContent = "";
   }
+
+  rebuildActionButtons();
+  requestAnimationFrame(render);
 }
 
-function start() {
-  if (state.started) return;
-  player.name = (nickInput.value || "Commander").trim().slice(0, 16) || "Commander";
-  startOverlay.style.display = "none";
-  state.started = true;
-  showBanner("Build with 1-8 or bottom buttons, then left click on map");
+function startGame() {
+  overlay.style.display = "none";
+  connect((nick.value || "Commander").trim().slice(0, 16));
 }
-startBtn.onclick = start;
 
-buildButtons();
-initGame();
+startBtn.onclick = startGame;
+addEventListener("keydown", (e) => {
+  if (overlay.style.display !== "none" && e.code === "Enter") startGame();
+});
 
-let last = performance.now() / 1000;
-let acc = 0;
-const dt = 1 / CFG.SIM_HZ;
-
-function loop() {
-  const now = performance.now() / 1000;
-  let frame = Math.min(0.08, now - last);
-  last = now;
-  acc += frame;
-  while (acc >= dt) {
-    update(dt);
-    acc -= dt;
-  }
-  render();
-  requestAnimationFrame(loop);
-}
-requestAnimationFrame(loop);
+requestAnimationFrame(render);
