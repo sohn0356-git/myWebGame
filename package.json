@@ -3,7 +3,8 @@
   "private": true,
   "scripts": {
     "build:web": "esbuild web/ts/app.tsx --bundle --format=esm --outfile=web/app.js && esbuild web/ts/ui.tsx --bundle --format=esm --outfile=web/ui.js",
-    "typecheck:web": "tsc -p tsconfig.json --noEmit"
+    "typecheck:web": "tsc -p tsconfig.json --noEmit",
+    "start": "node server.js"
   },
   "devDependencies": {
     "esbuild": "^0.25.0",
