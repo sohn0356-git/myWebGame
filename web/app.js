@@ -8,17 +8,24 @@ const CFG = {
   MONSTER_COUNT: 32,
   MONSTER_AGGRO_TIME: 7,
   MINIMAP_SIZE: 210,
+  LEVEL_MAX: 8,
+  HQ_INCOME_PER_SEC: 7,
 };
 
 const BUILDINGS = {
-  HQ: { name: "HQ", hp: 2600, size: 34, cost: 0, r: 320, range: 220, damage: 20, fireCd: 0.8, projSpeed: 620, prereq: [] },
-  RELAY: { name: "Relay", hp: 1000, size: 22, cost: 70, r: 250, range: 0, damage: 0, fireCd: 0, projSpeed: 0, prereq: ["HQ"] },
-  BARRACKS: { name: "Barracks", hp: 1200, size: 24, cost: 110, r: 220, range: 230, damage: 22, fireCd: 0.75, projSpeed: 700, prereq: ["RELAY"] },
-  WORKSHOP: { name: "Workshop", hp: 1300, size: 26, cost: 150, r: 240, range: 0, damage: 0, fireCd: 0, projSpeed: 0, prereq: ["BARRACKS"] },
-  REACTOR: { name: "Reactor", hp: 1400, size: 25, cost: 170, r: 260, range: 0, damage: 0, fireCd: 0, projSpeed: 0, prereq: ["WORKSHOP"] },
-  CANNON: { name: "Cannon", hp: 900, size: 18, cost: 95, r: 180, range: 300, damage: 40, fireCd: 0.7, projSpeed: 800, prereq: ["RELAY"] },
-  MISSILE: { name: "Missile", hp: 850, size: 18, cost: 160, r: 170, range: 420, damage: 68, fireCd: 1.2, projSpeed: 980, prereq: ["CANNON", "REACTOR"] },
-  ARTILLERY: { name: "Artillery", hp: 760, size: 18, cost: 240, r: 150, range: 620, damage: 125, fireCd: 2.4, projSpeed: 720, prereq: ["WORKSHOP", "REACTOR"] },
+  HQ: { name: "HQ", hp: 2600, size: 34, cost: 0, r: 320, range: 220, damage: 20, fireCd: 0.8, projSpeed: 620, prereq: [], trait: "Passive crystal income + base defense" },
+  RELAY: { name: "Relay", hp: 1000, size: 22, cost: 70, r: 250, range: 0, damage: 0, fireCd: 0, projSpeed: 0, prereq: ["HQ"], trait: "Territory extension node" },
+  BARRACKS: { name: "Barracks", hp: 1200, size: 24, cost: 110, r: 220, range: 230, damage: 22, fireCd: 0.75, projSpeed: 700, prereq: ["RELAY"], produces: "MARINE", spawnCd: 5.2, trait: "Auto-produces Marines" },
+  WORKSHOP: { name: "Workshop", hp: 1300, size: 26, cost: 150, r: 240, range: 0, damage: 0, fireCd: 0, projSpeed: 0, prereq: ["BARRACKS"], produces: "DRONE", spawnCd: 7.4, trait: "Auto-produces Drones" },
+  REACTOR: { name: "Reactor", hp: 1400, size: 25, cost: 170, r: 260, range: 0, damage: 0, fireCd: 0, projSpeed: 0, prereq: ["WORKSHOP"], trait: "Nearby towers: +20% damage, -20% cooldown/production time" },
+  CANNON: { name: "Cannon", hp: 900, size: 18, cost: 95, r: 180, range: 300, damage: 40, fireCd: 0.7, projSpeed: 800, prereq: ["RELAY"], monsterMult: 1.35, trait: "Anti-monster turret" },
+  MISSILE: { name: "Missile", hp: 850, size: 18, cost: 160, r: 170, range: 420, damage: 68, fireCd: 1.2, projSpeed: 980, prereq: ["CANNON", "REACTOR"], splashRadius: 42, trait: "Long range splash missiles" },
+  ARTILLERY: { name: "Artillery", hp: 760, size: 18, cost: 240, r: 150, range: 620, damage: 125, fireCd: 2.4, projSpeed: 720, prereq: ["WORKSHOP", "REACTOR"], towerMult: 1.35, trait: "Siege bonus vs central tower" },
+};
+
+const UNIT_TYPES = {
+  MARINE: { hp: 110, r: 8, speed: 145, range: 170, atk: 19, fireCd: 0.55, col: "#88e7ff" },
+  DRONE: { hp: 210, r: 10, speed: 112, range: 220, atk: 46, fireCd: 1.15, col: "#ffcf89" },
 };
 
 const BUILD_ORDER = ["RELAY", "BARRACKS", "WORKSHOP", "REACTOR", "CANNON", "MISSILE", "ARTILLERY"];
@@ -92,6 +99,7 @@ const state = {
   win: false,
   time: 0,
   money: 180,
+  incomeTick: 0,
   camX: 0,
   camY: 0,
   selectedBuildingId: "",
@@ -106,11 +114,15 @@ function id(prefix) { return `${prefix}${idSeed++}`; }
 const player = {
   name: "Commander",
   hqId: "",
+  level: 1,
+  exp: 0,
+  expNext: 110,
 };
 const buildings = [];
 const monsters = [];
 const projectiles = [];
 const effects = [];
+const units = [];
 const enemyTower = {
   id: "enemy-core",
   x: CFG.WORLD_W * 0.5,
@@ -131,10 +143,35 @@ function addBuilding(type, x, y) {
     hp: t.hp,
     hpMax: t.hp,
     fireCd: 0,
+    spawnCd: t.spawnCd || 0,
     forceTarget: "",
   };
   buildings.push(b);
   return b;
+}
+
+function addUnit(type, ownerBuildingId, x, y) {
+  const t = UNIT_TYPES[type];
+  if (!t) return null;
+  const u = {
+    id: id("u"),
+    type,
+    ownerBuildingId,
+    x,
+    y,
+    homeX: x,
+    homeY: y,
+    hp: t.hp,
+    hpMax: t.hp,
+    r: t.r,
+    speed: t.speed,
+    range: t.range,
+    atk: t.atk,
+    fireCd: 0,
+    targetId: "",
+  };
+  units.push(u);
+  return u;
 }
 
 function initGame() {
@@ -142,7 +179,9 @@ function initGame() {
   monsters.length = 0;
   projectiles.length = 0;
   effects.length = 0;
+  units.length = 0;
   state.money = 180;
+  state.incomeTick = 0;
   state.over = false;
   state.win = false;
   state.time = 0;
@@ -151,11 +190,15 @@ function initGame() {
   state.placingType = "";
   enemyTower.hp = enemyTower.hpMax;
   enemyTower.fireCd = 0;
+  player.level = 1;
+  player.exp = 0;
+  player.expNext = 110;
 
   const hq = addBuilding("HQ", CFG.WORLD_W * 0.2, CFG.WORLD_H * 0.8);
   player.hqId = hq.id;
 
   for (let i = 0; i < CFG.MONSTER_COUNT; i++) {
+    const ang = rand(0, Math.PI * 2);
     monsters.push({
       id: id("m"),
       x: rand(130, CFG.WORLD_W - 130),
@@ -169,6 +212,9 @@ function initGame() {
       aggroUntil: 0,
       hitCd: 0,
       alive: true,
+      vx: Math.cos(ang) * rand(32, 72),
+      vy: Math.sin(ang) * rand(32, 72),
+      wanderT: rand(0.4, 1.8),
     });
   }
 }
@@ -219,8 +265,9 @@ function inTerritory(x, y) {
   return territorySources().some((s) => len(x - s.x, y - s.y) <= s.r);
 }
 
-function overlapsBuilding(x, y, size) {
+function overlapsBuilding(x, y, size, ignoreId = "") {
   for (const b of buildings) {
+    if (ignoreId && b.id === ignoreId) continue;
     if (b.hp <= 0) continue;
     const other = BUILDINGS[b.type].size;
     if (len(x - b.x, y - b.y) < size + other + 8) return true;
@@ -235,6 +282,10 @@ function screenToWorld(sx, sy) {
 
 function selectedBuilding() {
   return buildings.find((b) => b.id === state.selectedBuildingId);
+}
+
+function livingHQ() {
+  return buildings.find((b) => b.id === player.hqId && b.hp > 0);
 }
 
 function enemyAtPoint(x, y) {
@@ -310,6 +361,9 @@ canvas.addEventListener("contextmenu", (e) => {
   e.preventDefault();
   const sel = selectedBuilding();
   if (!sel) return;
+  const w = screenToWorld(e.clientX, e.clientY);
+  const atEnemy = enemyAtPoint(w.x, w.y);
+  if (!atEnemy && sel.type === "ARTILLERY" && moveBuildingIfAllowed(sel, w.x, w.y)) return;
   sel.forceTarget = "";
   showBanner("Target cleared");
 });
@@ -327,25 +381,59 @@ function spawnProjectile(owner, tx, ty, damage, speed, color, targetId) {
     damage,
     color,
     targetId,
+    splashRadius: owner.splashRadius || 0,
+    monsterMult: owner.monsterMult || 1,
+    towerMult: owner.towerMult || 1,
   });
+}
+
+function levelAttackMult() {
+  return 1 + (player.level - 1) * 0.07;
+}
+
+function levelIncomeMult() {
+  return 1 + (player.level - 1) * 0.08;
+}
+
+function levelProdCdMult() {
+  return Math.max(0.72, 1 - (player.level - 1) * 0.03);
+}
+
+function gainExp(v) {
+  if (player.level >= CFG.LEVEL_MAX || v <= 0) return;
+  player.exp += v;
+  while (player.level < CFG.LEVEL_MAX && player.exp >= player.expNext) {
+    player.exp -= player.expNext;
+    player.level += 1;
+    player.expNext = Math.floor(player.expNext * 1.34 + 26);
+    showBanner(`LEVEL UP ${player.level}!`, "rgba(38,118,78,.88)");
+  }
+  if (player.level >= CFG.LEVEL_MAX) {
+    player.level = CFG.LEVEL_MAX;
+    player.exp = 0;
+  }
+}
+
+function hasReactorAura(x, y) {
+  return buildings.some((b) => b.hp > 0 && b.type === "REACTOR" && len(b.x - x, b.y - y) <= BUILDINGS.REACTOR.r);
 }
 
 function nearestEnemyForBuilding(b, range) {
   let best = null;
   let bestD = range;
-  if (enemyTower.hp > 0) {
-    const d = len(enemyTower.x - b.x, enemyTower.y - b.y);
-    if (d < bestD) {
-      bestD = d;
-      best = { id: enemyTower.id, x: enemyTower.x, y: enemyTower.y };
-    }
-  }
   for (const m of monsters) {
     if (!m.alive) continue;
     const d = len(m.x - b.x, m.y - b.y);
     if (d < bestD) {
       bestD = d;
       best = { id: m.id, x: m.x, y: m.y };
+    }
+  }
+  if (enemyTower.hp > 0) {
+    const d = len(enemyTower.x - b.x, enemyTower.y - b.y);
+    if (d < bestD) {
+      bestD = d;
+      best = { id: enemyTower.id, x: enemyTower.x, y: enemyTower.y };
     }
   }
   return best;
@@ -359,11 +447,42 @@ function targetById(id) {
   return null;
 }
 
+function moveBuildingIfAllowed(b, tx, ty) {
+  if (!b || b.hp <= 0 || b.type !== "ARTILLERY") return false;
+  const t = BUILDINGS[b.type];
+  const x = Math.round(tx / CFG.BUILD_SNAP) * CFG.BUILD_SNAP;
+  const y = Math.round(ty / CFG.BUILD_SNAP) * CFG.BUILD_SNAP;
+  if (x < 20 || y < 20 || x > CFG.WORLD_W - 20 || y > CFG.WORLD_H - 20) return false;
+  if (!inTerritory(x, y)) {
+    showBanner("Outside of your build range", "rgba(148,57,35,.82)");
+    return false;
+  }
+  if (overlapsBuilding(x, y, t.size, b.id)) {
+    showBanner("Cannot move there", "rgba(148,57,35,.82)");
+    return false;
+  }
+  b.x = x;
+  b.y = y;
+  showBanner("Artillery relocated", "rgba(27,88,145,.82)");
+  return true;
+}
+
 function updateBuildings(dt) {
   for (const b of buildings) {
     if (b.hp <= 0) continue;
+    const reactorBuff = hasReactorAura(b.x, b.y);
     if (b.fireCd > 0) b.fireCd -= dt;
     const t = BUILDINGS[b.type];
+    if (t.produces && b.spawnCd > 0) {
+      b.spawnCd -= dt;
+      if (b.spawnCd <= 0) {
+        const a = rand(0, Math.PI * 2);
+        const dist = t.size + 16;
+        addUnit(t.produces, b.id, b.x + Math.cos(a) * dist, b.y + Math.sin(a) * dist);
+        const prodBuff = reactorBuff ? 0.8 : 1;
+        b.spawnCd = t.spawnCd * levelProdCdMult() * prodBuff;
+      }
+    }
     if (t.range <= 0) continue;
     if (b.fireCd > 0) continue;
 
@@ -371,8 +490,17 @@ function updateBuildings(dt) {
     if (target && len(target.x - b.x, target.y - b.y) > t.range) target = null;
     if (!target) target = nearestEnemyForBuilding(b, t.range);
     if (!target) continue;
-    b.fireCd = t.fireCd;
-    spawnProjectile(b, target.x, target.y, t.damage, t.projSpeed, "#d7edff", target.id);
+    const atkBuff = levelAttackMult() * (reactorBuff ? 1.2 : 1);
+    const speedBuff = reactorBuff ? 0.8 : 1;
+    b.fireCd = t.fireCd * speedBuff;
+    spawnProjectile({
+      id: b.id,
+      x: b.x,
+      y: b.y,
+      splashRadius: t.splashRadius || 0,
+      monsterMult: t.monsterMult || 1,
+      towerMult: t.towerMult || 1,
+    }, target.x, target.y, t.damage * atkBuff, t.projSpeed, "#d7edff", target.id);
   }
 }
 
@@ -382,6 +510,7 @@ function damageMonster(m, dmg, fromX, fromY) {
   if (m.hp <= 0) {
     m.alive = false;
     state.money += 28;
+    gainExp(18);
     return;
   }
   const nearest = buildings.filter((b) => b.hp > 0).sort((a, z) => len(a.x - m.x, a.y - m.y) - len(z.x - m.x, z.y - m.y))[0];
@@ -413,13 +542,21 @@ function updateProjectiles(dt) {
     if (p.x < 0 || p.y < 0 || p.x > CFG.WORLD_W || p.y > CFG.WORLD_H) { projectiles.splice(i, 1); continue; }
 
     if (enemyTower.hp > 0 && len(p.x - enemyTower.x, p.y - enemyTower.y) <= enemyTower.r + 3) {
-      enemyTower.hp -= p.damage;
+      enemyTower.hp -= p.damage * p.towerMult;
       effects.push({ x: enemyTower.x, y: enemyTower.y, t: 0.2, c: "#fff0a0" });
       if (enemyTower.hp <= 0) {
         enemyTower.hp = 0;
         state.over = true;
         state.win = true;
       }
+      if (p.splashRadius > 0) {
+        for (const m of monsters) {
+          if (!m.alive) continue;
+          const d = len(m.x - p.x, m.y - p.y);
+          if (d <= p.splashRadius) damageMonster(m, p.damage * p.monsterMult * 0.55, p.x, p.y);
+        }
+      }
+      gainExp(6);
       projectiles.splice(i, 1);
       continue;
     }
@@ -428,7 +565,14 @@ function updateProjectiles(dt) {
     for (const m of monsters) {
       if (!m.alive) continue;
       if (len(p.x - m.x, p.y - m.y) <= m.r + 3) {
-        damageMonster(m, p.damage, p.x, p.y);
+        damageMonster(m, p.damage * p.monsterMult, p.x, p.y);
+        if (p.splashRadius > 0) {
+          for (const other of monsters) {
+            if (!other.alive || other.id === m.id) continue;
+            const d = len(other.x - p.x, other.y - p.y);
+            if (d <= p.splashRadius) damageMonster(other, p.damage * p.monsterMult * 0.45, p.x, p.y);
+          }
+        }
         hit = true;
         break;
       }
@@ -440,6 +584,91 @@ function updateProjectiles(dt) {
   }
 }
 
+function nearestEnemyForUnit(u, detect) {
+  let best = null;
+  let bestD = detect;
+  for (const m of monsters) {
+    if (!m.alive) continue;
+    const d = len(m.x - u.x, m.y - u.y);
+    if (d < bestD) {
+      bestD = d;
+      best = { id: m.id, x: m.x, y: m.y, kind: "monster" };
+    }
+  }
+  if (enemyTower.hp > 0) {
+    const d = len(enemyTower.x - u.x, enemyTower.y - u.y);
+    if (d < bestD) {
+      bestD = d;
+      best = { id: enemyTower.id, x: enemyTower.x, y: enemyTower.y, kind: "tower" };
+    }
+  }
+  return best;
+}
+
+function applyUnitDamage(unit, target) {
+  if (target.kind === "tower" && enemyTower.hp > 0) {
+    const bonus = unit.type === "DRONE" ? 1.2 : 1;
+    enemyTower.hp -= unit.atk * levelAttackMult() * bonus;
+    effects.push({ x: enemyTower.x, y: enemyTower.y, t: 0.18, c: "#fff0a0" });
+    gainExp(4);
+    if (enemyTower.hp <= 0) {
+      enemyTower.hp = 0;
+      state.over = true;
+      state.win = true;
+    }
+    return;
+  }
+  if (target.kind === "monster") {
+    const m = monsters.find((x) => x.id === target.id && x.alive);
+    if (m) damageMonster(m, unit.atk * levelAttackMult(), unit.x, unit.y);
+  }
+}
+
+function updateUnits(dt) {
+  for (let i = units.length - 1; i >= 0; i--) {
+    const u = units[i];
+    if (u.hp <= 0) {
+      units.splice(i, 1);
+      continue;
+    }
+    if (u.fireCd > 0) u.fireCd -= dt;
+    const owner = buildings.find((b) => b.id === u.ownerBuildingId && b.hp > 0);
+    const forced = owner ? targetById(owner.forceTarget) : null;
+    let target = null;
+    if (forced) {
+      target = { id: forced.id, x: forced.x, y: forced.y, kind: forced.id === enemyTower.id ? "tower" : "monster" };
+    } else {
+      target = nearestEnemyForUnit(u, 460);
+    }
+    if (target) {
+      const dx = target.x - u.x;
+      const dy = target.y - u.y;
+      const d = len(dx, dy);
+      const n = norm(dx, dy);
+      if (d > u.range - 8) {
+        u.x += n.x * u.speed * dt;
+        u.y += n.y * u.speed * dt;
+      } else if (u.fireCd <= 0) {
+        u.fireCd = UNIT_TYPES[u.type].fireCd;
+        applyUnitDamage(u, target);
+      }
+      u.targetId = target.id;
+    } else {
+      const hx = owner ? owner.x : u.homeX;
+      const hy = owner ? owner.y : u.homeY;
+      const d = len(hx - u.x, hy - u.y);
+      if (d > 24) {
+        const n = norm(hx - u.x, hy - u.y);
+        u.x += n.x * (u.speed * 0.72) * dt;
+        u.y += n.y * (u.speed * 0.72) * dt;
+      }
+      u.targetId = "";
+    }
+    u.x = clamp(u.x, 0, CFG.WORLD_W);
+    u.y = clamp(u.y, 0, CFG.WORLD_H);
+  }
+}
+
 function updateMonsters(dt) {
   for (const m of monsters) {
     if (!m.alive) continue;
@@ -447,6 +676,20 @@ function updateMonsters(dt) {
 
     if (m.aggroUntil <= state.time) {
       m.aggroId = "";
+      m.wanderT -= dt;
+      if (m.wanderT <= 0) {
+        const a = rand(0, Math.PI * 2);
+        const s = rand(34, 82);
+        m.vx = Math.cos(a) * s;
+        m.vy = Math.sin(a) * s;
+        m.wanderT = rand(0.6, 2.1);
+      }
+      m.x += m.vx * dt;
+      m.y += m.vy * dt;
+      if (m.x < 20 || m.x > CFG.WORLD_W - 20) m.vx *= -1;
+      if (m.y < 20 || m.y > CFG.WORLD_H - 20) m.vy *= -1;
+      m.x = clamp(m.x, 20, CFG.WORLD_W - 20);
+      m.y = clamp(m.y, 20, CFG.WORLD_H - 20);
       continue;
     }
 
@@ -492,6 +735,13 @@ function updateEffects(dt) {
 function update(dt) {
   if (!state.started || state.over) return;
   state.time += dt;
+  state.incomeTick += dt;
+  while (state.incomeTick >= 1) {
+    state.incomeTick -= 1;
+    if (livingHQ()) {
+      state.money += Math.floor(CFG.HQ_INCOME_PER_SEC * levelIncomeMult());
+    }
+  }
 
   if (banner.style.display === "block" && Number(banner.dataset.until || 0) < state.time) {
     banner.style.display = "none";
@@ -506,6 +756,7 @@ function update(dt) {
   state.camY = clamp(state.camY, 0, Math.max(0, CFG.WORLD_H - H));
 
   updateBuildings(dt);
+  updateUnits(dt);
   updateMonsters(dt);
   updateEnemyTower(dt);
   updateProjectiles(dt);
@@ -581,6 +832,18 @@ function render() {
     ctx.arc(x, y, m.r, 0, Math.PI * 2);
     ctx.fill();
     drawBar(x - 14, y - m.r - 9, 28, 4, m.hp / m.hpMax, "#ffe1a8");
+  }
+
+  // units
+  for (const u of units) {
+    const x = u.x - state.camX;
+    const y = u.y - state.camY;
+    if (x < -30 || y < -30 || x > W + 30 || y > H + 30) continue;
+    ctx.fillStyle = UNIT_TYPES[u.type].col;
+    ctx.beginPath();
+    ctx.arc(x, y, u.r, 0, Math.PI * 2);
+    ctx.fill();
+    drawBar(x - 10, y - u.r - 8, 20, 3, u.hp / u.hpMax, "#d9f7ff");
   }
 
   // buildings
@@ -678,6 +941,10 @@ function render() {
     ctx.fillStyle = m.aggroId ? "#ffb07a" : "#a7c8ff";
     ctx.fillRect(mx + m.x * sx - 1, my + m.y * sy - 1, 2, 2);
   }
+  for (const u of units) {
+    ctx.fillStyle = UNIT_TYPES[u.type].col;
+    ctx.fillRect(mx + u.x * sx - 1, my + u.y * sy - 1, 2, 2);
+  }
   if (enemyTower.hp > 0) {
     ctx.fillStyle = "#caa0ff";
     ctx.fillRect(mx + enemyTower.x * sx - 3, my + enemyTower.y * sy - 3, 6, 6);
@@ -689,17 +956,20 @@ function render() {
   hud.textContent =
 `Crystal Core Hunt
 Money: ${Math.floor(state.money)}
+LV: ${player.level} / ${CFG.LEVEL_MAX}  EXP: ${player.level >= CFG.LEVEL_MAX ? "MAX" : `${Math.floor(player.exp)} / ${player.expNext}`}
 Build: ${state.placingType || "-"}
 Command mode: ${state.commandMode ? "ON (click enemy)" : "OFF"}
 Time: ${state.time.toFixed(1)}s
 HQ HP: ${Math.max(0, hq.hp).toFixed(0)} / ${hq.hpMax}
 Central HP: ${Math.max(0, enemyTower.hp).toFixed(0)} / ${enemyTower.hpMax}
-Controls: WASD/Arrows camera | Left click select/place | Right click clear target`;
+Controls: WASD/Arrows camera | Left click select/place | Right click clear target
+Artillery only: right click empty ground to relocate`;
 
   const aliveBuilds = buildings.filter((b) => b.hp > 0).length;
   right.textContent =
 `BUILD SUMMARY
 Alive buildings: ${aliveBuilds}
+Units alive: ${units.length}
 Monsters alive: ${monsters.filter((m) => m.alive).length}
 Tech unlocked:
 ${Object.keys(BUILDINGS).filter((k) => k === "HQ" || canBuildType(k)).join(", ")}`;
@@ -709,6 +979,7 @@ ${Object.keys(BUILDINGS).filter((k) => k === "HQ" || canBuildType(k)).join(", ")
     ? `Selected: ${sel.type}
 HP ${Math.max(0, sel.hp).toFixed(0)} / ${sel.hpMax}
 Range ${BUILDINGS[sel.type].range}
+Trait: ${BUILDINGS[sel.type].trait || "-"}
 Forced target: ${sel.forceTarget || "none"}`
     : "Select a combat tower then click an enemy to command target.";
 
