@@ -7,7 +7,7 @@ function mk(tag, style = "") {
   return el;
 }
 
-const BUILD_ORDER = ["RELAY", "MEDBAY", "BARRACKS", "WORKSHOP", "REACTOR", "SIEGEWORKS", "CANNON", "MISSILE", "ARTILLERY"];
+const BUILD_ORDER = ["RELAY", "MEDBAY", "BARRACKS", "WORKSHOP", "REACTOR", "SIEGEWORKS", "CANNON", "MISSILE"];
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const dist = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by);
 
@@ -55,7 +55,6 @@ const state = {
   myId: "",
   placingType: "",
   selectedBuildingId: "",
-  artilleryMoveMode: false,
   rallyMode: false,
   camX: 0,
   camY: 0,
@@ -251,7 +250,6 @@ function rebuildBuildButtons() {
         return;
       }
       state.placingType = state.placingType === type ? "" : type;
-      state.artilleryMoveMode = false;
       state.rallyMode = false;
       showBanner(state.placingType ? `Build mode: ${state.placingType} (tap map)` : "Build mode canceled");
       rebuildBuildButtons();
@@ -263,32 +261,10 @@ function rebuildBuildButtons() {
 
 function rebuildActionButtons() {
   actionPanel.innerHTML = "";
-
-  const moveBtn = mk("button", "padding:8px 10px;border-radius:10px;border:1px solid #759cd3;background:rgba(22,38,63,.92);color:#f2f7ff;cursor:pointer;font-size:12px");
-  moveBtn.textContent = state.artilleryMoveMode ? "Cancel Move" : "Move Artillery";
-  moveBtn.onclick = () => {
-    const sel = selectedBuilding();
-    if (!sel || sel.type !== "ARTILLERY") {
-      showBanner("Select your ARTILLERY first");
-      return;
-    }
-    state.artilleryMoveMode = !state.artilleryMoveMode;
-    if (state.artilleryMoveMode) state.rallyMode = false;
-    showBanner(state.artilleryMoveMode ? "Tap map to move artillery" : "Move canceled");
-    rebuildActionButtons();
-  };
-  actionPanel.append(moveBtn);
-
   const rallyBtn = mk("button", "padding:8px 10px;border-radius:10px;border:1px solid #9dbf7a;background:rgba(38,62,33,.9);color:#efffea;cursor:pointer;font-size:12px");
   rallyBtn.textContent = state.rallyMode ? "Cancel Rally" : "Rally All Units";
   rallyBtn.onclick = () => {
-    const sel = selectedBuilding();
-    if (!sel || sel.type !== "ARTILLERY") {
-      showBanner("Select your ARTILLERY first");
-      return;
-    }
     state.rallyMode = !state.rallyMode;
-    if (state.rallyMode) state.artilleryMoveMode = false;
     showBanner(state.rallyMode ? "Tap map to rally all units" : "Rally canceled");
     rebuildActionButtons();
   };
@@ -330,10 +306,7 @@ canvas.addEventListener("pointerup", (e) => {
 
   if (state.placingType) {
     const ok = canPlaceAtLocal(state.placingType, x, y);
-    if (!ok.ok) {
-      showBanner(`Cannot build: ${ok.reason}`);
-      return;
-    }
+    if (!ok.ok) showBanner(`Build check: ${ok.reason}`);
     send({ type: "build", buildingType: state.placingType, x, y });
     return;
   }
@@ -341,43 +314,23 @@ canvas.addEventListener("pointerup", (e) => {
   const own = ownBuildingAt(w.x, w.y);
   if (own) {
     state.selectedBuildingId = own.id;
-    state.artilleryMoveMode = false;
     state.rallyMode = false;
     rebuildActionButtons();
     showBanner(`${own.type} selected`);
     return;
   }
 
-  if (state.artilleryMoveMode) {
-    const sel = selectedBuilding();
-    if (sel && sel.type === "ARTILLERY") {
-      send({ type: "move_artillery", buildingId: sel.id, x, y });
-      state.artilleryMoveMode = false;
-      rebuildActionButtons();
-      return;
-    }
-  }
-
   if (state.rallyMode) {
-    const sel = selectedBuilding();
-    if (sel && sel.type === "ARTILLERY") {
-      send({ type: "rally_all", buildingId: sel.id, x, y });
-      state.rallyMode = false;
-      rebuildActionButtons();
-      return;
-    }
+    send({ type: "rally_all", x, y });
+    state.rallyMode = false;
+    rebuildActionButtons();
+    return;
   }
 
   state.selectedBuildingId = "";
 });
 
-canvas.addEventListener("contextmenu", (e) => {
-  e.preventDefault();
-  const sel = selectedBuilding();
-  if (!sel || sel.type !== "ARTILLERY") return;
-  const w = screenToWorld(e.clientX, e.clientY);
-  send({ type: "move_artillery", buildingId: sel.id, x: w.x, y: w.y });
-});
+canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 
 function drawBar(x, y, w, h, ratio, fg, bg = "rgba(0,0,0,.4)") {
   ctx.fillStyle = bg;
@@ -401,7 +354,6 @@ function drawBuildingVisual(b, x, y, s, own, ownerLv) {
     SIEGEWORKS: { a: "#dcbaff", b: "#74559e", c: "#f6ecff" },
     CANNON: { a: "#ff9db5", b: "#8f3d50", c: "#ffe7ee" },
     MISSILE: { a: "#ffdc96", b: "#8f6a3c", c: "#fff4dd" },
-    ARTILLERY: { a: "#ffbe98", b: "#965334", c: "#fff0e4" },
   };
   const pal = pixelPal[b.type] || pixelPal.RELAY;
   const lvScale = 1 + (ownerLv - 1) * 0.03;
@@ -419,7 +371,6 @@ function drawBuildingVisual(b, x, y, s, own, ownerLv) {
     SIEGEWORKS: ["11111111","12222221","12333221","12222221","12222221","12333321","12333321","11111111"],
     CANNON: ["11111111","12222221","12222221","12233221","12222221","12222221","12222221","11111111"],
     MISSILE: ["11111111","12222221","12222221","12233221","12233221","12222221","12222221","11111111"],
-    ARTILLERY: ["11111111","12222221","12222221","12333321","12222221","12222221","12222221","11111111"],
   }[b.type] || ["11111111","12222221","12222221","12222221","12222221","12222221","12222221","11111111"];
 
   for (let ry = 0; ry < 8; ry++) {
@@ -434,7 +385,7 @@ function drawBuildingVisual(b, x, y, s, own, ownerLv) {
   ctx.lineWidth = 1.4;
   ctx.strokeRect(ox - 1, oy - 1, px * 8 + 2, px * 8 + 2);
 
-  if (b.type === "CANNON" || b.type === "MISSILE" || b.type === "ARTILLERY") {
+  if (b.type === "CANNON" || b.type === "MISSILE") {
     ctx.strokeStyle = "#f8f5e8";
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -575,6 +526,36 @@ function render() {
     const own = world.me && b.ownerId === world.me.id;
     const ownerLv = levelForOwner(b.ownerId, pmap);
     drawBuildingVisual(b, x, y, s, own, ownerLv);
+    if (b.type === "HQ") {
+      let threatened = false;
+      for (const m of world.monsters) {
+        if (dist(m.x, m.y, b.x, b.y) < 240) { threatened = true; break; }
+      }
+      if (!threatened) {
+        for (const g of world.guardians || []) {
+          if (dist(g.x, g.y, b.x, b.y) < 240) { threatened = true; break; }
+        }
+      }
+      if (threatened) {
+        const t = state.time * 9;
+        ctx.strokeStyle = "rgba(122,255,222,.8)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + Math.cos(t) * 26, y + Math.sin(t) * 26);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + Math.cos(t + 1.9) * 22, y + Math.sin(t + 1.9) * 22);
+        ctx.stroke();
+        ctx.globalAlpha = 0.15;
+        ctx.fillStyle = "#7bffd8";
+        ctx.beginPath();
+        ctx.arc(x, y, s + 10 + Math.sin(state.time * 7) * 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+    }
     drawBar(x - s, y + s + 4, s * 2, 4, b.hp / b.hpMax, own ? "#95ffd7" : "#b6d2ff");
     if (b.id === state.selectedBuildingId) {
       ctx.strokeStyle = "#fff29a";
@@ -696,7 +677,7 @@ function render() {
     const limit = world.cfg.limits[sel.type] || 99;
     info.textContent = `Selected: ${sel.type}\nHP: ${Math.floor(sel.hp)} / ${sel.hpMax}\nTrait: ${def.trait || "-"}\nCost: ${def.cost || 0}\nLimit: ${ownedCount(sel.type)} / ${limit}\nPrereq: ${(def.prereq || []).join(", ") || "none"}`;
   } else {
-    info.textContent = "Build flow: pick a building from LEFT list (enabled only), then tap map.\nFinal command: select ARTILLERY -> Rally All Units -> tap target point.";
+    info.textContent = "Build flow: pick a building from LEFT list (enabled only), then tap map.\nArmy command: press Rally All Units and tap target point.";
   }
 
   if (world.match?.over) {

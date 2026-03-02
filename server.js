@@ -24,7 +24,7 @@ const CFG = {
   WORLD_H: 5600,
   TICK_HZ: 15,
   MAX_PLAYERS: 8,
-  MONSTER_COUNT: 28,
+  MONSTER_COUNT: 56,
   GUARDIAN_COUNT: 6,
   CENTRAL_HP: 30000,
   HQ_INCOME_PER_SEC: 4,
@@ -43,7 +43,6 @@ const BUILDINGS = {
   SIEGEWORKS: { hp: 1450, size: 28, cost: 240, r: 240, range: 0, damage: 0, fireCd: 0, produces: "SIEGE", spawnCd: 8.8, maxUnits: 4, leash: 520, prereq: ["WORKSHOP", "REACTOR"], trait: "Siege unit production" },
   CANNON: { hp: 930, size: 18, cost: 100, r: 180, range: 310, damage: 44, fireCd: 0.72, prereq: ["RELAY"], monsterMult: 1.3, trait: "Static defense tower" },
   MISSILE: { hp: 860, size: 18, cost: 165, r: 170, range: 430, damage: 72, fireCd: 1.24, prereq: ["CANNON", "REACTOR"], trait: "Long-range static defense" },
-  ARTILLERY: { hp: 900, size: 20, cost: 280, r: 170, range: 650, damage: 138, fireCd: 2.5, towerMult: 1.3, mobile: true, commander: true, prereq: ["SIEGEWORKS", "REACTOR"], trait: "Final command platform: relocate + rally all units" },
 };
 
 const BUILD_LIMITS = {
@@ -56,7 +55,6 @@ const BUILD_LIMITS = {
   SIEGEWORKS: 2,
   CANNON: 6,
   MISSILE: 3,
-  ARTILLERY: 1,
 };
 
 const UNIT_TYPES = {
@@ -462,12 +460,14 @@ function updateUnits(dt) {
     const leash = ownerB ? (BUILDINGS[ownerB.type].leash || u.leash || 420) : (u.leash || 420);
 
     let targetPos = null;
+    const enemy = nearestEnemyForUnit(u, 560);
     if (owner.rallyX != null && owner.rallyY != null) {
       targetPos = { kind: "rally", x: owner.rallyX, y: owner.rallyY };
-    }
-
-    const enemy = nearestEnemyForUnit(u, 560);
-    if (enemy) {
+      if (enemy) {
+        const ed = dist(u.x, u.y, enemy.x, enemy.y);
+        if (ed < Math.max(120, u.range + 50)) targetPos = enemy;
+      }
+    } else if (enemy) {
       targetPos = enemy;
     }
 
@@ -663,7 +663,7 @@ function botAct(p, dt) {
   if (p.botThink > 0) return;
   p.botThink = rand(1.0, 2.2);
 
-  const order = ["RELAY", "BARRACKS", "WORKSHOP", "MEDBAY", "CANNON", "REACTOR", "SIEGEWORKS", "MISSILE", "ARTILLERY"];
+  const order = ["RELAY", "BARRACKS", "WORKSHOP", "MEDBAY", "CANNON", "REACTOR", "SIEGEWORKS", "MISSILE"];
   const hq = buildings.find((b) => b.ownerId === p.id && b.type === "HQ" && b.hp > 0);
   if (!hq) return;
 
@@ -687,8 +687,8 @@ function botAct(p, dt) {
     if (placed) break;
   }
 
-  const art = buildings.find((b) => b.ownerId === p.id && b.type === "ARTILLERY" && b.hp > 0);
-  if (art && Math.random() < 0.35) {
+  const hasArmy = units.some((u) => u.ownerId === p.id && u.hp > 0);
+  if (hasArmy && Math.random() < 0.35) {
     p.rallyX = central.x + rand(-150, 150);
     p.rallyY = central.y + rand(-150, 150);
   }
@@ -801,27 +801,10 @@ function handleBuild(player, msg) {
   addBuilding(player.id, buildingType, x, y);
 }
 
-function handleMoveArtillery(player, msg) {
-  if (!player || !player.alive || match.over) return;
-  const bid = String(msg.buildingId || "");
-  const b = buildings.find((x) => x.id === bid && x.ownerId === player.id && x.hp > 0);
-  if (!b || b.type !== "ARTILLERY") return;
-  const x = Math.round(Number(msg.x || 0) / CFG.BUILD_SNAP) * CFG.BUILD_SNAP;
-  const y = Math.round(Number(msg.y || 0) / CFG.BUILD_SNAP) * CFG.BUILD_SNAP;
-  if (x < 20 || y < 20 || x > CFG.WORLD_W - 20 || y > CFG.WORLD_H - 20) return;
-  if (!inTerritory(player.id, x, y)) return;
-  if (overlaps(x, y, BUILDINGS[b.type].size, b.id)) return;
-  b.x = x;
-  b.y = y;
-}
-
 function handleRallyAll(player, msg) {
   if (!player || !player.alive || match.over) return;
-  const bid = String(msg.buildingId || "");
-  const art = buildings.find((x) => x.id === bid && x.ownerId === player.id && x.hp > 0 && x.type === "ARTILLERY");
-  if (!art) return;
-  player.rallyX = clamp(Number(msg.x || art.x), 0, CFG.WORLD_W);
-  player.rallyY = clamp(Number(msg.y || art.y), 0, CFG.WORLD_H);
+  player.rallyX = clamp(Number(msg.x || 0), 0, CFG.WORLD_W);
+  player.rallyY = clamp(Number(msg.y || 0), 0, CFG.WORLD_H);
 }
 
 function sendFile(filePath, res) {
@@ -885,8 +868,6 @@ wss.on("connection", (ws) => {
 
     if (msg?.type === "build") {
       handleBuild(player, msg);
-    } else if (msg?.type === "move_artillery") {
-      handleMoveArtillery(player, msg);
     } else if (msg?.type === "rally_all") {
       handleRallyAll(player, msg);
     }
