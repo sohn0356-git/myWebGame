@@ -278,7 +278,9 @@ function addSegment(owner, x1, y1, x2, y2, now) {
 function killPlayer(p, now, killerId = -1) {
   if (!p.alive) return;
   p.alive = false;
-  p.deaths += 1;
+  p.kills = 0;
+  p.deaths = 0;
+  p.survival = 0;
   p.respawnAt = now + CONFIG.RESPAWN_DELAY;
   if (killerId >= 0 && killerId !== p.id && players[killerId]) players[killerId].kills += 1;
   pulses.push({ x: p.x, y: p.y, t: 0.3, color: "#ff4d5d" });
