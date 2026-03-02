@@ -1,4 +1,4 @@
-const root = document.getElementById("root") || document.body;
+Ôªøconst root = document.getElementById("root") || document.body;
 root.innerHTML = "";
 
 function mk(tag, style = "") {
@@ -15,16 +15,16 @@ const wrap = mk("div", "position:fixed;inset:0;background:#050912;overflow:hidde
 const canvas = mk("canvas", "position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none");
 const hud = mk("div", "position:absolute;left:10px;top:10px;z-index:8;font-size:12px;line-height:1.4;white-space:pre-wrap;pointer-events:none;text-shadow:0 1px 0 #000");
 const right = mk("div", "position:absolute;right:10px;top:10px;z-index:8;font-size:12px;line-height:1.4;white-space:pre-wrap;pointer-events:none;text-align:right;text-shadow:0 1px 0 #000");
-const info = mk("div", "position:absolute;left:10px;bottom:96px;z-index:8;font-size:12px;line-height:1.4;white-space:pre-wrap;pointer-events:none;text-shadow:0 1px 0 #000;max-width:min(64vw,560px)");
+const info = mk("div", "position:absolute;left:10px;bottom:220px;z-index:8;font-size:12px;line-height:1.4;white-space:pre-wrap;pointer-events:none;text-shadow:0 1px 0 #000;max-width:min(64vw,560px)");
 const banner = mk("div", "position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:9;padding:8px 12px;border-radius:10px;background:rgba(18,50,92,.85);display:none;font-size:12px;font-weight:700");
 const center = mk("div", "position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:9;font-size:30px;font-weight:900;pointer-events:none;text-shadow:0 2px 0 #000");
-const buildPanel = mk("div", "position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:10;display:flex;gap:8px;flex-wrap:wrap;justify-content:center;width:min(96vw,1100px)");
+const buildPanel = mk("div", "position:absolute;left:10px;top:110px;z-index:10;display:flex;gap:6px;flex-direction:column;align-items:stretch;width:min(42vw,320px);max-height:calc(100vh - 340px);overflow:auto;padding:8px;border-radius:10px;background:rgba(9,15,26,.58);border:1px solid rgba(105,145,210,.35)");
 const actionPanel = mk("div", "position:absolute;right:10px;bottom:10px;z-index:10;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;width:min(96vw,520px)");
 
 const overlay = mk("div", "position:absolute;inset:0;z-index:11;display:flex;align-items:center;justify-content:center;background:rgba(8,13,22,.28)");
 const card = mk("div", "width:min(520px,92vw);padding:16px;border-radius:14px;border:1px solid rgba(120,170,230,.55);background:rgba(11,18,31,.64);backdrop-filter:blur(3px)");
 card.innerHTML = `<div style="font-size:20px;font-weight:900">Crystal Core Hunt Online</div>
-<div style="margin-top:6px;color:#b7cff5;font-size:12px">√÷¥Î 8∏Ì µøΩ√ «√∑π¿Ã. ∫Û ΩΩ∑‘¿∫ ∫ø¿∏∑Œ ¿⁄µø ¥Î√º.</div>`;
+<div style="margin-top:6px;color:#b7cff5;font-size:12px">ÏµúÎåÄ 8Î™Ö ÎèôÏãú ÌîåÎ†àÏù¥. Îπà Ïä¨Î°ØÏùÄ Î¥áÏúºÎ°ú ÏûêÎèô ÎåÄÏ≤¥.</div>`;
 const nick = mk("input", "margin-top:10px;width:100%;padding:10px;border-radius:10px;border:1px solid #4b6899;background:rgba(7,12,20,.82);color:#eef6ff;outline:none");
 nick.maxLength = 16;
 nick.value = "Commander";
@@ -64,6 +64,8 @@ const state = {
   dragStartY: 0,
   camStartX: 0,
   camStartY: 0,
+  pointerX: 0,
+  pointerY: 0,
   initCamera: false,
   world: {
     cfg: { worldW: 3200, worldH: 3200, buildSnap: 20, limits: {}, buildingDefs: {}, unitDefs: {} },
@@ -170,31 +172,57 @@ function ownedCount(type) {
   return state.world.buildings.filter((b) => b.ownerId === me.id && b.type === type && b.hp > 0).length;
 }
 
+function hasOwnedType(type) {
+  return ownedCount(type) > 0;
+}
+
+function canBuildLocal(type) {
+  const me = meObj();
+  const def = state.world.cfg.buildingDefs[type];
+  if (!me || !def) return { ok: false, reason: "not ready" };
+  if (!me.alive) return { ok: false, reason: "you are dead" };
+  const limit = state.world.cfg.limits[type] || 99;
+  const cur = ownedCount(type);
+  if (cur >= limit) return { ok: false, reason: `limit ${cur}/${limit}` };
+  if (me.money < def.cost) return { ok: false, reason: "not enough money" };
+  const req = def.prereq || [];
+  for (const need of req) {
+    if (!hasOwnedType(need)) return { ok: false, reason: `need ${need}` };
+  }
+  return { ok: true, reason: "" };
+}
+
 function rebuildBuildButtons() {
   buildPanel.innerHTML = "";
   const me = meObj();
   if (!me) return;
-  for (const type of BUILD_ORDER) {
+  const title = mk("div", "font-size:12px;font-weight:800;color:#d7e8ff;letter-spacing:.02em;padding:2px 2px 6px 2px;border-bottom:1px solid rgba(110,146,207,.35);margin-bottom:4px");
+  title.textContent = "BUILDINGS";
+  buildPanel.append(title);
+  for (let i = 0; i < BUILD_ORDER.length; i++) {
+    const type = BUILD_ORDER[i];
     const def = state.world.cfg.buildingDefs[type];
     if (!def) continue;
     const cur = ownedCount(type);
     const limit = state.world.cfg.limits[type] || 99;
-    const btn = mk("button", "padding:8px 10px;border-radius:10px;border:1px solid #4d6b99;background:rgba(11,20,34,.9);color:#e9f2ff;cursor:pointer;font-size:12px");
-    const canAfford = me.money >= def.cost;
-    const canLimit = cur < limit;
-    if (!canAfford || !canLimit) btn.style.opacity = "0.45";
+    const chk = canBuildLocal(type);
+    const btn = mk("button", "padding:8px 10px;border-radius:10px;border:1px solid #4d6b99;background:rgba(11,20,34,.9);color:#e9f2ff;cursor:pointer;font-size:12px;text-align:left");
+    if (!chk.ok) {
+      btn.style.opacity = "0.45";
+      btn.style.cursor = "not-allowed";
+    }
     if (state.placingType === type) btn.style.borderColor = "#9fd0ff";
-    btn.textContent = `${type} ${cur}/${limit} (${def.cost})`;
-    btn.title = def.trait || "";
+    btn.textContent = `${i + 1}. ${type}  ${cur}/${limit}  (${def.cost})`;
+    btn.title = `${def.trait || ""}${chk.ok ? "" : ` | ${chk.reason}`}`;
     btn.onclick = () => {
-      if (!canLimit) {
-        showBanner(`Limit reached: ${type}`);
+      if (!chk.ok) {
+        showBanner(`${type}: ${chk.reason}`);
         return;
       }
       state.placingType = state.placingType === type ? "" : type;
       state.artilleryMoveMode = false;
       state.rallyMode = false;
-      showBanner(state.placingType ? `Build mode: ${state.placingType}` : "Build mode canceled");
+      showBanner(state.placingType ? `Build mode: ${state.placingType} (tap map)` : "Build mode canceled");
       rebuildBuildButtons();
       rebuildActionButtons();
     };
@@ -237,6 +265,8 @@ function rebuildActionButtons() {
 }
 
 canvas.addEventListener("pointerdown", (e) => {
+  state.pointerX = e.clientX;
+  state.pointerY = e.clientY;
   state.drag = true;
   state.dragStartX = e.clientX;
   state.dragStartY = e.clientY;
@@ -246,6 +276,8 @@ canvas.addEventListener("pointerdown", (e) => {
 });
 
 canvas.addEventListener("pointermove", (e) => {
+  state.pointerX = e.clientX;
+  state.pointerY = e.clientY;
   if (!state.drag) return;
   const dx = e.clientX - state.dragStartX;
   const dy = e.clientY - state.dragStartY;
@@ -255,7 +287,7 @@ canvas.addEventListener("pointermove", (e) => {
 
 canvas.addEventListener("pointerup", (e) => {
   if (!state.drag) return;
-  const moved = Math.hypot(e.clientX - state.dragStartX, e.clientY - state.dragStartY) > 8;
+  const moved = Math.hypot(e.clientX - state.dragStartX, e.clientY - state.dragStartY) > 16;
   state.drag = false;
   canvas.releasePointerCapture(e.pointerId);
   if (moved) return;
@@ -371,21 +403,36 @@ function drawUnit(u, x, y, own, ownerLv) {
   const r = (u.r || 8) * boost;
   if (u.type === "INFANTRY") {
     ctx.fillStyle = own ? "#99f1ff" : "#ffdcae";
-    ctx.fillRect(x - r * 0.8, y - r, r * 1.6, r * 2);
+    ctx.fillRect(x - r * 0.72, y - r * 0.75, r * 1.44, r * 1.7);
     ctx.fillStyle = "#e7fbff";
-    ctx.beginPath(); ctx.arc(x, y - r * 1.1, r * 0.52, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x, y - r * 1.05, r * 0.52, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = own ? "#1f5064" : "#5d3e27";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(x + r * 0.5, y - r * 0.2); ctx.lineTo(x + r * 1.35, y - r * 0.8); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x + r * 1.35, y - r * 0.8); ctx.lineTo(x + r * 1.32, y + r * 0.5); ctx.stroke();
+    ctx.fillStyle = "rgba(255,255,255,.75)";
+    ctx.fillRect(x - r * 0.2, y + r * 0.2, r * 0.4, r * 0.45);
   } else if (u.type === "CAVALRY") {
     ctx.fillStyle = own ? "#6ff5cf" : "#ffc08f";
     ctx.beginPath();
-    ctx.ellipse(x, y, r * 1.5, r * 0.95, 0, 0, Math.PI * 2);
+    ctx.ellipse(x, y, r * 1.65, r, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = "#e7fbff";
-    ctx.beginPath(); ctx.arc(x + r * 0.7, y - r * 0.7, r * 0.48, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + r * 0.85, y - r * 0.75, r * 0.5, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = own ? "#16644f" : "#7a4c2e";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(x + r * 0.2, y - r * 0.2); ctx.lineTo(x + r * 1.6, y - r * 1.2); ctx.stroke();
+    ctx.fillStyle = "rgba(240,255,250,.78)";
+    ctx.fillRect(x - r * 0.6, y - r * 0.25, r * 0.55, r * 0.32);
+    ctx.fillRect(x - r * 0.2, y - r * 0.25, r * 0.55, r * 0.32);
   } else {
     ctx.fillStyle = own ? "#c6c7ff" : "#ffc4b8";
-    ctx.fillRect(x - r * 1.2, y - r * 0.9, r * 2.4, r * 1.8);
+    ctx.fillRect(x - r * 1.25, y - r * 0.9, r * 2.5, r * 1.8);
+    ctx.fillStyle = "rgba(42,28,69,.9)";
+    ctx.fillRect(x + r * 0.8, y - r * 0.25, r * 1.15, r * 0.5);
     ctx.strokeStyle = "rgba(20,16,36,.9)";
-    ctx.strokeRect(x - r * 1.2, y - r * 0.9, r * 2.4, r * 1.8);
+    ctx.strokeRect(x - r * 1.25, y - r * 0.9, r * 2.5, r * 1.8);
+    ctx.strokeRect(x + r * 0.8, y - r * 0.25, r * 1.15, r * 0.5);
   }
 }
 
@@ -403,6 +450,15 @@ function drawMonster(m, x, y) {
   ctx.fill();
   ctx.strokeStyle = "rgba(8,12,22,.9)";
   ctx.stroke();
+  ctx.fillStyle = "rgba(255,255,255,.8)";
+  ctx.beginPath(); ctx.arc(x - r * 0.28, y - r * 0.2, Math.max(2, r * 0.15), 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(x + r * 0.24, y - r * 0.18, Math.max(2, r * 0.15), 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#1a0e15";
+  ctx.beginPath(); ctx.arc(x - r * 0.26, y - r * 0.2, Math.max(1, r * 0.07), 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(x + r * 0.22, y - r * 0.18, Math.max(1, r * 0.07), 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "rgba(255,245,190,.9)";
+  ctx.beginPath(); ctx.moveTo(x - r * 0.3, y - r * 0.95); ctx.lineTo(x - r * 0.05, y - r * 1.35); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x + r * 0.24, y - r * 0.9); ctx.lineTo(x + r * 0.46, y - r * 1.2); ctx.stroke();
 }
 
 function drawGuardian(g, x, y) {
@@ -506,9 +562,53 @@ function render() {
     drawBar(x - 13, y - (m.r || 12) - 8, 26, 4, m.hp / m.hpMax, "#ffe1a8");
   }
 
+  if (state.placingType && world.cfg.buildingDefs[state.placingType]) {
+    const def = world.cfg.buildingDefs[state.placingType];
+    const w = screenToWorld(state.pointerX, state.pointerY);
+    const snap = world.cfg.buildSnap || 20;
+    const px = Math.round(w.x / snap) * snap;
+    const py = Math.round(w.y / snap) * snap;
+    const sx = px - state.camX;
+    const sy = py - state.camY;
+    const chk = canBuildLocal(state.placingType);
+    ctx.fillStyle = chk.ok ? "rgba(106,240,172,.35)" : "rgba(255,117,117,.35)";
+    ctx.strokeStyle = chk.ok ? "#b2ffd4" : "#ffc4c4";
+    const s = def.size || 20;
+    ctx.fillRect(sx - s, sy - s, s * 2, s * 2);
+    ctx.strokeRect(sx - s, sy - s, s * 2, s * 2);
+  }
+
+  const mm = Math.min(220, Math.max(150, Math.floor(H * 0.25)));
+  const mx = 10;
+  const my = H - mm - 10;
+  ctx.fillStyle = "rgba(8,14,24,.74)";
+  ctx.fillRect(mx, my, mm, mm);
+  ctx.strokeStyle = "rgba(170,197,238,.7)";
+  ctx.strokeRect(mx, my, mm, mm);
+  const sx = mm / world.cfg.worldW;
+  const sy = mm / world.cfg.worldH;
+  for (const b of world.buildings) {
+    if (b.hp <= 0) continue;
+    const own = world.me && b.ownerId === world.me.id;
+    ctx.fillStyle = own ? "#9fffd9" : "#9ab9ff";
+    ctx.fillRect(mx + b.x * sx - 1.5, my + b.y * sy - 1.5, 3, 3);
+  }
+  for (const g of world.guardians || []) {
+    ctx.fillStyle = "#ff7da0";
+    ctx.fillRect(mx + g.x * sx - 1.5, my + g.y * sy - 1.5, 3, 3);
+  }
+  for (const m of world.monsters) {
+    ctx.fillStyle = "#d3e3ff";
+    ctx.fillRect(mx + m.x * sx - 1, my + m.y * sy - 1, 2, 2);
+  }
+  ctx.fillStyle = "#ca9fff";
+  ctx.fillRect(mx + world.central.x * sx - 3, my + world.central.y * sy - 3, 6, 6);
+  ctx.strokeStyle = "#ffffff";
+  ctx.strokeRect(mx + state.camX * sx, my + state.camY * sy, W * sx, H * sy);
+
   const me = world.me;
   hud.textContent = me
-    ? `Online RTS\nMoney: ${Math.floor(me.money)}\nLevel: ${me.level}\nBuild: ${state.placingType || "-"}\nAlive: ${me.alive ? "YES" : "NO"}\nConnection: ${state.connected ? "OK" : "OFF"}\nIncome slowed for longer macro`
+    ? `Online RTS\nMoney: ${Math.floor(me.money)}\nLevel: ${me.level}\nBuild: ${state.placingType || "-"}\nAlive: ${me.alive ? "YES" : "NO"}\nConnection: ${state.connected ? "OK" : "OFF"}\nBuild list: left panel | Minimap: left-bottom`
     : "Connecting...";
 
   right.textContent = `PLAYERS (${world.players.length}/8)\n${world.players
@@ -523,7 +623,7 @@ function render() {
     const limit = world.cfg.limits[sel.type] || 99;
     info.textContent = `Selected: ${sel.type}\nHP: ${Math.floor(sel.hp)} / ${sel.hpMax}\nTrait: ${def.trait || "-"}\nCost: ${def.cost || 0}\nLimit: ${ownedCount(sel.type)} / ${limit}\nPrereq: ${(def.prereq || []).join(", ") || "none"}`;
   } else {
-    info.textContent = "Mobile build: choose bottom building button, then tap map.\nFinal command: select ARTILLERY -> Rally All Units -> tap target point.";
+    info.textContent = "Build flow: pick a building from LEFT list (enabled only), then tap map.\nFinal command: select ARTILLERY -> Rally All Units -> tap target point.";
   }
 
   if (world.match?.over) {
@@ -548,3 +648,4 @@ addEventListener("keydown", (e) => {
 });
 
 requestAnimationFrame(render);
+
