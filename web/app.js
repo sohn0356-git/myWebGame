@@ -192,6 +192,35 @@ function canBuildLocal(type) {
   return { ok: true, reason: "" };
 }
 
+function canPlaceAtLocal(type, x, y) {
+  const me = meObj();
+  const def = state.world.cfg.buildingDefs[type];
+  if (!me || !def) return { ok: false, reason: "not ready" };
+  const base = canBuildLocal(type);
+  if (!base.ok) return base;
+  if (x < 20 || y < 20 || x > state.world.cfg.worldW - 20 || y > state.world.cfg.worldH - 20) {
+    return { ok: false, reason: "out of bounds" };
+  }
+
+  const own = myBuildings();
+  const inTerritory = own.some((b) => {
+    const r = state.world.cfg.buildingDefs[b.type]?.radius || 180;
+    return dist(x, y, b.x, b.y) <= r;
+  });
+  if (!inTerritory) return { ok: false, reason: "outside territory" };
+
+  const size = def.size || 20;
+  for (const b of state.world.buildings) {
+    if (b.hp <= 0) continue;
+    const os = state.world.cfg.buildingDefs[b.type]?.size || 20;
+    if (dist(x, y, b.x, b.y) < size + os + 8) return { ok: false, reason: "blocked" };
+  }
+  const c = state.world.central;
+  if (dist(x, y, c.x, c.y) < size + c.r + 24) return { ok: false, reason: "too close to central" };
+
+  return { ok: true, reason: "" };
+}
+
 function rebuildBuildButtons() {
   buildPanel.innerHTML = "";
   const me = meObj();
@@ -214,6 +243,8 @@ function rebuildBuildButtons() {
     if (state.placingType === type) btn.style.borderColor = "#9fd0ff";
     btn.textContent = `${i + 1}. ${type}  ${cur}/${limit}  (${def.cost})`;
     btn.title = `${def.trait || ""}${chk.ok ? "" : ` | ${chk.reason}`}`;
+    btn.disabled = !chk.ok;
+    if (!chk.ok) btn.style.pointerEvents = "none";
     btn.onclick = () => {
       if (!chk.ok) {
         showBanner(`${type}: ${chk.reason}`);
@@ -298,6 +329,11 @@ canvas.addEventListener("pointerup", (e) => {
   const y = Math.round(w.y / snap) * snap;
 
   if (state.placingType) {
+    const ok = canPlaceAtLocal(state.placingType, x, y);
+    if (!ok.ok) {
+      showBanner(`Cannot build: ${ok.reason}`);
+      return;
+    }
     send({ type: "build", buildingType: state.placingType, x, y });
     return;
   }
@@ -355,46 +391,56 @@ function levelForOwner(ownerId, pmap) {
 }
 
 function drawBuildingVisual(b, x, y, s, own, ownerLv) {
-  const palette = {
-    HQ: ["#5df2c7", "#1f7f67"],
-    RELAY: ["#85d8ff", "#2a5e8d"],
-    MEDBAY: ["#8effbf", "#2a7f56"],
-    BARRACKS: ["#86b6ff", "#30518f"],
-    WORKSHOP: ["#ffcf95", "#875d2f"],
-    REACTOR: ["#b79bff", "#54408d"],
-    SIEGEWORKS: ["#d3b5ff", "#655092"],
-    CANNON: ["#ff9bb3", "#8a394b"],
-    MISSILE: ["#ffd88f", "#8a6638"],
-    ARTILLERY: ["#ffb38a", "#8f4f2d"],
+  const pixelPal = {
+    HQ: { a: "#66f1c9", b: "#1f7f67", c: "#d9fff4" },
+    RELAY: { a: "#8fdcff", b: "#315f8f", c: "#ebf9ff" },
+    MEDBAY: { a: "#8dffc1", b: "#2d8058", c: "#f2fff8" },
+    BARRACKS: { a: "#90beff", b: "#35558f", c: "#e9f3ff" },
+    WORKSHOP: { a: "#ffd29c", b: "#8b5f31", c: "#fff2e0" },
+    REACTOR: { a: "#c2a7ff", b: "#5f4a93", c: "#efe7ff" },
+    SIEGEWORKS: { a: "#dcbaff", b: "#74559e", c: "#f6ecff" },
+    CANNON: { a: "#ff9db5", b: "#8f3d50", c: "#ffe7ee" },
+    MISSILE: { a: "#ffdc96", b: "#8f6a3c", c: "#fff4dd" },
+    ARTILLERY: { a: "#ffbe98", b: "#965334", c: "#fff0e4" },
   };
-  const p = palette[b.type] || ["#9ac8ff", "#3c5f8d"];
+  const pal = pixelPal[b.type] || pixelPal.RELAY;
   const lvScale = 1 + (ownerLv - 1) * 0.03;
   const ss = s * lvScale;
-  const g = ctx.createLinearGradient(x - ss, y - ss, x + ss, y + ss);
-  g.addColorStop(0, p[0]);
-  g.addColorStop(1, p[1]);
-  ctx.fillStyle = g;
-  if (b.type === "RELAY" || b.type === "REACTOR" || b.type === "MEDBAY") {
-    ctx.beginPath();
-    ctx.arc(x, y, ss, 0, Math.PI * 2);
-    ctx.fill();
-  } else {
-    ctx.fillRect(x - ss, y - ss, ss * 2, ss * 2);
+  const px = Math.max(2, Math.floor(ss / 5));
+  const ox = Math.round(x - px * 4);
+  const oy = Math.round(y - px * 4);
+  const sprite = {
+    HQ: ["..1111..",".122221.","12222221","12233221","12233221","12222221",".122221.","..1111.."],
+    RELAY: ["...11...","..1221..",".122221.","12233221","12233221",".122221.","..1221..","...11..."],
+    MEDBAY: ["...11...","..1111..",".122221.","11233211","11233211",".122221.","..1111..","...11..."],
+    BARRACKS: ["11111111","12222221","12233221","12233221","12222221","12333321","12222221","11111111"],
+    WORKSHOP: ["11111111","12222221","12333221","12222221","12222221","12233321","12222221","11111111"],
+    REACTOR: [".111111.","12222221","12333321","12322321","12322321","12333321","12222221",".111111."],
+    SIEGEWORKS: ["11111111","12222221","12333221","12222221","12222221","12333321","12333321","11111111"],
+    CANNON: ["11111111","12222221","12222221","12233221","12222221","12222221","12222221","11111111"],
+    MISSILE: ["11111111","12222221","12222221","12233221","12233221","12222221","12222221","11111111"],
+    ARTILLERY: ["11111111","12222221","12222221","12333321","12222221","12222221","12222221","11111111"],
+  }[b.type] || ["11111111","12222221","12222221","12222221","12222221","12222221","12222221","11111111"];
+
+  for (let ry = 0; ry < 8; ry++) {
+    for (let rx = 0; rx < 8; rx++) {
+      const ch = sprite[ry][rx];
+      if (ch === ".") continue;
+      ctx.fillStyle = ch === "1" ? pal.a : ch === "2" ? pal.b : pal.c;
+      ctx.fillRect(ox + rx * px, oy + ry * px, px, px);
+    }
   }
   ctx.strokeStyle = own ? "rgba(238,255,232,.95)" : "rgba(255,255,255,.6)";
-  ctx.lineWidth = own ? 1.8 : 1.2;
-  if (b.type === "RELAY" || b.type === "REACTOR" || b.type === "MEDBAY") {
-    ctx.beginPath();
-    ctx.arc(x, y, ss, 0, Math.PI * 2);
-    ctx.stroke();
-  } else {
-    ctx.strokeRect(x - ss, y - ss, ss * 2, ss * 2);
-  }
-  if (b.type === "MEDBAY") {
-    ctx.strokeStyle = "#efffff";
+  ctx.lineWidth = 1.4;
+  ctx.strokeRect(ox - 1, oy - 1, px * 8 + 2, px * 8 + 2);
+
+  if (b.type === "CANNON" || b.type === "MISSILE" || b.type === "ARTILLERY") {
+    ctx.strokeStyle = "#f8f5e8";
     ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(x - 6, y); ctx.lineTo(x + 6, y); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(x, y - 6); ctx.lineTo(x, y + 6); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + ss + 8, y - ss * 0.3);
+    ctx.stroke();
   }
 }
 
@@ -558,7 +604,34 @@ function render() {
     const x = m.x - state.camX;
     const y = m.y - state.camY;
     if (x < -30 || y < -30 || x > W + 30 || y > H + 30) continue;
+    let closeFight = false;
+    for (const b of world.buildings) {
+      if (b.hp <= 0) continue;
+      if (dist(m.x, m.y, b.x, b.y) < (m.r || 12) + (world.cfg.buildingDefs[b.type]?.size || 20) + 10) {
+        closeFight = true;
+        break;
+      }
+    }
     drawMonster(m, x, y);
+    if (closeFight) {
+      const t = state.time * 18;
+      ctx.strokeStyle = "rgba(255,95,95,.85)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x + Math.cos(t) * 10, y + Math.sin(t) * 10);
+      ctx.lineTo(x + Math.cos(t + 1.2) * 18, y + Math.sin(t + 1.2) * 18);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x + Math.cos(t + 2.1) * 8, y + Math.sin(t + 2.1) * 8);
+      ctx.lineTo(x + Math.cos(t + 2.9) * 16, y + Math.sin(t + 2.9) * 16);
+      ctx.stroke();
+      ctx.globalAlpha = 0.2;
+      ctx.fillStyle = "#ff6d6d";
+      ctx.beginPath();
+      ctx.arc(x, y, (m.r || 12) + 8 + Math.sin(state.time * 8) * 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
     drawBar(x - 13, y - (m.r || 12) - 8, 26, 4, m.hp / m.hpMax, "#ffe1a8");
   }
 

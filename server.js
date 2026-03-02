@@ -20,8 +20,8 @@ const MIME = {
 };
 
 const CFG = {
-  WORLD_W: 4200,
-  WORLD_H: 4200,
+  WORLD_W: 5600,
+  WORLD_H: 5600,
   TICK_HZ: 15,
   MAX_PLAYERS: 8,
   MONSTER_COUNT: 28,
@@ -83,8 +83,8 @@ const rand = (a, b) => a + Math.random() * (b - a);
 
 const slots = Array.from({ length: CFG.MAX_PLAYERS }, (_, i) => ({
   idx: i,
-  x: CFG.WORLD_W * 0.5 + Math.cos((Math.PI * 2 * i) / CFG.MAX_PLAYERS) * 1400,
-  y: CFG.WORLD_H * 0.5 + Math.sin((Math.PI * 2 * i) / CFG.MAX_PLAYERS) * 1400,
+  x: CFG.WORLD_W * 0.5 + Math.cos((Math.PI * 2 * i) / CFG.MAX_PLAYERS) * 1900,
+  y: CFG.WORLD_H * 0.5 + Math.sin((Math.PI * 2 * i) / CFG.MAX_PLAYERS) * 1900,
 }));
 
 const players = new Map();
