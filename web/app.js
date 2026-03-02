@@ -16,19 +16,25 @@ const CFG = {
 const BUILDINGS = {
   HQ: { name: "HQ", hp: 2600, size: 34, cost: 0, r: 320, range: 220, damage: 20, fireCd: 0.8, projSpeed: 620, prereq: [], trait: "Passive crystal income + base defense" },
   RELAY: { name: "Relay", hp: 1000, size: 22, cost: 70, r: 250, range: 0, damage: 0, fireCd: 0, projSpeed: 0, prereq: ["HQ"], trait: "Territory extension node" },
-  MEDBAY: { name: "Medbay", hp: 980, size: 20, cost: 120, r: 210, range: 0, damage: 0, fireCd: 0, projSpeed: 0, heal: 34, healRange: 230, healCd: 1.2, prereq: ["RELAY"], trait: "Area healing for nearby buildings and units" },
-  BARRACKS: { name: "Barracks", hp: 1200, size: 24, cost: 110, r: 220, range: 230, damage: 22, fireCd: 0.75, projSpeed: 700, prereq: ["RELAY"], produces: "MARINE", spawnCd: 5.2, trait: "Auto-produces Marines" },
+  MEDBAY: { name: "Medbay", hp: 980, size: 20, cost: 120, r: 210, range: 0, damage: 0, fireCd: 0, projSpeed: 0, heal: 44, healRange: 240, healCd: 1.1, prereq: ["RELAY"], trait: "Heals nearby buildings over time" },
+  BARRACKS: { name: "Barracks", hp: 1200, size: 24, cost: 110, r: 220, range: 0, damage: 0, fireCd: 0, projSpeed: 0, prereq: ["RELAY"], produces: "MARINE", spawnCd: 4.8, trait: "Produces Marines, soldiers do the fighting" },
   WORKSHOP: { name: "Workshop", hp: 1300, size: 26, cost: 150, r: 240, range: 0, damage: 0, fireCd: 0, projSpeed: 0, prereq: ["BARRACKS"], produces: "DRONE", spawnCd: 7.4, trait: "Auto-produces Drones" },
   REACTOR: { name: "Reactor", hp: 1400, size: 25, cost: 170, r: 260, range: 0, damage: 0, fireCd: 0, projSpeed: 0, prereq: ["WORKSHOP"], trait: "Nearby towers: +20% damage, -20% cooldown/production time" },
   CANNON: { name: "Cannon", hp: 900, size: 18, cost: 95, r: 180, range: 300, damage: 40, fireCd: 0.7, projSpeed: 800, prereq: ["RELAY"], monsterMult: 1.35, trait: "Anti-monster turret" },
   MISSILE: { name: "Missile", hp: 850, size: 18, cost: 160, r: 170, range: 420, damage: 68, fireCd: 1.2, projSpeed: 980, prereq: ["CANNON", "REACTOR"], splashRadius: 42, trait: "Long range splash missiles" },
-  ARTILLERY: { name: "Artillery", hp: 760, size: 18, cost: 240, r: 150, range: 620, damage: 125, fireCd: 2.4, projSpeed: 720, prereq: ["WORKSHOP", "REACTOR"], towerMult: 1.35, trait: "Siege bonus vs central tower" },
+  ARTILLERY: { name: "Artillery", hp: 760, size: 18, cost: 240, r: 150, range: 620, damage: 125, fireCd: 2.4, projSpeed: 720, prereq: ["WORKSHOP", "REACTOR"], towerMult: 1.35, trait: "Mobile siege platform (right click empty ground to move)" },
 };
 
 const UNIT_TYPES = {
   MARINE: { hp: 110, r: 8, speed: 145, range: 170, atk: 19, fireCd: 0.55, col: "#88e7ff" },
   DRONE: { hp: 210, r: 10, speed: 112, range: 220, atk: 46, fireCd: 1.15, col: "#ffcf89" },
 };
+
+const MONSTER_ARCHETYPES = [
+  { name: "Fangling", hp: 100, atk: 18, speed: 126, r: 11, body: "#8ac0ff", horn: "#cfe4ff", eye: "#0b1022" },
+  { name: "Brute", hp: 170, atk: 26, speed: 92, r: 15, body: "#ffb08a", horn: "#ffd3b8", eye: "#2a0d08" },
+  { name: "Crawler", hp: 130, atk: 20, speed: 116, r: 12, body: "#b4f29a", horn: "#e5ffd7", eye: "#0e1f0c" },
+];
 
 const BUILD_ORDER = ["RELAY", "MEDBAY", "BARRACKS", "WORKSHOP", "REACTOR", "CANNON", "MISSILE", "ARTILLERY"];
 const root = document.getElementById("root") || document.body;
@@ -220,15 +226,17 @@ function initGame() {
 
   for (let i = 0; i < CFG.MONSTER_COUNT; i++) {
     const ang = rand(0, Math.PI * 2);
+    const ar = MONSTER_ARCHETYPES[(Math.random() * MONSTER_ARCHETYPES.length) | 0];
     monsters.push({
       id: id("m"),
       x: rand(130, CFG.WORLD_W - 130),
       y: rand(130, CFG.WORLD_H - 130),
-      hp: 120,
-      hpMax: 120,
-      r: 12,
-      atk: 20,
-      speed: 120,
+      hp: ar.hp,
+      hpMax: ar.hp,
+      r: ar.r,
+      atk: ar.atk,
+      speed: ar.speed,
+      archetype: ar,
       aggroId: "",
       aggroUntil: 0,
       hitCd: 0,
@@ -367,6 +375,7 @@ canvas.addEventListener("click", (e) => {
   if (own) {
     state.selectedBuildingId = own.id;
     state.commandMode = BUILDINGS[own.type].range > 0;
+    showBanner(`${own.type}: ${BUILDINGS[own.type].trait}`);
     return;
   }
 
@@ -518,13 +527,6 @@ function updateBuildings(dt) {
         if (ob.hp <= 0 || ob.hp >= ob.hpMax) continue;
         if (len(ob.x - b.x, ob.y - b.y) <= t.healRange) {
           ob.hp = Math.min(ob.hpMax, ob.hp + t.heal);
-          healed = true;
-        }
-      }
-      for (const u of units) {
-        if (u.hp >= u.hpMax) continue;
-        if (len(u.x - b.x, u.y - b.y) <= t.healRange) {
-          u.hp = Math.min(u.hpMax, u.hp + t.heal * 0.8);
           healed = true;
         }
       }
@@ -749,7 +751,7 @@ function updateMonsters(dt) {
 
     const d = len(target.x - m.x, target.y - m.y);
     const n = norm(target.x - m.x, target.y - m.y);
-    const speed = 130;
+    const speed = m.speed;
     if (d > 26) {
       m.x += n.x * speed * dt;
       m.y += n.y * speed * dt;
@@ -866,9 +868,27 @@ function drawBuildingVisual(b, x, y, s) {
     ctx.strokeRect(x - s, y - s, s * 2, s * 2);
   }
 
+  ctx.globalAlpha = 0.16;
+  ctx.fillStyle = p[0];
+  ctx.beginPath();
+  ctx.arc(x, y, s + 8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
   if (b.type === "HQ") {
     ctx.fillStyle = "rgba(255,255,255,.9)";
     ctx.fillRect(x - 5, y - 5, 10, 10);
+    ctx.strokeStyle = "rgba(185,255,227,.85)";
+    ctx.beginPath();
+    ctx.moveTo(x - 9, y);
+    ctx.lineTo(x + 9, y);
+    ctx.moveTo(x, y - 9);
+    ctx.lineTo(x, y + 9);
+    ctx.stroke();
+  } else if (b.type === "BARRACKS") {
+    ctx.fillStyle = "rgba(230,242,255,.9)";
+    ctx.fillRect(x - 8, y - 5, 16, 10);
+    ctx.fillRect(x - 3, y - 10, 6, 5);
   } else if (b.type === "MEDBAY") {
     ctx.strokeStyle = "rgba(255,255,255,.95)";
     ctx.lineWidth = 2;
@@ -878,7 +898,77 @@ function drawBuildingVisual(b, x, y, s) {
     ctx.strokeStyle = "rgba(255,248,220,.95)";
     ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + s + 8, y - 10); ctx.stroke();
+  } else if (b.type === "REACTOR") {
+    ctx.strokeStyle = "rgba(229,215,255,.92)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(x, y, s * 0.48, 0, Math.PI * 2);
+    ctx.stroke();
+  } else if (b.type === "MISSILE") {
+    ctx.fillStyle = "rgba(255,247,218,.95)";
+    ctx.fillRect(x - 3, y - s + 4, 6, s + 2);
+  } else if (b.type === "CANNON") {
+    ctx.strokeStyle = "rgba(255,230,230,.95)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + s + 2, y);
+    ctx.stroke();
   }
+}
+
+function drawMonsterSprite(m, x, y) {
+  const a = m.archetype || MONSTER_ARCHETYPES[0];
+  const pulse = 1 + Math.sin(state.time * 5 + x * 0.01) * 0.05;
+  const r = m.r * pulse;
+  ctx.fillStyle = a.body;
+  ctx.beginPath();
+  ctx.moveTo(x, y - r);
+  ctx.lineTo(x + r * 0.86, y - r * 0.2);
+  ctx.lineTo(x + r * 0.68, y + r * 0.72);
+  ctx.lineTo(x, y + r * 0.9);
+  ctx.lineTo(x - r * 0.68, y + r * 0.72);
+  ctx.lineTo(x - r * 0.86, y - r * 0.2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = "rgba(8,12,22,.9)";
+  ctx.lineWidth = 1.4;
+  ctx.stroke();
+  ctx.fillStyle = a.horn;
+  ctx.beginPath();
+  ctx.moveTo(x - r * 0.28, y - r * 0.9);
+  ctx.lineTo(x - r * 0.06, y - r * 1.36);
+  ctx.lineTo(x + r * 0.06, y - r * 0.88);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(x + r * 0.24, y - r * 0.84);
+  ctx.lineTo(x + r * 0.46, y - r * 1.2);
+  ctx.lineTo(x + r * 0.56, y - r * 0.72);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = a.eye;
+  ctx.beginPath();
+  ctx.arc(x - r * 0.24, y - r * 0.14, Math.max(1.8, r * 0.13), 0, Math.PI * 2);
+  ctx.arc(x + r * 0.2, y - r * 0.12, Math.max(1.8, r * 0.13), 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function buildingDetailText(sel) {
+  const cfg = BUILDINGS[sel.type];
+  const lines = [
+    `Selected: ${sel.type}`,
+    `HP ${Math.max(0, sel.hp).toFixed(0)} / ${sel.hpMax}`,
+    `Trait: ${cfg.trait || "-"}`,
+    `Cost: ${cfg.cost}`,
+    `Prereq: ${cfg.prereq.join(", ") || "none"}`,
+  ];
+  if (cfg.produces) lines.push(`Production: ${cfg.produces} every ${cfg.spawnCd}s (base)`);
+  if (cfg.heal) lines.push(`Healing: +${cfg.heal} HP / ${cfg.healCd}s within ${cfg.healRange}`);
+  if (cfg.range > 0) lines.push(`Attack range: ${cfg.range}`);
+  if (sel.type === "ARTILLERY") lines.push("Move: right click empty ground");
+  lines.push(`Forced target: ${sel.forceTarget || "none"}`);
+  return lines.join("\n");
 }
 
 function render() {
@@ -979,13 +1069,7 @@ function render() {
     const x = m.x - state.camX;
     const y = m.y - state.camY;
     if (x < -30 || y < -30 || x > W + 30 || y > H + 30) continue;
-    ctx.fillStyle = m.aggroId ? "#ffb078" : "#9ecbff";
-    ctx.beginPath();
-    ctx.arc(x, y, m.r, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = "rgba(6,10,18,.85)";
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
+    drawMonsterSprite(m, x, y);
     drawBar(x - 14, y - m.r - 9, 28, 4, m.hp / m.hpMax, "#ffe1a8");
   }
 
@@ -1068,7 +1152,7 @@ HQ HP: ${Math.max(0, hq.hp).toFixed(0)} / ${hq.hpMax}
 Central HP: ${Math.max(0, enemyTower.hp).toFixed(0)} / ${enemyTower.hpMax}
 Controls: WASD/Arrows camera | Left click select/place | Right click clear target
 Build: press 1-8 or click build button, then left click map
-Artillery only: right click empty ground to relocate`;
+Traits: Barracks=unit production, Medbay=building heal, Artillery=mobile`;
 
   const aliveBuilds = buildings.filter((b) => b.hp > 0).length;
   right.textContent =
@@ -1076,16 +1160,13 @@ Artillery only: right click empty ground to relocate`;
 Alive buildings: ${aliveBuilds}
 Units alive: ${units.length}
 Monsters alive: ${monsters.filter((m) => m.alive).length}
+Monster types: ${MONSTER_ARCHETYPES.map((m) => m.name).join(", ")}
 Tech unlocked:
 ${Object.keys(BUILDINGS).filter((k) => k === "HQ" || canBuildType(k)).join(", ")}`;
 
   const sel = selectedBuilding();
   infoPanel.textContent = sel
-    ? `Selected: ${sel.type}
-HP ${Math.max(0, sel.hp).toFixed(0)} / ${sel.hpMax}
-Range ${BUILDINGS[sel.type].range}
-Trait: ${BUILDINGS[sel.type].trait || "-"}
-Forced target: ${sel.forceTarget || "none"}`
+    ? buildingDetailText(sel)
     : "Build guide: 1-8 key or build button -> left click to place inside cyan territory circles. Select combat tower -> click enemy to force target.";
 
   if (state.over) {
