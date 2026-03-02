@@ -1,7 +1,7 @@
 const CONFIG = {
   SIM_HZ: 30,
   GHOST_DELAY: 2.2,
-  SEGMENT_TTL: 12,
+  SEGMENT_TTL: 6,
   RESPAWN_DELAY: 2,
   PLAYER_COUNT: 11,
   HUMAN_SPEED: 170,
@@ -281,6 +281,9 @@ function killPlayer(p, now, killerId = -1) {
   p.kills = 0;
   p.deaths = 0;
   p.survival = 0;
+  for (let i = segments.length - 1; i >= 0; i--) {
+    if (segments[i].ownerId === p.id) segments.splice(i, 1);
+  }
   p.respawnAt = now + CONFIG.RESPAWN_DELAY;
   if (killerId >= 0 && killerId !== p.id && players[killerId]) players[killerId].kills += 1;
   pulses.push({ x: p.x, y: p.y, t: 0.3, color: "#ff4d5d" });
