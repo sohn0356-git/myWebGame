@@ -50,7 +50,7 @@ const CONTROL_PRESETS = {
   wasd: "WASD + Arrow",
   arrows: "Arrow + WASD"
 };
-const GOAL_TEXT = "\uBAA9\uD45C: \uCD5C\uD558\uCE35(Floor 4)\uAE4C\uC9C0 \uB0B4\uB824\uAC00 \uBCF4\uC2A4\uB97C \uCC98\uCE58\uD558\uB77C.";
+const BASE_GOAL_TEXT = "\uBAA9\uD45C: \uCD5C\uD558\uCE35(Floor 4)\uAE4C\uC9C0 \uB0B4\uB824\uAC00 \uBCF4\uC2A4\uB97C \uCC98\uCE58\uD558\uB77C.";
 const RUN_LOOP_TEXT = "\uD0D0\uC0C9 -> \uC804\uD22C -> \uBCF4\uC0C1 \uC120\uD0DD -> \uC704\uD5D8 \uC0C1\uC2B9";
 const SAVE_TOAST_MS = 1400;
 const SAFE_TURN_LIMIT = 12;
@@ -144,13 +144,18 @@ function buildSprites() {
   });
   sprites.player = makeSprite((s) => {
     s.fillStyle = "#000000";
-    s.fillRect(4, 3, 8, 11);
-    s.fillStyle = "#f8d763";
-    s.fillRect(5, 4, 6, 3);
-    s.fillStyle = "#89c6ff";
-    s.fillRect(5, 8, 6, 5);
-    s.fillStyle = "#e8f1ff";
-    s.fillRect(7, 5, 2, 1);
+    s.fillRect(4, 2, 8, 13);
+    s.fillStyle = "#f4d78a";
+    s.fillRect(5, 3, 6, 3);
+    s.fillStyle = "#2f3f63";
+    s.fillRect(5, 6, 6, 7);
+    s.fillStyle = "#64c4ff";
+    s.fillRect(5, 8, 6, 3);
+    s.fillStyle = "#eaf6ff";
+    s.fillRect(6, 4, 1, 1);
+    s.fillRect(9, 4, 1, 1);
+    s.fillStyle = "#5be2b6";
+    s.fillRect(7, 13, 2, 1);
   });
   sprites.enemy = makeSprite((s) => {
     s.fillStyle = "#000000";
@@ -300,6 +305,7 @@ function App() {
   const [pauseReason, setPauseReason] = useState("");
   const [toast, setToast] = useState("");
   const [controlPreset, setControlPreset] = useState("wasd");
+  const [goalText, setGoalText] = useState(BASE_GOAL_TEXT);
   const [hpText, setHpText] = useState("HP: --/--");
   const [hpRatio, setHpRatio] = useState(1);
   const [bossText, setBossText] = useState("Boss: --/--");
@@ -337,6 +343,7 @@ function App() {
   const toastTimerRef = useRef(null);
   const audioRef = useRef({ ctx: null });
   const damageCauseRef = useRef("");
+  const descendRef = useRef({ floor: -1, x: 0, y: 0 });
   const logLine = useCallback((line) => {
     setLogLines((prev) => {
       const next = [line, ...prev];
@@ -531,6 +538,23 @@ function App() {
       drawShadow(ctx, bx, by, 0.38);
       ctx.drawImage(sprites.boss, bx * TILE, by * TILE);
     }
+    if (floor < 4) {
+      const stair = getDescendTile(api);
+      const bossDead = api.game_boss_alive() !== 1;
+      const onStair = px === stair.x && py === stair.y;
+      ctx.fillStyle = bossDead ? "rgba(78,212,147,0.55)" : "rgba(112,126,149,0.4)";
+      ctx.fillRect(stair.x * TILE, stair.y * TILE, TILE, TILE);
+      ctx.strokeStyle = bossDead ? "#95ffd2" : "#9aa9bf";
+      ctx.strokeRect(stair.x * TILE + 1.5, stair.y * TILE + 1.5, TILE - 3, TILE - 3);
+      ctx.fillStyle = bossDead ? "#dfffee" : "#d4d9e3";
+      ctx.font = "bold 10px monospace";
+      ctx.fillText(">", stair.x * TILE + 5, stair.y * TILE + 11);
+      const nextGoal = bossDead ? onStair ? "\uCD9C\uAD6C \uD65C\uC131\uD654: E\uB97C \uB20C\uB7EC \uB2E4\uC74C \uCE35\uC73C\uB85C \uB0B4\uB824\uAC00\uC138\uC694." : "\uBCF4\uC2A4 \uCC98\uCE58 \uC644\uB8CC: \uCD08\uB85D \uACC4\uB2E8 \uD0C0\uC77C\uB85C \uC774\uB3D9\uD558\uC138\uC694." : "\uD604\uC7AC \uBAA9\uD45C: \uBCF4\uC2A4\uB97C \uCC98\uCE58\uD574 \uCD9C\uAD6C \uACC4\uB2E8\uC744 \uD65C\uC131\uD654\uD558\uC138\uC694.";
+      setGoalText((prev) => prev === nextGoal ? prev : nextGoal);
+    } else {
+      const nextGoal = "\uCD5C\uC885\uCE35\uC785\uB2C8\uB2E4. \uBCF4\uC2A4\uB97C \uCC98\uCE58\uD558\uACE0 \uB7F0\uC744 \uC644\uC218\uD558\uC138\uC694.";
+      setGoalText((prev) => prev === nextGoal ? prev : nextGoal);
+    }
     const vignette = ctx.createRadialGradient(
       canvas.width / 2,
       canvas.height / 2,
@@ -604,7 +628,7 @@ function App() {
         }
       }
     }
-  }, [applyEnvironment, floor, fxState, hasBit, storyEvent]);
+  }, [applyEnvironment, floor, fxState, getDescendTile, hasBit, storyEvent]);
   const saveToLocal = useCallback(() => {
     const rt = runtimeRef.current;
     const { api, Module } = rt;
@@ -683,6 +707,24 @@ function App() {
     api.boss_apply_stats_from_config();
     logLine(`Boss loaded: ${boss.name} (floor ${floor2})`);
   }, [logLine]);
+  const getDescendTile = useCallback((api) => {
+    const cached = descendRef.current;
+    if (cached.floor === floor) return cached;
+    const w = api.game_w();
+    const h2 = api.game_h();
+    let found = { floor, x: w - 2, y: h2 - 2 };
+    for (let y = h2 - 2; y >= 1; y--) {
+      for (let x = w - 2; x >= 1; x--) {
+        if (api.game_tile(x, y) !== "#".charCodeAt(0)) {
+          found = { floor, x, y };
+          y = -1;
+          break;
+        }
+      }
+    }
+    descendRef.current = found;
+    return found;
+  }, [floor]);
   const makeUpgradeChoices = useCallback(() => {
     const pool = [
       { label: "\uACF5\uACA9 \uC99D\uD3ED", effect: STORY_EFFECTS.atk_1, tag: "ATK", desc: "+1 ATK (\uC0C1\uC2DC)" },
@@ -824,18 +866,34 @@ function App() {
     const code = dirToCode(dx, dy, dash);
     if (code) stepWithCode(code);
   }, [dirToCode, stepWithCode, tryAutoAttack]);
-  const inputToCode = useCallback((key, shift) => {
+  const inputToCode = useCallback((key, code, shift) => {
     const dash = shift ? 4 : 0;
-    const upA = controlPreset === "arrows" ? ["ArrowUp", "w", "W"] : ["w", "W", "ArrowUp"];
-    const downA = controlPreset === "arrows" ? ["ArrowDown", "s", "S"] : ["s", "S", "ArrowDown"];
-    const leftA = controlPreset === "arrows" ? ["ArrowLeft", "a", "A"] : ["a", "A", "ArrowLeft"];
-    const rightA = controlPreset === "arrows" ? ["ArrowRight", "d", "D"] : ["d", "D", "ArrowRight"];
-    if (upA.includes(key)) return 1 + dash;
-    if (downA.includes(key)) return 2 + dash;
-    if (leftA.includes(key)) return 3 + dash;
-    if (rightA.includes(key)) return 4 + dash;
+    const isUp = key === "ArrowUp" || key === "w" || key === "W" || code === "KeyW";
+    const isDown = key === "ArrowDown" || key === "s" || key === "S" || code === "KeyS";
+    const isLeft = key === "ArrowLeft" || key === "a" || key === "A" || code === "KeyA";
+    const isRight = key === "ArrowRight" || key === "d" || key === "D" || code === "KeyD";
+    if (isUp) return 1 + dash;
+    if (isDown) return 2 + dash;
+    if (isLeft) return 3 + dash;
+    if (isRight) return 4 + dash;
     return 0;
-  }, [controlPreset]);
+  }, []);
+  const tryInteract = useCallback(() => {
+    const api = runtimeRef.current.api;
+    if (!api || floor >= 4) return false;
+    if (api.game_boss_alive() === 1) {
+      showToast("\uBCF4\uC2A4\uB97C \uCC98\uCE58\uD574\uC57C \uACC4\uB2E8\uC774 \uC5F4\uB9BD\uB2C8\uB2E4.");
+      return false;
+    }
+    const stair = getDescendTile(api);
+    const onStair = api.game_player_x() === stair.x && api.game_player_y() === stair.y;
+    if (!onStair) {
+      showToast("\uCD08\uB85D \uACC4\uB2E8 \uD0C0\uC77C \uC704\uC5D0\uC11C E\uB97C \uB204\uB974\uC138\uC694.");
+      return false;
+    }
+    onNextFloor();
+    return true;
+  }, [floor, getDescendTile, onNextFloor, showToast]);
   const normalizeCodeWithEnvironment = useCallback((code) => {
     const api = runtimeRef.current.api;
     if (!api || !code) return code;
@@ -1040,25 +1098,30 @@ function App() {
   }, [configureBossForFloor, draw, loadFromLocal, logLine]);
   useEffect(() => {
     function onKeyDown(e) {
-      if (!runtimeRef.current.api || !ready || storyEvent || upgradeEvent || deathSummary || paused || showStart) return;
-      if (e.key === " " || e.key === "f" || e.key === "F" || e.key === "e" || e.key === "E") {
+      if (!runtimeRef.current.api || !ready || upgradeEvent || deathSummary || paused || showStart) return;
+      if (e.key === " " || e.key === "f" || e.key === "F") {
         e.preventDefault();
         tryAutoAttack();
         return;
       }
-      const code = normalizeCodeWithEnvironment(inputToCode(e.key, e.shiftKey));
+      if (e.key === "e" || e.key === "E" || e.code === "KeyE") {
+        e.preventDefault();
+        tryInteract();
+        return;
+      }
+      const code = normalizeCodeWithEnvironment(inputToCode(e.key, e.code, e.shiftKey));
       if (!code) return;
       e.preventDefault();
       stepWithCode(code);
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [deathSummary, inputToCode, normalizeCodeWithEnvironment, paused, ready, showStart, stepWithCode, storyEvent, tryAutoAttack, upgradeEvent]);
+  }, [deathSummary, inputToCode, normalizeCodeWithEnvironment, paused, ready, showStart, stepWithCode, tryAutoAttack, tryInteract, upgradeEvent]);
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return void 0;
     function onPointerDown(e) {
-      if (!runtimeRef.current.api || !ready || storyEvent || upgradeEvent || deathSummary || paused || showStart) return;
+      if (!runtimeRef.current.api || !ready || upgradeEvent || deathSummary || paused || showStart) return;
       const rect = canvas.getBoundingClientRect();
       const sx = canvas.width / rect.width;
       const sy = canvas.height / rect.height;
@@ -1068,7 +1131,7 @@ function App() {
     }
     canvas.addEventListener("pointerdown", onPointerDown);
     return () => canvas.removeEventListener("pointerdown", onPointerDown);
-  }, [deathSummary, paused, ready, showStart, stepToward, storyEvent, upgradeEvent]);
+  }, [deathSummary, paused, ready, showStart, stepToward, upgradeEvent]);
   useEffect(() => {
     function pauseByFocus() {
       if (!ready || showStart || deathSummary) return;
@@ -1141,7 +1204,7 @@ function App() {
             deathSummary,
             onCopyResult,
             onNewRun,
-            goalText: GOAL_TEXT,
+            goalText: BASE_GOAL_TEXT,
             runLoopText: RUN_LOOP_TEXT
           })
         ),
@@ -1152,7 +1215,7 @@ function App() {
           turnText,
           floor,
           floorMeta,
-          goalText: GOAL_TEXT
+          goalText
         }),
         h(
           "div",
