@@ -918,19 +918,6 @@ function render() {
     ctx.fillText("CENTRAL TOWER", ex - 48, ey - enemyTower.r - 10);
   }
 
-  // monsters
-  for (const m of monsters) {
-    if (!m.alive) continue;
-    const x = m.x - state.camX;
-    const y = m.y - state.camY;
-    if (x < -30 || y < -30 || x > W + 30 || y > H + 30) continue;
-    ctx.fillStyle = m.aggroId ? "#ffb078" : "#9ecbff";
-    ctx.beginPath();
-    ctx.arc(x, y, m.r, 0, Math.PI * 2);
-    ctx.fill();
-    drawBar(x - 14, y - m.r - 9, 28, 4, m.hp / m.hpMax, "#ffe1a8");
-  }
-
   // units
   for (const u of units) {
     const x = u.x - state.camX;
@@ -984,6 +971,22 @@ function render() {
     ctx.fillStyle = "#eff6ff";
     ctx.font = "10px Segoe UI";
     ctx.fillText(b.type, x - s, y - s - 6);
+  }
+
+  // monsters (drawn after buildings so they are not hidden in fights)
+  for (const m of monsters) {
+    if (!m.alive) continue;
+    const x = m.x - state.camX;
+    const y = m.y - state.camY;
+    if (x < -30 || y < -30 || x > W + 30 || y > H + 30) continue;
+    ctx.fillStyle = m.aggroId ? "#ffb078" : "#9ecbff";
+    ctx.beginPath();
+    ctx.arc(x, y, m.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(6,10,18,.85)";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    drawBar(x - 14, y - m.r - 9, 28, 4, m.hp / m.hpMax, "#ffe1a8");
   }
 
   // projectiles
