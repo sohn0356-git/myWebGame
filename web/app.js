@@ -1,4 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "https://esm.sh/react@18.3.1";
+import HeaderBar from "./components/HeaderBar.tsx";
+import GameOverlays from "./components/GameOverlays.tsx";
+import HudBar from "./components/HudBar.tsx";
+import SidePanels from "./components/SidePanels.tsx";
 const h = React.createElement;
 const SAVE_KEY = "wasm_rogue_save_v4";
 const STORY_EFFECTS = {
@@ -1109,23 +1113,11 @@ function App() {
   return h(
     React.Fragment,
     null,
-    h(
-      "header",
-      { className: "top" },
-      h("div", { className: "brand" }, "HEART DIVER"),
-      h(
-        "div",
-        { className: "topRight" },
-        h("div", { className: "hint" }, "WASD/Arrow \uC774\uB3D9 | Space \uACF5\uACA9 | E \uC0C1\uD638\uC791\uC6A9 | Shift+\uC774\uB3D9 \uB300\uC2DC"),
-        h(
-          "div",
-          { className: "presetRow" },
-          h("span", { className: "mutedText" }, "\uD0A4 \uD504\uB9AC\uC14B"),
-          h("button", { className: controlPreset === "wasd" ? "primary" : "", onClick: () => setControlPreset("wasd") }, CONTROL_PRESETS.wasd),
-          h("button", { className: controlPreset === "arrows" ? "primary" : "", onClick: () => setControlPreset("arrows") }, CONTROL_PRESETS.arrows)
-        )
-      )
-    ),
+    h(HeaderBar, {
+      controlPreset,
+      setControlPreset,
+      controlPresets: CONTROL_PRESETS
+    }),
     h(
       "main",
       { className: "layout" },
@@ -1136,76 +1128,32 @@ function App() {
           "div",
           { className: "gameStage" },
           h("canvas", { ref: canvasRef, width: 640, height: 352 }),
-          showStart ? h(
-            "div",
-            { className: "overlay startOverlay" },
-            h("div", { className: "overlayTitle" }, "HEART DIVER"),
-            h("div", { className: "overlayGoal" }, GOAL_TEXT),
-            h("div", { className: "overlayLoop" }, RUN_LOOP_TEXT),
-            h(
-              "div",
-              { className: "overlayControls" },
-              h("div", null, "WASD / Arrow: \uC774\uB3D9"),
-              h("div", null, "Space: \uACF5\uACA9"),
-              h("div", null, "E: \uC0C1\uD638\uC791\uC6A9"),
-              h("div", null, "Shift+\uC774\uB3D9: \uB300\uC2DC"),
-              h("div", null, "Click: \uD55C \uCE78 \uC774\uB3D9")
-            ),
-            h("button", { className: "startBtn", onClick: onStartRun, disabled: !ready }, hasSave ? "Start Run (Continue)" : "Start Run")
-          ) : null,
-          paused ? h(
-            "div",
-            { className: "overlay pauseOverlay" },
-            h("div", { className: "overlayTitle" }, "PAUSED"),
-            h("div", { className: "mutedText" }, pauseReason || "\uC77C\uC2DC\uC815\uC9C0"),
-            h("button", { className: "startBtn", onClick: () => setPaused(false) }, "Resume")
-          ) : null,
-          upgradeEvent ? h(
-            "div",
-            { className: "overlay upgradeOverlay" },
-            h("div", { className: "overlayTitle" }, upgradeEvent.title),
-            h("div", { className: "overlayGoal" }, upgradeEvent.subtitle),
-            h(
-              "div",
-              { className: "upgradeChoices" },
-              upgradeEvent.choices.map(
-                (choice) => h(
-                  "button",
-                  { key: choice.label, onClick: () => onUpgradeChoice(choice) },
-                  `${choice.label} - ${choice.desc}`
-                )
-              )
-            )
-          ) : null,
-          deathSummary ? h(
-            "div",
-            { className: "overlay deathOverlay" },
-            h("div", { className: "overlayTitle" }, "RUN RESULT"),
-            h("div", { className: "overlayGoal" }, `Floor ${deathSummary.floor} | Turn ${deathSummary.turn}`),
-            h("div", { className: "overlayLoop" }, `\uBE4C\uB4DC: ${deathSummary.build}`),
-            h("div", { className: "overlayGoal" }, `\uC0AC\uB9DD \uC6D0\uC778: ${deathSummary.reason}`),
-            h(
-              "div",
-              { className: "buttons" },
-              h("button", { className: "primary", onClick: onCopyResult }, "\uACB0\uACFC \uCE74\uB4DC \uBCF5\uC0AC"),
-              h("button", { onClick: onNewRun }, "\uB2E4\uC2DC \uC2DC\uC791")
-            )
-          ) : null
+          h(GameOverlays, {
+            showStart,
+            ready,
+            hasSave,
+            onStartRun,
+            paused,
+            pauseReason,
+            setPaused,
+            upgradeEvent,
+            onUpgradeChoice,
+            deathSummary,
+            onCopyResult,
+            onNewRun,
+            goalText: GOAL_TEXT,
+            runLoopText: RUN_LOOP_TEXT
+          })
         ),
-        h(
-          "div",
-          { className: "hud" },
-          h(
-            "div",
-            { className: "hudHp" },
-            h("div", { className: "hudLabel" }, hpText),
-            h("div", { className: "hpBar" }, h("div", { className: "hpFill", style: { width: `${Math.round(hpRatio * 100)}%` } }))
-          ),
-          h("div", { className: "hudStat" }, bossText),
-          h("div", { className: "hudStat" }, turnText),
-          h("div", { className: "hudStat" }, `Floor: ${floor} ${floorMeta.subtitle}`),
-          h("div", { className: "hudGoal" }, GOAL_TEXT)
-        ),
+        h(HudBar, {
+          hpText,
+          hpRatio,
+          bossText,
+          turnText,
+          floor,
+          floorMeta,
+          goalText: GOAL_TEXT
+        }),
         h(
           "div",
           { className: "buttons" },
@@ -1217,36 +1165,7 @@ function App() {
         ),
         loadError ? h("div", { className: "loadError" }, `Game load failed: ${loadError}`) : null
       ),
-      h(
-        "aside",
-        { className: "side" },
-        h(
-          "div",
-          { className: "box" },
-          h("div", { className: "boxTitle" }, `${floorMeta.name} | ${floorMeta.subtitle}`),
-          h("div", { className: "worldText" }, `\uD658\uACBD \uADDC\uCE59: ${floorMeta.hazard}`),
-          h("div", { className: "worldText" }, `\uCD9C\uD604 \uAC1C\uCCB4: ${floorMeta.enemies}`),
-          h("div", { className: "worldText" }, `\uD2B9\uC218 \uC544\uC774\uD15C: ${floorMeta.items}`)
-        ),
-        h(
-          "div",
-          { className: "box" },
-          h("div", { className: "boxTitle" }, "Build"),
-          h("div", { className: "worldText" }, buildTags.length ? buildTags.join(" + ") : "\uC544\uC9C1 \uC120\uD0DD\uD55C \uC5C5\uADF8\uB808\uC774\uB4DC\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.")
-        ),
-        h(
-          "div",
-          { className: "box" },
-          h("div", { className: "boxTitle" }, "Story"),
-          h("div", { id: "story" }, storyBody)
-        ),
-        h(
-          "div",
-          { className: "box" },
-          h("div", { className: "boxTitle" }, "Log"),
-          h("div", { id: "log" }, logText)
-        )
-      )
+      h(SidePanels, { floorMeta, buildTags, storyBody, logText })
     ),
     toast ? h("div", { className: "toast" }, toast) : null
   );

@@ -1,5 +1,9 @@
 ﻿// @ts-nocheck
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "https://esm.sh/react@18.3.1";
+import HeaderBar from "./components/HeaderBar.tsx";
+import GameOverlays from "./components/GameOverlays.tsx";
+import HudBar from "./components/HudBar.tsx";
+import SidePanels from "./components/SidePanels.tsx";
 
 const h = React.createElement;
 const SAVE_KEY = "wasm_rogue_save_v4";
@@ -1274,23 +1278,11 @@ export default function App() {
   return h(
     React.Fragment,
     null,
-    h(
-      "header",
-      { className: "top" },
-      h("div", { className: "brand" }, "HEART DIVER"),
-      h(
-        "div",
-        { className: "topRight" },
-        h("div", { className: "hint" }, "WASD/Arrow 이동 | Space 공격 | E 상호작용 | Shift+이동 대시"),
-        h(
-          "div",
-          { className: "presetRow" },
-          h("span", { className: "mutedText" }, "키 프리셋"),
-          h("button", { className: controlPreset === "wasd" ? "primary" : "", onClick: () => setControlPreset("wasd") }, CONTROL_PRESETS.wasd),
-          h("button", { className: controlPreset === "arrows" ? "primary" : "", onClick: () => setControlPreset("arrows") }, CONTROL_PRESETS.arrows)
-        )
-      )
-    ),
+    h(HeaderBar, {
+      controlPreset,
+      setControlPreset,
+      controlPresets: CONTROL_PRESETS,
+    }),
     h(
       "main",
       { className: "layout" },
@@ -1301,84 +1293,32 @@ export default function App() {
           "div",
           { className: "gameStage" },
           h("canvas", { ref: canvasRef, width: 640, height: 352 }),
-          showStart
-            ? h(
-                "div",
-                { className: "overlay startOverlay" },
-                h("div", { className: "overlayTitle" }, "HEART DIVER"),
-                h("div", { className: "overlayGoal" }, GOAL_TEXT),
-                h("div", { className: "overlayLoop" }, RUN_LOOP_TEXT),
-                h(
-                  "div",
-                  { className: "overlayControls" },
-                  h("div", null, "WASD / Arrow: 이동"),
-                  h("div", null, "Space: 공격"),
-                  h("div", null, "E: 상호작용"),
-                  h("div", null, "Shift+이동: 대시"),
-                  h("div", null, "Click: 한 칸 이동")
-                ),
-                h("button", { className: "startBtn", onClick: onStartRun, disabled: !ready }, hasSave ? "Start Run (Continue)" : "Start Run")
-              )
-            : null,
-          paused
-            ? h(
-                "div",
-                { className: "overlay pauseOverlay" },
-                h("div", { className: "overlayTitle" }, "PAUSED"),
-                h("div", { className: "mutedText" }, pauseReason || "일시정지"),
-                h("button", { className: "startBtn", onClick: () => setPaused(false) }, "Resume")
-              )
-            : null,
-          upgradeEvent
-            ? h(
-                "div",
-                { className: "overlay upgradeOverlay" },
-                h("div", { className: "overlayTitle" }, upgradeEvent.title),
-                h("div", { className: "overlayGoal" }, upgradeEvent.subtitle),
-                h(
-                  "div",
-                  { className: "upgradeChoices" },
-                  upgradeEvent.choices.map((choice) =>
-                    h(
-                      "button",
-                      { key: choice.label, onClick: () => onUpgradeChoice(choice) },
-                      `${choice.label} - ${choice.desc}`
-                    )
-                  )
-                )
-              )
-            : null,
-          deathSummary
-            ? h(
-                "div",
-                { className: "overlay deathOverlay" },
-                h("div", { className: "overlayTitle" }, "RUN RESULT"),
-                h("div", { className: "overlayGoal" }, `Floor ${deathSummary.floor} | Turn ${deathSummary.turn}`),
-                h("div", { className: "overlayLoop" }, `빌드: ${deathSummary.build}`),
-                h("div", { className: "overlayGoal" }, `사망 원인: ${deathSummary.reason}`),
-                h(
-                  "div",
-                  { className: "buttons" },
-                  h("button", { className: "primary", onClick: onCopyResult }, "결과 카드 복사"),
-                  h("button", { onClick: onNewRun }, "다시 시작")
-                )
-              )
-            : null
+          h(GameOverlays, {
+            showStart,
+            ready,
+            hasSave,
+            onStartRun,
+            paused,
+            pauseReason,
+            setPaused,
+            upgradeEvent,
+            onUpgradeChoice,
+            deathSummary,
+            onCopyResult,
+            onNewRun,
+            goalText: GOAL_TEXT,
+            runLoopText: RUN_LOOP_TEXT,
+          })
         ),
-        h(
-          "div",
-          { className: "hud" },
-          h(
-            "div",
-            { className: "hudHp" },
-            h("div", { className: "hudLabel" }, hpText),
-            h("div", { className: "hpBar" }, h("div", { className: "hpFill", style: { width: `${Math.round(hpRatio * 100)}%` } }))
-          ),
-          h("div", { className: "hudStat" }, bossText),
-          h("div", { className: "hudStat" }, turnText),
-          h("div", { className: "hudStat" }, `Floor: ${floor} ${floorMeta.subtitle}`),
-          h("div", { className: "hudGoal" }, GOAL_TEXT)
-        ),
+        h(HudBar, {
+          hpText,
+          hpRatio,
+          bossText,
+          turnText,
+          floor,
+          floorMeta,
+          goalText: GOAL_TEXT,
+        }),
         h(
           "div",
           { className: "buttons" },
@@ -1390,36 +1330,7 @@ export default function App() {
         ),
         loadError ? h("div", { className: "loadError" }, `Game load failed: ${loadError}`) : null
       ),
-      h(
-        "aside",
-        { className: "side" },
-        h(
-          "div",
-          { className: "box" },
-          h("div", { className: "boxTitle" }, `${floorMeta.name} | ${floorMeta.subtitle}`),
-          h("div", { className: "worldText" }, `환경 규칙: ${floorMeta.hazard}`),
-          h("div", { className: "worldText" }, `출현 개체: ${floorMeta.enemies}`),
-          h("div", { className: "worldText" }, `특수 아이템: ${floorMeta.items}`)
-        ),
-        h(
-          "div",
-          { className: "box" },
-          h("div", { className: "boxTitle" }, "Build"),
-          h("div", { className: "worldText" }, buildTags.length ? buildTags.join(" + ") : "아직 선택한 업그레이드가 없습니다.")
-        ),
-        h(
-          "div",
-          { className: "box" },
-          h("div", { className: "boxTitle" }, "Story"),
-          h("div", { id: "story" }, storyBody)
-        ),
-        h(
-          "div",
-          { className: "box" },
-          h("div", { className: "boxTitle" }, "Log"),
-          h("div", { id: "log" }, logText)
-        )
-      )
+      h(SidePanels, { floorMeta, buildTags, storyBody, logText })
     ),
     toast ? h("div", { className: "toast" }, toast) : null
   );
