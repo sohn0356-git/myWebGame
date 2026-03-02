@@ -10,11 +10,13 @@ const CFG = {
   MINIMAP_SIZE: 210,
   LEVEL_MAX: 8,
   HQ_INCOME_PER_SEC: 7,
+  MONSTER_BOUNTY: 38,
 };
 
 const BUILDINGS = {
   HQ: { name: "HQ", hp: 2600, size: 34, cost: 0, r: 320, range: 220, damage: 20, fireCd: 0.8, projSpeed: 620, prereq: [], trait: "Passive crystal income + base defense" },
   RELAY: { name: "Relay", hp: 1000, size: 22, cost: 70, r: 250, range: 0, damage: 0, fireCd: 0, projSpeed: 0, prereq: ["HQ"], trait: "Territory extension node" },
+  MEDBAY: { name: "Medbay", hp: 980, size: 20, cost: 120, r: 210, range: 0, damage: 0, fireCd: 0, projSpeed: 0, heal: 34, healRange: 230, healCd: 1.2, prereq: ["RELAY"], trait: "Area healing for nearby buildings and units" },
   BARRACKS: { name: "Barracks", hp: 1200, size: 24, cost: 110, r: 220, range: 230, damage: 22, fireCd: 0.75, projSpeed: 700, prereq: ["RELAY"], produces: "MARINE", spawnCd: 5.2, trait: "Auto-produces Marines" },
   WORKSHOP: { name: "Workshop", hp: 1300, size: 26, cost: 150, r: 240, range: 0, damage: 0, fireCd: 0, projSpeed: 0, prereq: ["BARRACKS"], produces: "DRONE", spawnCd: 7.4, trait: "Auto-produces Drones" },
   REACTOR: { name: "Reactor", hp: 1400, size: 25, cost: 170, r: 260, range: 0, damage: 0, fireCd: 0, projSpeed: 0, prereq: ["WORKSHOP"], trait: "Nearby towers: +20% damage, -20% cooldown/production time" },
@@ -28,7 +30,7 @@ const UNIT_TYPES = {
   DRONE: { hp: 210, r: 10, speed: 112, range: 220, atk: 46, fireCd: 1.15, col: "#ffcf89" },
 };
 
-const BUILD_ORDER = ["RELAY", "BARRACKS", "WORKSHOP", "REACTOR", "CANNON", "MISSILE", "ARTILLERY"];
+const BUILD_ORDER = ["RELAY", "MEDBAY", "BARRACKS", "WORKSHOP", "REACTOR", "CANNON", "MISSILE", "ARTILLERY"];
 const root = document.getElementById("root") || document.body;
 root.innerHTML = "";
 
@@ -87,6 +89,24 @@ const mouse = { x: 0, y: 0, down: false };
 addEventListener("keydown", (e) => {
   keys.add(e.code);
   if (startOverlay.style.display !== "none" && e.code === "Enter") start();
+  if (!state.started || state.over) return;
+  if (e.code === "Escape") {
+    state.placingType = "";
+    buildButtons();
+    return;
+  }
+  if (e.code.startsWith("Digit")) {
+    const idx = Number(e.code.slice(5)) - 1;
+    if (idx >= 0 && idx < BUILD_ORDER.length) {
+      const type = BUILD_ORDER[idx];
+      if (canBuildType(type)) {
+        state.placingType = state.placingType === type ? "" : type;
+        state.commandMode = false;
+        showBanner(state.placingType ? `Build mode: ${type} (left click map)` : "Build mode canceled");
+        buildButtons();
+      }
+    }
+  }
 });
 addEventListener("keyup", (e) => keys.delete(e.code));
 addEventListener("mousemove", (e) => { mouse.x = e.clientX; mouse.y = e.clientY; });
@@ -143,6 +163,7 @@ function addBuilding(type, x, y) {
     hp: t.hp,
     hpMax: t.hp,
     fireCd: 0,
+    healCd: t.healCd || 0,
     spawnCd: t.spawnCd || 0,
     forceTarget: "",
   };
@@ -230,17 +251,23 @@ function canBuildType(type) {
 
 function buildButtons() {
   buildPanel.innerHTML = "";
-  BUILD_ORDER.forEach((type) => {
+  BUILD_ORDER.forEach((type, idx) => {
     const t = BUILDINGS[type];
     const btn = mk("button", "padding:8px 10px;border-radius:10px;border:1px solid #4b6490;background:rgba(12,20,34,.88);color:#e9f2ff;cursor:pointer;font-size:12px");
     const ok = canBuildType(type) && state.money >= t.cost;
+    const unlocked = canBuildType(type);
     if (!ok) btn.style.opacity = "0.45";
     if (state.placingType === type) btn.style.borderColor = "#9fd0ff";
-    btn.textContent = `${type} (${t.cost})`;
+    btn.textContent = `${idx + 1}.${type} (${t.cost})`;
+    btn.title = `${t.trait} | prereq: ${t.prereq.join(", ") || "none"}`;
     btn.onclick = () => {
-      if (!canBuildType(type)) return;
+      if (!unlocked) {
+        showBanner(`Locked: need ${t.prereq.join(", ")}`, "rgba(148,57,35,.82)");
+        return;
+      }
       state.placingType = state.placingType === type ? "" : type;
       state.commandMode = false;
+      if (state.placingType) showBanner(`Build mode: ${type} (left click map)`);
       buildButtons();
     };
     buildPanel.append(btn);
@@ -472,6 +499,7 @@ function updateBuildings(dt) {
     if (b.hp <= 0) continue;
     const reactorBuff = hasReactorAura(b.x, b.y);
     if (b.fireCd > 0) b.fireCd -= dt;
+    if (b.healCd > 0) b.healCd -= dt;
     const t = BUILDINGS[b.type];
     if (t.produces && b.spawnCd > 0) {
       b.spawnCd -= dt;
@@ -482,6 +510,26 @@ function updateBuildings(dt) {
         const prodBuff = reactorBuff ? 0.8 : 1;
         b.spawnCd = t.spawnCd * levelProdCdMult() * prodBuff;
       }
+    }
+
+    if (t.heal && t.healRange && b.healCd <= 0) {
+      let healed = false;
+      for (const ob of buildings) {
+        if (ob.hp <= 0 || ob.hp >= ob.hpMax) continue;
+        if (len(ob.x - b.x, ob.y - b.y) <= t.healRange) {
+          ob.hp = Math.min(ob.hpMax, ob.hp + t.heal);
+          healed = true;
+        }
+      }
+      for (const u of units) {
+        if (u.hp >= u.hpMax) continue;
+        if (len(u.x - b.x, u.y - b.y) <= t.healRange) {
+          u.hp = Math.min(u.hpMax, u.hp + t.heal * 0.8);
+          healed = true;
+        }
+      }
+      if (healed) effects.push({ x: b.x, y: b.y, t: 0.22, c: "#7fffcd" });
+      b.healCd = t.healCd;
     }
     if (t.range <= 0) continue;
     if (b.fireCd > 0) continue;
@@ -509,7 +557,7 @@ function damageMonster(m, dmg, fromX, fromY) {
   effects.push({ x: m.x, y: m.y, t: 0.18, c: "#ffd5a5" });
   if (m.hp <= 0) {
     m.alive = false;
-    state.money += 28;
+    state.money += CFG.MONSTER_BOUNTY;
     gainExp(18);
     return;
   }
@@ -784,6 +832,55 @@ function drawWorldGrid() {
   ctx.strokeRect(-state.camX, -state.camY, CFG.WORLD_W, CFG.WORLD_H);
 }
 
+function drawBuildingVisual(b, x, y, s) {
+  const palette = {
+    HQ: ["#5df2c7", "#1f7f67"],
+    RELAY: ["#85d8ff", "#2a5e8d"],
+    MEDBAY: ["#8effbf", "#2a7f56"],
+    BARRACKS: ["#86b6ff", "#30518f"],
+    WORKSHOP: ["#ffcf95", "#875d2f"],
+    REACTOR: ["#b79bff", "#54408d"],
+    CANNON: ["#ff9bb3", "#8a394b"],
+    MISSILE: ["#ffd88f", "#8a6638"],
+    ARTILLERY: ["#ffb38a", "#8f4f2d"],
+  };
+  const p = palette[b.type] || ["#9ac8ff", "#3c5f8d"];
+  const g = ctx.createLinearGradient(x - s, y - s, x + s, y + s);
+  g.addColorStop(0, p[0]);
+  g.addColorStop(1, p[1]);
+  ctx.fillStyle = g;
+  if (b.type === "RELAY" || b.type === "REACTOR" || b.type === "MEDBAY") {
+    ctx.beginPath();
+    ctx.arc(x, y, s, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    ctx.fillRect(x - s, y - s, s * 2, s * 2);
+  }
+  ctx.strokeStyle = "rgba(255,255,255,.92)";
+  ctx.lineWidth = 1.4;
+  if (b.type === "RELAY" || b.type === "REACTOR" || b.type === "MEDBAY") {
+    ctx.beginPath();
+    ctx.arc(x, y, s, 0, Math.PI * 2);
+    ctx.stroke();
+  } else {
+    ctx.strokeRect(x - s, y - s, s * 2, s * 2);
+  }
+
+  if (b.type === "HQ") {
+    ctx.fillStyle = "rgba(255,255,255,.9)";
+    ctx.fillRect(x - 5, y - 5, 10, 10);
+  } else if (b.type === "MEDBAY") {
+    ctx.strokeStyle = "rgba(255,255,255,.95)";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(x - 6, y); ctx.lineTo(x + 6, y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x, y - 6); ctx.lineTo(x, y + 6); ctx.stroke();
+  } else if (b.type === "ARTILLERY") {
+    ctx.strokeStyle = "rgba(255,248,220,.95)";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + s + 8, y - 10); ctx.stroke();
+  }
+}
+
 function render() {
   ctx.clearRect(0, 0, W, H);
   const bg = ctx.createLinearGradient(0, 0, 0, H);
@@ -853,10 +950,7 @@ function render() {
     const y = b.y - state.camY;
     const s = BUILDINGS[b.type].size;
     if (x < -50 || y < -50 || x > W + 50 || y > H + 50) continue;
-    ctx.fillStyle = b.id === player.hqId ? "#6effcf" : "#6ab8ff";
-    ctx.fillRect(x - s, y - s, s * 2, s * 2);
-    ctx.strokeStyle = "rgba(255,255,255,.9)";
-    ctx.strokeRect(x - s, y - s, s * 2, s * 2);
+    drawBuildingVisual(b, x, y, s);
     drawBar(x - s, y + s + 4, s * 2, 5, b.hp / b.hpMax, "#7ef5df");
     if (b.id === state.selectedBuildingId) {
       ctx.strokeStyle = "#fff8a1";
@@ -867,6 +961,13 @@ function render() {
         ctx.strokeStyle = "rgba(255,243,153,.4)";
         ctx.beginPath();
         ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      const hr = BUILDINGS[b.type].healRange || 0;
+      if (hr > 0) {
+        ctx.strokeStyle = "rgba(112,255,199,.4)";
+        ctx.beginPath();
+        ctx.arc(x, y, hr, 0, Math.PI * 2);
         ctx.stroke();
       }
       if (b.forceTarget) {
@@ -963,6 +1064,7 @@ Time: ${state.time.toFixed(1)}s
 HQ HP: ${Math.max(0, hq.hp).toFixed(0)} / ${hq.hpMax}
 Central HP: ${Math.max(0, enemyTower.hp).toFixed(0)} / ${enemyTower.hpMax}
 Controls: WASD/Arrows camera | Left click select/place | Right click clear target
+Build: press 1-8 or click build button, then left click map
 Artillery only: right click empty ground to relocate`;
 
   const aliveBuilds = buildings.filter((b) => b.hp > 0).length;
@@ -981,7 +1083,7 @@ HP ${Math.max(0, sel.hp).toFixed(0)} / ${sel.hpMax}
 Range ${BUILDINGS[sel.type].range}
 Trait: ${BUILDINGS[sel.type].trait || "-"}
 Forced target: ${sel.forceTarget || "none"}`
-    : "Select a combat tower then click an enemy to command target.";
+    : "Build guide: 1-8 key or build button -> left click to place inside cyan territory circles. Select combat tower -> click enemy to force target.";
 
   if (state.over) {
     center.textContent = state.win ? "VICTORY - CENTRAL TOWER DESTROYED" : "DEFEAT - HQ DESTROYED";
@@ -995,6 +1097,7 @@ function start() {
   player.name = (nickInput.value || "Commander").trim().slice(0, 16) || "Commander";
   startOverlay.style.display = "none";
   state.started = true;
+  showBanner("Build with 1-8 or bottom buttons, then left click on map");
 }
 startBtn.onclick = start;
 
