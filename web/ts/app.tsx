@@ -60,6 +60,67 @@ const BASE_GOAL_TEXT = "목표: 최하층(Floor 4)까지 내려가 보스를 처
 const RUN_LOOP_TEXT = "탐색 -> 전투 -> 보상 선택 -> 위험 상승";
 const SAVE_TOAST_MS = 1400;
 const SAFE_TURN_LIMIT = 12;
+const ARCHIVE_HOOK = "저장 슬롯은 하나. 네가 살아남을수록, 누군가가 지워진다.";
+
+const LORE = {
+  introPages: [
+    "[BOOT] ONE-SLOT ARCHIVE v0.9 (DEGRADED)",
+    "[INFO] 기록 저장소.\n[WARN] 저장 슬롯: 1",
+    "[RULE] 저장 = 덮어쓰기.\n[RULE] 덮어쓰기 = 삭제.",
+    "[PROC] RECOVERER spawned.\n[TASK] 삭제된 조각 회수.",
+    "[NOTE] 복구 대상: 미지정.\n[NOTE] 복구 주체: 불명.",
+    "[ALERT] 관리자 프로세스 감지.\n[ALERT] 접근 차단 중.",
+    "[HINT] 살아남아라.\n[HINT] 그리고... 무엇을 저장할지 선택해라.",
+  ],
+  floorPages: {
+    1: ["1F: CACHE HALL", "[TIP] 임시 기억은 빠르다. 대신 쉽게 사라진다."],
+    2: ["2F: INDEX LIBRARY", "[WARN] 색인 손상. 목적지가 '가까워 보이게' 재배치됨."],
+    3: ["3F: PERMISSION GATE", "[INFO] 권한 상승 가능. 단, 감시 레벨도 함께 상승."],
+    4: ["4F: ROLLBACK GARDEN", "[WARN] 동일 구간 재진입 시 상태가 과거로 되돌아감."],
+  },
+  bossPages: {
+    1: [
+      "[KILL] CURATOR terminated.",
+      "[DROP] ACCESS TOKEN (LOW)",
+      "[VOICE] 너는 '교체'다. 원본은 이미 저장됐다.",
+      "[UNLOCK] Door opened: INDEX PATH",
+    ],
+    2: [
+      "[KILL] AUDITOR suspended.",
+      "[REPORT] 판결: 효율적.",
+      "[RULE] ONE SLOT. 둘 중 하나만 저장 가능.",
+      "[DROP] PARDON KEY / CONFESSION FILE",
+    ],
+    4: [
+      "[KILL] SLOT ...?",
+      "[SYSTEM] 저장 동작이 멈췄다.",
+      "[PROMPT] SAVE TARGET: SELF / WORLD / DELETED",
+      "[WARNING] 저장하면 덮어쓴다. 덮어쓰면 잊는다.",
+    ],
+  },
+  loreLines: [
+    "[LOG] 입력 지연 0.03s. 누군가 너를 관찰 중.",
+    "[WARN] 너의 죽음은 실패가 아니라 업데이트다.",
+    "[INFO] 저장에는 작성자가 있다. 작성자는 드러나지 않는다.",
+    "[ERROR] 원본 레코드: NOT FOUND",
+    "[HINT] 권한을 얻을수록, 너는 사람이 아니라 프로세스가 된다.",
+    "[AUDIT] 네가 훔친 건 아이템이 아니라 기회다.",
+    "[NOTE] 이 복도는 너를 위한 길이 아니다.",
+    "[CACHE] 익숙함은 빠르다. 그리고 위험하다.",
+    "[WARN] 복구라는 단어는 마케팅이다.",
+    "[LOG] Z를 누를 때마다, 너는 더 익숙해진다.",
+    "[INFO] 네가 강해질수록, 감시는 정확해진다.",
+    "[ERROR] 기억 조각 무결성 손상: 12%",
+    "[NOTE] 너의 이름은 파일명이 아니다.",
+    "[SYSTEM] 네 선택은 여기서 삭제로 분류된다.",
+    "[WARN] 오버라이트는 언제나 조용하다.",
+    "[ALERT] 문이 열린 게 아니다. 허락된 것이다.",
+    "[LOG] 누군가 너를 이미 저장했다.",
+    "[INFO] 진짜 적은 몬스터가 아니라 규칙이다.",
+    "[AUDIT] 자비는 비용이다.",
+    "[ERROR] 감정 모듈 로드 실패. (...근데 왜 아프지?)",
+  ],
+};
 
 function randSeed() {
   return (Math.random() * 0xffffffff) >>> 0;
@@ -359,6 +420,9 @@ export default function App() {
   const [upgradeEvent, setUpgradeEvent] = useState(null);
   const [buildTags, setBuildTags] = useState([]);
   const [deathSummary, setDeathSummary] = useState(null);
+  const [cutscenePages, setCutscenePages] = useState(LORE.introPages);
+  const [cutsceneIndex, setCutsceneIndex] = useState(0);
+  const [showCutscene, setShowCutscene] = useState(true);
   const [logLines, setLogLines] = useState(["초기 맵 렌더링 완료"]);
   const [fxState, setFxState] = useState({
     hitFlash: 0,
@@ -390,6 +454,9 @@ export default function App() {
   const audioRef = useRef({ ctx: null });
   const damageCauseRef = useRef("");
   const descendRef = useRef({ floor: -1, x: 0, y: 0 });
+  const cutsceneQueueRef = useRef([]);
+  const prevBossAliveRef = useRef(1);
+  const prevFloorRef = useRef(1);
 
   const logLine = useCallback((line) => {
     setLogLines((prev) => {
@@ -432,6 +499,33 @@ export default function App() {
   const emitFx = useCallback((patch) => {
     setFxState((prev) => ({ ...prev, ...patch }));
   }, []);
+
+  const openCutscene = useCallback((pages) => {
+    if (!pages || pages.length === 0) return;
+    setCutscenePages(pages);
+    setCutsceneIndex(0);
+    setShowCutscene(true);
+  }, []);
+
+  const queueCutscene = useCallback((pages) => {
+    if (!pages || pages.length === 0) return;
+    if (showCutscene) cutsceneQueueRef.current.push(pages);
+    else openCutscene(pages);
+  }, [openCutscene, showCutscene]);
+
+  const onCutsceneNext = useCallback(() => {
+    if (!showCutscene) return;
+    if (cutsceneIndex + 1 < cutscenePages.length) {
+      setCutsceneIndex((v) => v + 1);
+      return;
+    }
+    if (cutsceneQueueRef.current.length > 0) {
+      const next = cutsceneQueueRef.current.shift();
+      openCutscene(next);
+      return;
+    }
+    setShowCutscene(false);
+  }, [cutsceneIndex, cutscenePages.length, openCutscene, showCutscene]);
 
   const hasBit = useCallback((bit) => {
     const api = runtimeRef.current.api;
@@ -664,6 +758,24 @@ export default function App() {
 
     setTurnText(`Turn: ${api.game_turn()}`);
 
+    const currentFloor = clamp(api.game_floor(), 1, 4);
+    if (prevFloorRef.current !== currentFloor) {
+      prevFloorRef.current = currentFloor;
+      queueCutscene(LORE.floorPages[currentFloor] || []);
+    }
+
+    const bossAliveNow = api.game_boss_alive();
+    if (prevBossAliveRef.current === 1 && bossAliveNow !== 1) {
+      queueCutscene(LORE.bossPages[currentFloor] || []);
+      showToast("ACCESS GRANTED");
+    }
+    prevBossAliveRef.current = bossAliveNow;
+
+    if (api.game_turn() > 0 && api.game_turn() % 5 === 0 && Math.random() < 0.2) {
+      const line = LORE.loreLines[Math.floor(Math.random() * LORE.loreLines.length)];
+      logLine(line);
+    }
+
     if (fxState.hitFlash > 0) {
       ctx.fillStyle = `rgba(255,245,185,${0.1 + fxState.hitFlash * 0.035})`;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -711,7 +823,7 @@ export default function App() {
         }
       }
     }
-  }, [applyEnvironment, floor, fxState, getDescendTile, hasBit, storyEvent]);
+  }, [applyEnvironment, floor, fxState, getDescendTile, hasBit, logLine, queueCutscene, showToast, storyEvent]);
 
   const saveToLocal = useCallback(() => {
     const rt = runtimeRef.current;
@@ -1016,7 +1128,7 @@ export default function App() {
     }
     onNextFloor();
     return true;
-  }, [floor, getDescendTile, onNextFloor, showToast]);
+  }, [floor, getDescendTile, showToast]);
 
   const normalizeCodeWithEnvironment = useCallback((code) => {
     const api = runtimeRef.current.api;
@@ -1052,11 +1164,15 @@ export default function App() {
     setBuildTags([]);
     setDeathSummary(null);
     damageCauseRef.current = "";
+    prevFloorRef.current = 1;
+    prevBossAliveRef.current = 1;
     setShowStart(false);
+    cutsceneQueueRef.current = [];
+    queueCutscene(LORE.floorPages[1]);
     logLine("초반 안전 구간: 기본 보호막 적용");
     draw();
     saveToLocal();
-  }, [configureBossForFloor, draw, logLine, resetEnvironment, saveToLocal]);
+  }, [configureBossForFloor, draw, logLine, queueCutscene, resetEnvironment, saveToLocal]);
 
   const onContinue = useCallback(() => {
     const api = runtimeRef.current.api;
@@ -1078,8 +1194,10 @@ export default function App() {
     setUpgradeEvent(null);
     setDeathSummary(null);
     setShowStart(false);
+    cutsceneQueueRef.current = [];
+    queueCutscene(LORE.floorPages[clamp(api.game_floor(), 1, 4)]);
     draw();
-  }, [configureBossForFloor, draw, loadFromLocal, logLine, resetEnvironment]);
+  }, [configureBossForFloor, draw, loadFromLocal, logLine, queueCutscene, resetEnvironment]);
 
   const onStartRun = useCallback(() => {
     if (!ready) return;
@@ -1101,10 +1219,13 @@ export default function App() {
     setFloor(next);
     setStoryEvent(null);
     setUpgradeEvent(null);
+    prevFloorRef.current = next;
+    prevBossAliveRef.current = 1;
     logLine(`심장실 이동: Floor ${next}`);
+    queueCutscene(LORE.floorPages[next] || []);
     draw();
     saveToLocal();
-  }, [configureBossForFloor, draw, floor, logLine, resetEnvironment, saveToLocal]);
+  }, [configureBossForFloor, draw, floor, logLine, queueCutscene, resetEnvironment, saveToLocal]);
 
   const onClear = useCallback(() => {
     localStorage.removeItem(SAVE_KEY);
@@ -1255,7 +1376,12 @@ export default function App() {
 
   useEffect(() => {
     function onKeyDown(e) {
-      if (!runtimeRef.current.api || !ready || upgradeEvent || deathSummary || paused || showStart) return;
+      if (showCutscene && (e.key === "z" || e.key === "Z" || e.code === "KeyZ")) {
+        e.preventDefault();
+        onCutsceneNext();
+        return;
+      }
+      if (!runtimeRef.current.api || !ready || upgradeEvent || deathSummary || paused || showStart || showCutscene) return;
 
       if (e.key === " " || e.key === "f" || e.key === "F") {
         e.preventDefault();
@@ -1277,14 +1403,14 @@ export default function App() {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [deathSummary, inputToCode, normalizeCodeWithEnvironment, paused, ready, showStart, stepWithCode, tryAutoAttack, tryInteract, upgradeEvent]);
+  }, [deathSummary, inputToCode, normalizeCodeWithEnvironment, onCutsceneNext, paused, ready, showCutscene, showStart, stepWithCode, tryAutoAttack, tryInteract, upgradeEvent]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return undefined;
 
     function onPointerDown(e) {
-      if (!runtimeRef.current.api || !ready || upgradeEvent || deathSummary || paused || showStart) return;
+      if (!runtimeRef.current.api || !ready || upgradeEvent || deathSummary || paused || showStart || showCutscene) return;
 
       const rect = canvas.getBoundingClientRect();
       const sx = canvas.width / rect.width;
@@ -1298,7 +1424,7 @@ export default function App() {
 
     canvas.addEventListener("pointerdown", onPointerDown);
     return () => canvas.removeEventListener("pointerdown", onPointerDown);
-  }, [deathSummary, paused, ready, showStart, stepToward, upgradeEvent]);
+  }, [deathSummary, paused, ready, showCutscene, showStart, stepToward, upgradeEvent]);
 
   useEffect(() => {
     function pauseByFocus() {
@@ -1345,6 +1471,7 @@ export default function App() {
         { className: "mutedText" },
         ready ? "이벤트 조건을 만족하면 스토리가 표시됩니다." : "WASM 로딩 중..."
       );
+  const cutsceneText = cutscenePages[cutsceneIndex] || "";
 
   return h(
     React.Fragment,
@@ -1379,6 +1506,10 @@ export default function App() {
             onNewRun,
             goalText: BASE_GOAL_TEXT,
             runLoopText: RUN_LOOP_TEXT,
+            archiveHook: ARCHIVE_HOOK,
+            showCutscene,
+            cutsceneText,
+            onCutsceneNext,
           })
         ),
         h(HudBar, {
@@ -1401,7 +1532,7 @@ export default function App() {
         ),
         loadError ? h("div", { className: "loadError" }, `Game load failed: ${loadError}`) : null
       ),
-      h(SidePanels, { floorMeta, buildTags, storyBody, logText })
+      h(SidePanels, { floorMeta, buildTags, storyBody, logText, archiveHook: ARCHIVE_HOOK })
     ),
     toast ? h("div", { className: "toast" }, toast) : null
   );

@@ -6,9 +6,9 @@ export default function HeaderBar({ controlPreset, setControlPreset, controlPres
     <header className="top">
       <div className="brand">HEART DIVER</div>
       <div className="topRight">
-        <div className="hint">WASD/Arrow 이동 | Space 공격 | E 상호작용 | Shift+이동 대시</div>
+        <div className="hint">WASD/Arrow Move | Space Attack | E Interact | Shift+Move Dash</div>
         <div className="presetRow">
-          <span className="mutedText">키 프리셋</span>
+          <span className="mutedText">Key Preset</span>
           <button className={controlPreset === "wasd" ? "primary" : ""} onClick={() => setControlPreset("wasd")}>
             {controlPresets.wasd}
           </button>

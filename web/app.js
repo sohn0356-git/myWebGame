@@ -54,6 +54,66 @@ const BASE_GOAL_TEXT = "\uBAA9\uD45C: \uCD5C\uD558\uCE35(Floor 4)\uAE4C\uC9C0 \u
 const RUN_LOOP_TEXT = "\uD0D0\uC0C9 -> \uC804\uD22C -> \uBCF4\uC0C1 \uC120\uD0DD -> \uC704\uD5D8 \uC0C1\uC2B9";
 const SAVE_TOAST_MS = 1400;
 const SAFE_TURN_LIMIT = 12;
+const ARCHIVE_HOOK = "\uC800\uC7A5 \uC2AC\uB86F\uC740 \uD558\uB098. \uB124\uAC00 \uC0B4\uC544\uB0A8\uC744\uC218\uB85D, \uB204\uAD70\uAC00\uAC00 \uC9C0\uC6CC\uC9C4\uB2E4.";
+const LORE = {
+  introPages: [
+    "[BOOT] ONE-SLOT ARCHIVE v0.9 (DEGRADED)",
+    "[INFO] \uAE30\uB85D \uC800\uC7A5\uC18C.\n[WARN] \uC800\uC7A5 \uC2AC\uB86F: 1",
+    "[RULE] \uC800\uC7A5 = \uB36E\uC5B4\uC4F0\uAE30.\n[RULE] \uB36E\uC5B4\uC4F0\uAE30 = \uC0AD\uC81C.",
+    "[PROC] RECOVERER spawned.\n[TASK] \uC0AD\uC81C\uB41C \uC870\uAC01 \uD68C\uC218.",
+    "[NOTE] \uBCF5\uAD6C \uB300\uC0C1: \uBBF8\uC9C0\uC815.\n[NOTE] \uBCF5\uAD6C \uC8FC\uCCB4: \uBD88\uBA85.",
+    "[ALERT] \uAD00\uB9AC\uC790 \uD504\uB85C\uC138\uC2A4 \uAC10\uC9C0.\n[ALERT] \uC811\uADFC \uCC28\uB2E8 \uC911.",
+    "[HINT] \uC0B4\uC544\uB0A8\uC544\uB77C.\n[HINT] \uADF8\uB9AC\uACE0... \uBB34\uC5C7\uC744 \uC800\uC7A5\uD560\uC9C0 \uC120\uD0DD\uD574\uB77C."
+  ],
+  floorPages: {
+    1: ["1F: CACHE HALL", "[TIP] \uC784\uC2DC \uAE30\uC5B5\uC740 \uBE60\uB974\uB2E4. \uB300\uC2E0 \uC27D\uAC8C \uC0AC\uB77C\uC9C4\uB2E4."],
+    2: ["2F: INDEX LIBRARY", "[WARN] \uC0C9\uC778 \uC190\uC0C1. \uBAA9\uC801\uC9C0\uAC00 '\uAC00\uAE4C\uC6CC \uBCF4\uC774\uAC8C' \uC7AC\uBC30\uCE58\uB428."],
+    3: ["3F: PERMISSION GATE", "[INFO] \uAD8C\uD55C \uC0C1\uC2B9 \uAC00\uB2A5. \uB2E8, \uAC10\uC2DC \uB808\uBCA8\uB3C4 \uD568\uAED8 \uC0C1\uC2B9."],
+    4: ["4F: ROLLBACK GARDEN", "[WARN] \uB3D9\uC77C \uAD6C\uAC04 \uC7AC\uC9C4\uC785 \uC2DC \uC0C1\uD0DC\uAC00 \uACFC\uAC70\uB85C \uB418\uB3CC\uC544\uAC10."]
+  },
+  bossPages: {
+    1: [
+      "[KILL] CURATOR terminated.",
+      "[DROP] ACCESS TOKEN (LOW)",
+      "[VOICE] \uB108\uB294 '\uAD50\uCCB4'\uB2E4. \uC6D0\uBCF8\uC740 \uC774\uBBF8 \uC800\uC7A5\uB410\uB2E4.",
+      "[UNLOCK] Door opened: INDEX PATH"
+    ],
+    2: [
+      "[KILL] AUDITOR suspended.",
+      "[REPORT] \uD310\uACB0: \uD6A8\uC728\uC801.",
+      "[RULE] ONE SLOT. \uB458 \uC911 \uD558\uB098\uB9CC \uC800\uC7A5 \uAC00\uB2A5.",
+      "[DROP] PARDON KEY / CONFESSION FILE"
+    ],
+    4: [
+      "[KILL] SLOT ...?",
+      "[SYSTEM] \uC800\uC7A5 \uB3D9\uC791\uC774 \uBA48\uCDC4\uB2E4.",
+      "[PROMPT] SAVE TARGET: SELF / WORLD / DELETED",
+      "[WARNING] \uC800\uC7A5\uD558\uBA74 \uB36E\uC5B4\uC4F4\uB2E4. \uB36E\uC5B4\uC4F0\uBA74 \uC78A\uB294\uB2E4."
+    ]
+  },
+  loreLines: [
+    "[LOG] \uC785\uB825 \uC9C0\uC5F0 0.03s. \uB204\uAD70\uAC00 \uB108\uB97C \uAD00\uCC30 \uC911.",
+    "[WARN] \uB108\uC758 \uC8FD\uC74C\uC740 \uC2E4\uD328\uAC00 \uC544\uB2C8\uB77C \uC5C5\uB370\uC774\uD2B8\uB2E4.",
+    "[INFO] \uC800\uC7A5\uC5D0\uB294 \uC791\uC131\uC790\uAC00 \uC788\uB2E4. \uC791\uC131\uC790\uB294 \uB4DC\uB7EC\uB098\uC9C0 \uC54A\uB294\uB2E4.",
+    "[ERROR] \uC6D0\uBCF8 \uB808\uCF54\uB4DC: NOT FOUND",
+    "[HINT] \uAD8C\uD55C\uC744 \uC5BB\uC744\uC218\uB85D, \uB108\uB294 \uC0AC\uB78C\uC774 \uC544\uB2C8\uB77C \uD504\uB85C\uC138\uC2A4\uAC00 \uB41C\uB2E4.",
+    "[AUDIT] \uB124\uAC00 \uD6D4\uCE5C \uAC74 \uC544\uC774\uD15C\uC774 \uC544\uB2C8\uB77C \uAE30\uD68C\uB2E4.",
+    "[NOTE] \uC774 \uBCF5\uB3C4\uB294 \uB108\uB97C \uC704\uD55C \uAE38\uC774 \uC544\uB2C8\uB2E4.",
+    "[CACHE] \uC775\uC219\uD568\uC740 \uBE60\uB974\uB2E4. \uADF8\uB9AC\uACE0 \uC704\uD5D8\uD558\uB2E4.",
+    "[WARN] \uBCF5\uAD6C\uB77C\uB294 \uB2E8\uC5B4\uB294 \uB9C8\uCF00\uD305\uC774\uB2E4.",
+    "[LOG] Z\uB97C \uB204\uB97C \uB54C\uB9C8\uB2E4, \uB108\uB294 \uB354 \uC775\uC219\uD574\uC9C4\uB2E4.",
+    "[INFO] \uB124\uAC00 \uAC15\uD574\uC9C8\uC218\uB85D, \uAC10\uC2DC\uB294 \uC815\uD655\uD574\uC9C4\uB2E4.",
+    "[ERROR] \uAE30\uC5B5 \uC870\uAC01 \uBB34\uACB0\uC131 \uC190\uC0C1: 12%",
+    "[NOTE] \uB108\uC758 \uC774\uB984\uC740 \uD30C\uC77C\uBA85\uC774 \uC544\uB2C8\uB2E4.",
+    "[SYSTEM] \uB124 \uC120\uD0DD\uC740 \uC5EC\uAE30\uC11C \uC0AD\uC81C\uB85C \uBD84\uB958\uB41C\uB2E4.",
+    "[WARN] \uC624\uBC84\uB77C\uC774\uD2B8\uB294 \uC5B8\uC81C\uB098 \uC870\uC6A9\uD558\uB2E4.",
+    "[ALERT] \uBB38\uC774 \uC5F4\uB9B0 \uAC8C \uC544\uB2C8\uB2E4. \uD5C8\uB77D\uB41C \uAC83\uC774\uB2E4.",
+    "[LOG] \uB204\uAD70\uAC00 \uB108\uB97C \uC774\uBBF8 \uC800\uC7A5\uD588\uB2E4.",
+    "[INFO] \uC9C4\uC9DC \uC801\uC740 \uBAAC\uC2A4\uD130\uAC00 \uC544\uB2C8\uB77C \uADDC\uCE59\uC774\uB2E4.",
+    "[AUDIT] \uC790\uBE44\uB294 \uBE44\uC6A9\uC774\uB2E4.",
+    "[ERROR] \uAC10\uC815 \uBAA8\uB4C8 \uB85C\uB4DC \uC2E4\uD328. (...\uADFC\uB370 \uC65C \uC544\uD504\uC9C0?)"
+  ]
+};
 function randSeed() {
   return Math.random() * 4294967295 >>> 0;
 }
@@ -314,6 +374,9 @@ function App() {
   const [upgradeEvent, setUpgradeEvent] = useState(null);
   const [buildTags, setBuildTags] = useState([]);
   const [deathSummary, setDeathSummary] = useState(null);
+  const [cutscenePages, setCutscenePages] = useState(LORE.introPages);
+  const [cutsceneIndex, setCutsceneIndex] = useState(0);
+  const [showCutscene, setShowCutscene] = useState(true);
   const [logLines, setLogLines] = useState(["\uCD08\uAE30 \uB9F5 \uB80C\uB354\uB9C1 \uC644\uB8CC"]);
   const [fxState, setFxState] = useState({
     hitFlash: 0,
@@ -344,6 +407,9 @@ function App() {
   const audioRef = useRef({ ctx: null });
   const damageCauseRef = useRef("");
   const descendRef = useRef({ floor: -1, x: 0, y: 0 });
+  const cutsceneQueueRef = useRef([]);
+  const prevBossAliveRef = useRef(1);
+  const prevFloorRef = useRef(1);
   const logLine = useCallback((line) => {
     setLogLines((prev) => {
       const next = [line, ...prev];
@@ -382,6 +448,30 @@ function App() {
   const emitFx = useCallback((patch) => {
     setFxState((prev) => ({ ...prev, ...patch }));
   }, []);
+  const openCutscene = useCallback((pages) => {
+    if (!pages || pages.length === 0) return;
+    setCutscenePages(pages);
+    setCutsceneIndex(0);
+    setShowCutscene(true);
+  }, []);
+  const queueCutscene = useCallback((pages) => {
+    if (!pages || pages.length === 0) return;
+    if (showCutscene) cutsceneQueueRef.current.push(pages);
+    else openCutscene(pages);
+  }, [openCutscene, showCutscene]);
+  const onCutsceneNext = useCallback(() => {
+    if (!showCutscene) return;
+    if (cutsceneIndex + 1 < cutscenePages.length) {
+      setCutsceneIndex((v) => v + 1);
+      return;
+    }
+    if (cutsceneQueueRef.current.length > 0) {
+      const next = cutsceneQueueRef.current.shift();
+      openCutscene(next);
+      return;
+    }
+    setShowCutscene(false);
+  }, [cutsceneIndex, cutscenePages.length, openCutscene, showCutscene]);
   const hasBit = useCallback((bit) => {
     const api = runtimeRef.current.api;
     if (!api) return false;
@@ -584,6 +674,21 @@ function App() {
       setBossText("Boss: defeated");
     }
     setTurnText(`Turn: ${api.game_turn()}`);
+    const currentFloor = clamp(api.game_floor(), 1, 4);
+    if (prevFloorRef.current !== currentFloor) {
+      prevFloorRef.current = currentFloor;
+      queueCutscene(LORE.floorPages[currentFloor] || []);
+    }
+    const bossAliveNow = api.game_boss_alive();
+    if (prevBossAliveRef.current === 1 && bossAliveNow !== 1) {
+      queueCutscene(LORE.bossPages[currentFloor] || []);
+      showToast("ACCESS GRANTED");
+    }
+    prevBossAliveRef.current = bossAliveNow;
+    if (api.game_turn() > 0 && api.game_turn() % 5 === 0 && Math.random() < 0.2) {
+      const line = LORE.loreLines[Math.floor(Math.random() * LORE.loreLines.length)];
+      logLine(line);
+    }
     if (fxState.hitFlash > 0) {
       ctx.fillStyle = `rgba(255,245,185,${0.1 + fxState.hitFlash * 0.035})`;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -628,7 +733,7 @@ function App() {
         }
       }
     }
-  }, [applyEnvironment, floor, fxState, getDescendTile, hasBit, storyEvent]);
+  }, [applyEnvironment, floor, fxState, getDescendTile, hasBit, logLine, queueCutscene, showToast, storyEvent]);
   const saveToLocal = useCallback(() => {
     const rt = runtimeRef.current;
     const { api, Module } = rt;
@@ -893,7 +998,7 @@ function App() {
     }
     onNextFloor();
     return true;
-  }, [floor, getDescendTile, onNextFloor, showToast]);
+  }, [floor, getDescendTile, showToast]);
   const normalizeCodeWithEnvironment = useCallback((code) => {
     const api = runtimeRef.current.api;
     if (!api || !code) return code;
@@ -923,11 +1028,15 @@ function App() {
     setBuildTags([]);
     setDeathSummary(null);
     damageCauseRef.current = "";
+    prevFloorRef.current = 1;
+    prevBossAliveRef.current = 1;
     setShowStart(false);
+    cutsceneQueueRef.current = [];
+    queueCutscene(LORE.floorPages[1]);
     logLine("\uCD08\uBC18 \uC548\uC804 \uAD6C\uAC04: \uAE30\uBCF8 \uBCF4\uD638\uB9C9 \uC801\uC6A9");
     draw();
     saveToLocal();
-  }, [configureBossForFloor, draw, logLine, resetEnvironment, saveToLocal]);
+  }, [configureBossForFloor, draw, logLine, queueCutscene, resetEnvironment, saveToLocal]);
   const onContinue = useCallback(() => {
     const api = runtimeRef.current.api;
     if (!api) return;
@@ -947,8 +1056,10 @@ function App() {
     setUpgradeEvent(null);
     setDeathSummary(null);
     setShowStart(false);
+    cutsceneQueueRef.current = [];
+    queueCutscene(LORE.floorPages[clamp(api.game_floor(), 1, 4)]);
     draw();
-  }, [configureBossForFloor, draw, loadFromLocal, logLine, resetEnvironment]);
+  }, [configureBossForFloor, draw, loadFromLocal, logLine, queueCutscene, resetEnvironment]);
   const onStartRun = useCallback(() => {
     if (!ready) return;
     if (hasSave) onContinue();
@@ -966,10 +1077,13 @@ function App() {
     setFloor(next);
     setStoryEvent(null);
     setUpgradeEvent(null);
+    prevFloorRef.current = next;
+    prevBossAliveRef.current = 1;
     logLine(`\uC2EC\uC7A5\uC2E4 \uC774\uB3D9: Floor ${next}`);
+    queueCutscene(LORE.floorPages[next] || []);
     draw();
     saveToLocal();
-  }, [configureBossForFloor, draw, floor, logLine, resetEnvironment, saveToLocal]);
+  }, [configureBossForFloor, draw, floor, logLine, queueCutscene, resetEnvironment, saveToLocal]);
   const onClear = useCallback(() => {
     localStorage.removeItem(SAVE_KEY);
     logLine("Save cleared.");
@@ -1098,7 +1212,12 @@ function App() {
   }, [configureBossForFloor, draw, loadFromLocal, logLine]);
   useEffect(() => {
     function onKeyDown(e) {
-      if (!runtimeRef.current.api || !ready || upgradeEvent || deathSummary || paused || showStart) return;
+      if (showCutscene && (e.key === "z" || e.key === "Z" || e.code === "KeyZ")) {
+        e.preventDefault();
+        onCutsceneNext();
+        return;
+      }
+      if (!runtimeRef.current.api || !ready || upgradeEvent || deathSummary || paused || showStart || showCutscene) return;
       if (e.key === " " || e.key === "f" || e.key === "F") {
         e.preventDefault();
         tryAutoAttack();
@@ -1116,12 +1235,12 @@ function App() {
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [deathSummary, inputToCode, normalizeCodeWithEnvironment, paused, ready, showStart, stepWithCode, tryAutoAttack, tryInteract, upgradeEvent]);
+  }, [deathSummary, inputToCode, normalizeCodeWithEnvironment, onCutsceneNext, paused, ready, showCutscene, showStart, stepWithCode, tryAutoAttack, tryInteract, upgradeEvent]);
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return void 0;
     function onPointerDown(e) {
-      if (!runtimeRef.current.api || !ready || upgradeEvent || deathSummary || paused || showStart) return;
+      if (!runtimeRef.current.api || !ready || upgradeEvent || deathSummary || paused || showStart || showCutscene) return;
       const rect = canvas.getBoundingClientRect();
       const sx = canvas.width / rect.width;
       const sy = canvas.height / rect.height;
@@ -1131,7 +1250,7 @@ function App() {
     }
     canvas.addEventListener("pointerdown", onPointerDown);
     return () => canvas.removeEventListener("pointerdown", onPointerDown);
-  }, [deathSummary, paused, ready, showStart, stepToward, upgradeEvent]);
+  }, [deathSummary, paused, ready, showCutscene, showStart, stepToward, upgradeEvent]);
   useEffect(() => {
     function pauseByFocus() {
       if (!ready || showStart || deathSummary) return;
@@ -1173,6 +1292,7 @@ function App() {
     { className: "mutedText" },
     ready ? "\uC774\uBCA4\uD2B8 \uC870\uAC74\uC744 \uB9CC\uC871\uD558\uBA74 \uC2A4\uD1A0\uB9AC\uAC00 \uD45C\uC2DC\uB429\uB2C8\uB2E4." : "WASM \uB85C\uB529 \uC911..."
   );
+  const cutsceneText = cutscenePages[cutsceneIndex] || "";
   return h(
     React.Fragment,
     null,
@@ -1205,7 +1325,11 @@ function App() {
             onCopyResult,
             onNewRun,
             goalText: BASE_GOAL_TEXT,
-            runLoopText: RUN_LOOP_TEXT
+            runLoopText: RUN_LOOP_TEXT,
+            archiveHook: ARCHIVE_HOOK,
+            showCutscene,
+            cutsceneText,
+            onCutsceneNext
           })
         ),
         h(HudBar, {
@@ -1228,7 +1352,7 @@ function App() {
         ),
         loadError ? h("div", { className: "loadError" }, `Game load failed: ${loadError}`) : null
       ),
-      h(SidePanels, { floorMeta, buildTags, storyBody, logText })
+      h(SidePanels, { floorMeta, buildTags, storyBody, logText, archiveHook: ARCHIVE_HOOK })
     ),
     toast ? h("div", { className: "toast" }, toast) : null
   );

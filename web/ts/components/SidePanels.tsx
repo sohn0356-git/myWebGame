@@ -1,22 +1,25 @@
 // @ts-nocheck
 import React from "https://esm.sh/react@18.3.1";
 
-export default function SidePanels({ floorMeta, buildTags, storyBody, logText }) {
+export default function SidePanels({ floorMeta, buildTags, storyBody, logText, archiveHook }) {
   return (
     <aside className="side">
+      <div className="box">
+        <div className="boxTitle">ONE-SLOT ARCHIVE</div>
+        <div className="worldText">{archiveHook}</div>
+        <div className="worldText">Keywords: ACCESS / CACHE / INDEX / AUDIT / ROLLBACK / OVERWRITE / CORE / SLOT</div>
+      </div>
       <div className="box">
         <div className="boxTitle">
           {floorMeta.name} | {floorMeta.subtitle}
         </div>
-        <div className="worldText">환경 규칙: {floorMeta.hazard}</div>
-        <div className="worldText">출현 개체: {floorMeta.enemies}</div>
-        <div className="worldText">특수 아이템: {floorMeta.items}</div>
+        <div className="worldText">Hazard: {floorMeta.hazard}</div>
+        <div className="worldText">Enemies: {floorMeta.enemies}</div>
+        <div className="worldText">Special item: {floorMeta.items}</div>
       </div>
       <div className="box">
         <div className="boxTitle">Build</div>
-        <div className="worldText">
-          {buildTags.length ? buildTags.join(" + ") : "아직 선택한 업그레이드가 없습니다."}
-        </div>
+        <div className="worldText">{buildTags.length ? buildTags.join(" + ") : "No upgrade selected yet."}</div>
       </div>
       <div className="box">
         <div className="boxTitle">Story</div>

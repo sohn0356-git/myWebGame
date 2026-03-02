@@ -16,6 +16,10 @@ export default function GameOverlays({
   onNewRun,
   goalText,
   runLoopText,
+  archiveHook,
+  showCutscene,
+  cutsceneText,
+  onCutsceneNext,
 }) {
   return (
     <>
@@ -23,13 +27,14 @@ export default function GameOverlays({
         <div className="overlay startOverlay">
           <div className="overlayTitle">HEART DIVER</div>
           <div className="overlayGoal">{goalText}</div>
+          <div className="overlayLoop">{archiveHook}</div>
           <div className="overlayLoop">{runLoopText}</div>
           <div className="overlayControls">
-            <div>WASD / Arrow: 이동</div>
-            <div>Space: 공격</div>
-            <div>E: 상호작용</div>
-            <div>Shift+이동: 대시</div>
-            <div>Click: 한 칸 이동</div>
+            <div>WASD / Arrow: Move</div>
+            <div>Space: Attack</div>
+            <div>E: Interact</div>
+            <div>Shift+Move: Dash</div>
+            <div>Click: Move one tile</div>
           </div>
           <button className="startBtn" onClick={onStartRun} disabled={!ready}>
             {hasSave ? "Start Run (Continue)" : "Start Run"}
@@ -37,10 +42,20 @@ export default function GameOverlays({
         </div>
       ) : null}
 
+      {showCutscene ? (
+        <div className="overlay cutsceneOverlay">
+          <div className="overlayTitle">SYSTEM LOG</div>
+          <div className="cutsceneBody">{cutsceneText}</div>
+          <button className="cutsceneNext" onClick={onCutsceneNext}>
+            Z: NEXT
+          </button>
+        </div>
+      ) : null}
+
       {paused ? (
         <div className="overlay pauseOverlay">
           <div className="overlayTitle">PAUSED</div>
-          <div className="mutedText">{pauseReason || "일시정지"}</div>
+          <div className="mutedText">{pauseReason || "Paused"}</div>
           <button className="startBtn" onClick={() => setPaused(false)}>
             Resume
           </button>
@@ -67,13 +82,13 @@ export default function GameOverlays({
           <div className="overlayGoal">
             Floor {deathSummary.floor} | Turn {deathSummary.turn}
           </div>
-          <div className="overlayLoop">빌드: {deathSummary.build}</div>
-          <div className="overlayGoal">사망 원인: {deathSummary.reason}</div>
+          <div className="overlayLoop">Build: {deathSummary.build}</div>
+          <div className="overlayGoal">Death cause: {deathSummary.reason}</div>
           <div className="buttons">
             <button className="primary" onClick={onCopyResult}>
-              결과 카드 복사
+              Copy run card
             </button>
-            <button onClick={onNewRun}>다시 시작</button>
+            <button onClick={onNewRun}>Restart</button>
           </div>
         </div>
       ) : null}
