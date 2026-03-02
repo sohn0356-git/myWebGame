@@ -1,24 +1,3 @@
-const CONFIG = {
-  SIM_HZ: 30,
-  GHOST_DELAY: 2.2,
-  SEGMENT_TTL: 6,
-  RESPAWN_DELAY: 2,
-  PLAYER_COUNT: 11,
-  HUMAN_SPEED: 170,
-  BOT_SPEED: 158,
-  TURN_RATE: 5.2,
-  BOT_TURN_RATE: 4.2,
-  RADIUS: 8,
-  SEGMENT_MIN_DIST: 4,
-  WORLD_W_MIN: 2200,
-  WORLD_H_MIN: 1300,
-};
-
-const COLORS = [
-  "#5eead4", "#f472b6", "#60a5fa", "#f59e0b", "#34d399", "#a78bfa",
-  "#f87171", "#22d3ee", "#fb7185", "#84cc16", "#c084fc", "#facc15"
-];
-
 const root = document.getElementById("root") || document.body;
 root.innerHTML = "";
 
@@ -43,20 +22,20 @@ centerMsg.style.cssText = "position:absolute;inset:0;display:flex;align-items:ce
 wrap.appendChild(centerMsg);
 
 const startOverlay = document.createElement("div");
-startOverlay.style.cssText = "position:absolute;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;background:rgba(6,10,16,0.18);backdrop-filter: blur(1.5px);";
+startOverlay.style.cssText = "position:absolute;inset:0;z-index:6;display:flex;align-items:center;justify-content:center;background:rgba(6,10,16,0.18);backdrop-filter: blur(1.5px);";
 wrap.appendChild(startOverlay);
 
 const panel = document.createElement("div");
-panel.style.cssText = "width:min(420px,90vw);border:1px solid rgba(137,170,228,0.45);background:rgba(9,14,24,0.46);border-radius:14px;padding:16px 16px 14px;box-shadow:0 16px 40px rgba(0,0,0,0.36)";
+panel.style.cssText = "width:min(430px,90vw);border:1px solid rgba(137,170,228,0.45);background:rgba(9,14,24,0.46);border-radius:14px;padding:16px 16px 14px;box-shadow:0 16px 40px rgba(0,0,0,0.36)";
 startOverlay.appendChild(panel);
 
 const title = document.createElement("div");
-title.textContent = "GHOST TRAIL ARENA";
+title.textContent = "GHOST TRAIL ARENA ONLINE";
 title.style.cssText = "font-weight:900;color:#eff5ff;letter-spacing:0.04em;margin-bottom:6px";
 panel.appendChild(title);
 
 const sub = document.createElement("div");
-sub.textContent = "Transparent lobby: game is running live behind this panel.";
+sub.textContent = "Transparent lobby: background is live server state.";
 sub.style.cssText = "font-size:12px;color:#b9cae9;margin-bottom:10px";
 panel.appendChild(sub);
 
@@ -69,12 +48,12 @@ nickInput.style.cssText = "width:100%;padding:10px 11px;border-radius:10px;borde
 panel.appendChild(nickInput);
 
 const info = document.createElement("div");
-info.textContent = "Right-bottom stick steers the aircraft. Trail turns SOLID after 2.2s.";
+info.textContent = "Join same room with others. Right-bottom stick controls your craft.";
 info.style.cssText = "font-size:12px;color:#9db3d7;margin-top:8px;line-height:1.4";
 panel.appendChild(info);
 
 const startBtn = document.createElement("button");
-startBtn.textContent = "START FLIGHT";
+startBtn.textContent = "JOIN MATCH";
 startBtn.style.cssText = "margin-top:12px;width:100%;padding:11px 12px;border-radius:10px;border:1px solid #88b8ff;background:rgba(23,40,70,0.85);color:#f3f8ff;font-weight:800;cursor:pointer";
 panel.appendChild(startBtn);
 
@@ -89,15 +68,10 @@ joyWrap.appendChild(joyKnob);
 const ctx = canvas.getContext("2d");
 let W = 1280;
 let H = 720;
-let WORLD_W = 2400;
-let WORLD_H = 1400;
-
 function resize() {
   const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
   W = window.innerWidth;
   H = window.innerHeight;
-  WORLD_W = Math.max(CONFIG.WORLD_W_MIN, Math.floor(W * 1.9));
-  WORLD_H = Math.max(CONFIG.WORLD_H_MIN, Math.floor(H * 1.45));
   canvas.width = Math.floor(W * dpr);
   canvas.height = Math.floor(H * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -105,61 +79,19 @@ function resize() {
 resize();
 window.addEventListener("resize", resize);
 
-function rand(a, b) { return a + Math.random() * (b - a); }
 function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
-function len(x, y) { return Math.hypot(x, y); }
-function norm(x, y) { const l = Math.hypot(x, y) || 1; return { x: x / l, y: y / l }; }
-function wrapAngle(a) {
-  while (a > Math.PI) a -= Math.PI * 2;
-  while (a < -Math.PI) a += Math.PI * 2;
-  return a;
-}
-function angleLerp(a, b, t) { return a + wrapAngle(b - a) * t; }
-function pointSegmentDist(px, py, x1, y1, x2, y2) {
-  const vx = x2 - x1;
-  const vy = y2 - y1;
-  const wx = px - x1;
-  const wy = py - y1;
-  const vv = vx * vx + vy * vy;
-  if (vv <= 1e-6) return len(px - x1, py - y1);
-  let t = (wx * vx + wy * vy) / vv;
-  t = clamp(t, 0, 1);
-  const cx = x1 + vx * t;
-  const cy = y1 + vy * t;
-  return len(px - cx, py - cy);
-}
-
-let audioCtx = null;
-function beep(freq = 820, dur = 0.06, type = "square", vol = 0.02) {
-  try {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if (audioCtx.state === "suspended") audioCtx.resume();
-    const o = audioCtx.createOscillator();
-    const g = audioCtx.createGain();
-    const now = audioCtx.currentTime;
-    o.type = type;
-    o.frequency.setValueAtTime(freq, now);
-    o.frequency.exponentialRampToValueAtTime(Math.max(80, freq * 0.85), now + dur);
-    g.gain.setValueAtTime(0.0001, now);
-    g.gain.exponentialRampToValueAtTime(vol, now + 0.01);
-    g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
-    o.connect(g);
-    g.connect(audioCtx.destination);
-    o.start(now);
-    o.stop(now + dur + 0.01);
-  } catch {}
-}
 
 const keys = new Set();
-window.addEventListener("keydown", (e) => { keys.add(e.code); if (e.code === "Enter" && !gameStarted) tryStart(); });
-window.addEventListener("keyup", (e) => { keys.delete(e.code); });
+window.addEventListener("keydown", (e) => {
+  keys.add(e.code);
+  if (e.code === "Enter" && !joined) joinMatch();
+});
+window.addEventListener("keyup", (e) => keys.delete(e.code));
 
 const joystick = { active: false, id: -1, x: 0, y: 0, mag: 0 };
 function setKnobVisual() {
   const maxR = 42;
-  const px = joystick.x * maxR;
-  const py = joystick.y * maxR;
-  joyKnob.style.transform = `translate(calc(-50% + ${px}px), calc(-50% + ${py}px))`;
+  joyKnob.style.transform = `translate(calc(-50% + ${joystick.x * maxR}px), calc(-50% + ${joystick.y * maxR}px))`;
 }
 function setJoystickFromPointer(clientX, clientY) {
   const r = joyWrap.getBoundingClientRect();
@@ -188,270 +120,103 @@ joyWrap.addEventListener("pointermove", (e) => {
   if (!joystick.active || e.pointerId !== joystick.id) return;
   setJoystickFromPointer(e.clientX, e.clientY);
 });
-joyWrap.addEventListener("pointerup", (e) => {
-  if (e.pointerId !== joystick.id) return;
+function clearJoy() {
   joystick.active = false;
   joystick.id = -1;
   joystick.x = 0;
   joystick.y = 0;
   joystick.mag = 0;
   setKnobVisual();
-});
-joyWrap.addEventListener("pointercancel", () => {
-  joystick.active = false;
-  joystick.id = -1;
-  joystick.x = 0;
-  joystick.y = 0;
-  joystick.mag = 0;
-  setKnobVisual();
-});
+}
+joyWrap.addEventListener("pointerup", (e) => { if (e.pointerId === joystick.id) clearJoy(); });
+joyWrap.addEventListener("pointercancel", clearJoy);
 
-const players = [];
-const segments = [];
-const pulses = [];
-let gameStarted = false;
+let ws = null;
+let connected = false;
+let joined = false;
+let myId = null;
+let state = { now: 0, world: { w: 2800, h: 1700 }, config: { ghostDelay: 2.2, ttl: 6, respawnDelay: 2 }, players: [], segments: [], leaderboard: [] };
 
-function spawnPlayer(p, now) {
-  p.x = rand(120, WORLD_W - 120);
-  p.y = rand(120, WORLD_H - 120);
-  p.angle = rand(-Math.PI, Math.PI);
-  p.alive = true;
-  p.spawnInvulnUntil = now + CONFIG.RESPAWN_DELAY;
-  p.respawnAt = 0;
-  p.lastTrailX = p.x;
-  p.lastTrailY = p.y;
-  p.botThinkAt = now;
-  p.botTargetX = rand(140, WORLD_W - 140);
-  p.botTargetY = rand(140, WORLD_H - 140);
+function wsUrl() {
+  const p = location.protocol === "https:" ? "wss:" : "ws:";
+  return `${p}//${location.host}`;
 }
 
-for (let i = 0; i < CONFIG.PLAYER_COUNT; i++) {
-  players.push({
-    id: i,
-    name: i === 0 ? "Pilot" : `BOT-${i}`,
-    color: COLORS[i % COLORS.length],
-    x: 0,
-    y: 0,
-    angle: 0,
-    speed: i === 0 ? CONFIG.HUMAN_SPEED : CONFIG.BOT_SPEED,
-    radius: CONFIG.RADIUS,
-    alive: true,
-    spawnInvulnUntil: 0,
-    respawnAt: 0,
-    lastTrailX: 0,
-    lastTrailY: 0,
-    isBot: i !== 0,
-    kills: 0,
-    deaths: 0,
-    survival: 0,
-    botThinkAt: 0,
-    botTargetX: 0,
-    botTargetY: 0,
-    desiredAngle: 0,
+function connect() {
+  ws = new WebSocket(wsUrl());
+  ws.addEventListener("open", () => {
+    connected = true;
+  });
+  ws.addEventListener("close", () => {
+    connected = false;
+    joined = false;
+    myId = null;
+    setTimeout(connect, 900);
+  });
+  ws.addEventListener("message", (ev) => {
+    let msg;
+    try { msg = JSON.parse(ev.data); } catch { return; }
+    if (msg.t === "welcome") {
+      if (msg.config) state.config = {
+        ghostDelay: msg.config.ghostDelay,
+        ttl: msg.config.ttl,
+        respawnDelay: msg.config.respawnDelay,
+      };
+      return;
+    }
+    if (msg.t === "joined") {
+      myId = msg.youId;
+      joined = true;
+      startOverlay.style.display = "none";
+      return;
+    }
+    if (msg.t === "you") {
+      myId = msg.id;
+      return;
+    }
+    if (msg.t === "state") {
+      state = msg;
+      return;
+    }
   });
 }
+connect();
 
-function tryStart() {
-  const nick = (nickInput.value || "Pilot").trim().slice(0, 16);
-  players[0].name = nick || "Pilot";
-  gameStarted = true;
-  startOverlay.style.display = "none";
-  beep(620, 0.07, "triangle", 0.03);
+function joinMatch() {
+  if (!connected || !ws || ws.readyState !== WebSocket.OPEN) return;
+  const nick = (nickInput.value || "Pilot").trim().slice(0, 16) || "Pilot";
+  ws.send(JSON.stringify({ t: "join", nick }));
 }
-startBtn.addEventListener("click", tryStart);
+startBtn.addEventListener("click", joinMatch);
 
-let lastTime = performance.now() / 1000;
-let acc = 0;
-const dt = 1 / CONFIG.SIM_HZ;
+let lastInputSend = 0;
+function sendInput(now) {
+  if (!connected || !joined || !ws || ws.readyState !== WebSocket.OPEN || !myId) return;
+  if (now - lastInputSend < 0.05) return;
+  lastInputSend = now;
 
-function addSegment(owner, x1, y1, x2, y2, now) {
-  segments.push({
-    ownerId: owner.id,
-    x1, y1, x2, y2,
-    createdAt: now,
-    solidAt: now + CONFIG.GHOST_DELAY,
-    expireAt: now + CONFIG.GHOST_DELAY + CONFIG.SEGMENT_TTL,
-    solid: false,
-  });
-}
+  let ix = 0;
+  let iy = 0;
 
-function killPlayer(p, now, killerId = -1) {
-  if (!p.alive) return;
-  p.alive = false;
-  p.kills = 0;
-  p.deaths = 0;
-  p.survival = 0;
-  for (let i = segments.length - 1; i >= 0; i--) {
-    if (segments[i].ownerId === p.id) segments.splice(i, 1);
-  }
-  p.respawnAt = now + CONFIG.RESPAWN_DELAY;
-  if (killerId >= 0 && killerId !== p.id && players[killerId]) players[killerId].kills += 1;
-  pulses.push({ x: p.x, y: p.y, t: 0.3, color: "#ff4d5d" });
-  if (p.id === 0) beep(140, 0.12, "sawtooth", 0.05);
-}
-
-function updateBot(p, now, step) {
-  if (now >= p.botThinkAt) {
-    p.botThinkAt = now + rand(0.16, 0.34);
-    let ax = 0;
-    let ay = 0;
-
-    const margin = 70;
-    if (p.x < margin) ax += 1;
-    if (p.x > WORLD_W - margin) ax -= 1;
-    if (p.y < margin) ay += 1;
-    if (p.y > WORLD_H - margin) ay -= 1;
-
-    for (let i = 0; i < segments.length; i++) {
-      const s = segments[i];
-      if (!s.solid) continue;
-      const d = pointSegmentDist(p.x, p.y, s.x1, s.y1, s.x2, s.y2);
-      if (d > 78) continue;
-      const vx = s.x2 - s.x1;
-      const vy = s.y2 - s.y1;
-      const n = norm(-vy, vx);
-      const sign = ((p.x - s.x1) * n.x + (p.y - s.y1) * n.y) >= 0 ? 1 : -1;
-      const w = (78 - d) / 78;
-      ax += n.x * sign * w * 2.2;
-      ay += n.y * sign * w * 2.2;
-    }
-
-    if (len(p.botTargetX - p.x, p.botTargetY - p.y) < 70 || Math.random() < 0.06) {
-      p.botTargetX = rand(110, WORLD_W - 110);
-      p.botTargetY = rand(110, WORLD_H - 110);
-    }
-
-    let tx = p.botTargetX - p.x;
-    let ty = p.botTargetY - p.y;
-
-    let nearest = null;
-    let best = 1e9;
-    for (let i = 0; i < players.length; i++) {
-      const q = players[i];
-      if (!q.alive || q.id === p.id) continue;
-      const d = len(q.x - p.x, q.y - p.y);
-      if (d < best) { best = d; nearest = q; }
-    }
-    if (nearest && best < 220 && Math.random() < 0.34) {
-      const vx = Math.cos(nearest.angle);
-      const vy = Math.sin(nearest.angle);
-      const px = -vy;
-      const py = vx;
-      tx += px * 190;
-      ty += py * 190;
-    }
-
-    ax += tx * 0.01;
-    ay += ty * 0.01;
-
-    if (Math.random() < 0.16) {
-      ax *= 0.72;
-      ay *= 0.72;
-      p.desiredAngle += rand(-0.45, 0.45);
-    } else {
-      p.desiredAngle = Math.atan2(ay, ax);
-    }
-  }
-
-  p.angle = angleLerp(p.angle, p.desiredAngle, clamp(step * CONFIG.BOT_TURN_RATE, 0, 1));
-}
-
-function updateHuman(p, step) {
-  if (!gameStarted) {
-    p.angle += 0.16 * step;
-    return;
-  }
-
-  let targetAngle = p.angle;
-  const up = keys.has("KeyW") || keys.has("ArrowUp");
-  const dn = keys.has("KeyS") || keys.has("ArrowDown");
-  const lf = keys.has("KeyA") || keys.has("ArrowLeft");
-  const rt = keys.has("KeyD") || keys.has("ArrowRight");
-
-  if (joystick.active && joystick.mag > 0.08) {
-    targetAngle = Math.atan2(joystick.y, joystick.x);
+  if (joystick.active && joystick.mag > 0.05) {
+    ix = joystick.x;
+    iy = joystick.y;
   } else {
-    const ix = (rt ? 1 : 0) - (lf ? 1 : 0);
-    const iy = (dn ? 1 : 0) - (up ? 1 : 0);
-    if (ix || iy) targetAngle = Math.atan2(iy, ix);
+    const up = keys.has("KeyW") || keys.has("ArrowUp");
+    const dn = keys.has("KeyS") || keys.has("ArrowDown");
+    const lf = keys.has("KeyA") || keys.has("ArrowLeft");
+    const rt = keys.has("KeyD") || keys.has("ArrowRight");
+    ix = (rt ? 1 : 0) - (lf ? 1 : 0);
+    iy = (dn ? 1 : 0) - (up ? 1 : 0);
+    const mag = Math.hypot(ix, iy) || 1;
+    if (ix || iy) {
+      ix /= mag;
+      iy /= mag;
+    }
   }
 
   const boost = keys.has("ShiftLeft") || keys.has("ShiftRight") || (joystick.active && joystick.mag > 0.85);
-  const turnMul = boost ? 0.82 : 1;
-  p.angle = angleLerp(p.angle, targetAngle, clamp(step * CONFIG.TURN_RATE * turnMul, 0, 1));
-}
-
-function simulate(now) {
-  for (let i = segments.length - 1; i >= 0; i--) {
-    const s = segments[i];
-    if (!s.solid && now >= s.solidAt) {
-      s.solid = true;
-      const mx = (s.x1 + s.x2) * 0.5;
-      const my = (s.y1 + s.y2) * 0.5;
-      pulses.push({ x: mx, y: my, t: 0.12, color: "#d1f9ff" });
-      beep(950, 0.035, "square", 0.015);
-    }
-    if (now > s.expireAt) segments.splice(i, 1);
-  }
-
-  for (let i = 0; i < players.length; i++) {
-    const p = players[i];
-
-    if (!p.alive) {
-      if (now >= p.respawnAt) spawnPlayer(p, now);
-      continue;
-    }
-
-    p.survival += dt;
-
-    if (p.isBot) updateBot(p, now, dt);
-    else updateHuman(p, dt);
-
-    const boost = (!p.isBot && (keys.has("ShiftLeft") || keys.has("ShiftRight") || (joystick.active && joystick.mag > 0.85)));
-    const joySpeedScale = !p.isBot && joystick.active ? clamp(0.55 + joystick.mag * 0.6, 0.55, 1.15) : 1;
-    const speed = p.speed * joySpeedScale * (boost ? 1.18 : 1);
-
-    const vx = Math.cos(p.angle) * speed * dt;
-    const vy = Math.sin(p.angle) * speed * dt;
-
-    const prevX = p.x;
-    const prevY = p.y;
-    p.x += vx;
-    p.y += vy;
-
-    if (p.x < 0 || p.x > WORLD_W || p.y < 0 || p.y > WORLD_H) {
-      killPlayer(p, now, -1);
-      continue;
-    }
-
-    if (len(p.x - p.lastTrailX, p.y - p.lastTrailY) >= CONFIG.SEGMENT_MIN_DIST) {
-      addSegment(p, p.lastTrailX, p.lastTrailY, p.x, p.y, now);
-      p.lastTrailX = p.x;
-      p.lastTrailY = p.y;
-    }
-
-    if (now < p.spawnInvulnUntil) continue;
-
-    for (let j = 0; j < segments.length; j++) {
-      const s = segments[j];
-      if (!s.solid) continue;
-      const d = pointSegmentDist(p.x, p.y, s.x1, s.y1, s.x2, s.y2);
-      if (d <= p.radius) {
-        killPlayer(p, now, s.ownerId);
-        break;
-      }
-    }
-
-    if (!p.alive) {
-      p.x = prevX;
-      p.y = prevY;
-    }
-  }
-
-  for (let i = pulses.length - 1; i >= 0; i--) {
-    pulses[i].t -= dt;
-    if (pulses[i].t <= 0) pulses.splice(i, 1);
-  }
+  ws.send(JSON.stringify({ t: "input", ix, iy, boost }));
 }
 
 function drawPlane(x, y, angle, color, scale = 1) {
@@ -467,19 +232,22 @@ function drawPlane(x, y, angle, color, scale = 1) {
   ctx.lineTo(-8, 7);
   ctx.closePath();
   ctx.fill();
-  ctx.strokeStyle = "rgba(255,255,255,0.9)";
+  ctx.strokeStyle = "rgba(255,255,255,0.92)";
   ctx.lineWidth = 1.5;
   ctx.stroke();
   ctx.restore();
 }
 
 function render(now) {
+  const players = state.players || [];
+  const segments = state.segments || [];
+  const world = state.world || { w: 2800, h: 1700 };
+  const me = players.find((p) => p.id === myId) || players[0] || { x: world.w / 2, y: world.h / 2, alive: true, respawnIn: 0, name: "-", kills: 0, deaths: 0 };
+
+  const camX = clamp(me.x - W * 0.5, 0, Math.max(0, world.w - W));
+  const camY = clamp(me.y - H * 0.5, 0, Math.max(0, world.h - H));
+
   ctx.clearRect(0, 0, W, H);
-  const me = players[0];
-
-  const camX = clamp(me.x - W * 0.5, 0, Math.max(0, WORLD_W - W));
-  const camY = clamp(me.y - H * 0.5, 0, Math.max(0, WORLD_H - H));
-
   const grad = ctx.createLinearGradient(0, 0, 0, H);
   grad.addColorStop(0, "#070b14");
   grad.addColorStop(1, "#03060d");
@@ -507,25 +275,23 @@ function render(now) {
 
   ctx.strokeStyle = "rgba(255,255,255,0.32)";
   ctx.lineWidth = 2;
-  ctx.strokeRect(-camX + 1, -camY + 1, WORLD_W - 2, WORLD_H - 2);
+  ctx.strokeRect(-camX + 1, -camY + 1, world.w - 2, world.h - 2);
 
   for (let i = 0; i < segments.length; i++) {
     const s = segments[i];
-    const c = COLORS[s.ownerId % COLORS.length];
     const x1 = s.x1 - camX;
     const y1 = s.y1 - camY;
     const x2 = s.x2 - camX;
     const y2 = s.y2 - camY;
     if ((x1 < -20 && x2 < -20) || (x1 > W + 20 && x2 > W + 20) || (y1 < -20 && y2 < -20) || (y1 > H + 20 && y2 > H + 20)) continue;
-
     if (s.solid) {
       ctx.setLineDash([]);
-      ctx.strokeStyle = c;
+      ctx.strokeStyle = s.color;
       ctx.globalAlpha = 0.95;
       ctx.lineWidth = 4;
     } else {
       ctx.setLineDash([6, 8]);
-      ctx.strokeStyle = c;
+      ctx.strokeStyle = s.color;
       ctx.globalAlpha = 0.34;
       ctx.lineWidth = 2;
     }
@@ -537,21 +303,6 @@ function render(now) {
   ctx.setLineDash([]);
   ctx.globalAlpha = 1;
 
-  for (let i = 0; i < pulses.length; i++) {
-    const p = pulses[i];
-    const a = clamp(p.t / 0.3, 0, 1);
-    const sx = p.x - camX;
-    const sy = p.y - camY;
-    if (sx < -40 || sx > W + 40 || sy < -40 || sy > H + 40) continue;
-    ctx.strokeStyle = p.color;
-    ctx.globalAlpha = a;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(sx, sy, 7 + (1 - a) * 28, 0, Math.PI * 2);
-    ctx.stroke();
-  }
-  ctx.globalAlpha = 1;
-
   for (let i = 0; i < players.length; i++) {
     const p = players[i];
     if (!p.alive) continue;
@@ -559,23 +310,17 @@ function render(now) {
     const sy = p.y - camY;
     if (sx < -30 || sx > W + 30 || sy < -30 || sy > H + 30) continue;
 
-    drawPlane(sx, sy, p.angle, p.color, p.id === 0 ? 1.05 : 0.95);
+    drawPlane(sx, sy, p.angle, p.color, p.id === myId ? 1.05 : 0.95);
 
-    if (now < p.spawnInvulnUntil) {
-      const t = p.spawnInvulnUntil - now;
+    if (p.invuln > 0) {
       ctx.strokeStyle = "rgba(165,242,255,0.95)";
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(sx, sy, p.radius + 6 + Math.sin(now * 18) * 1.2, 0, Math.PI * 2);
+      ctx.arc(sx, sy, (p.radius || 8) + 6 + Math.sin(now * 18) * 1.2, 0, Math.PI * 2);
       ctx.stroke();
-      if (p.id === 0) {
-        ctx.fillStyle = "#d5f7ff";
-        ctx.font = "12px ui-monospace,monospace";
-        ctx.fillText(`INVULN ${t.toFixed(1)}s`, sx + 12, sy - 13);
-      }
     }
 
-    if (p.id === 0) {
+    if (p.id === myId) {
       ctx.fillStyle = "#ffffff";
       ctx.font = "bold 11px ui-monospace,monospace";
       ctx.fillText(p.name, sx + 11, sy + 5);
@@ -584,44 +329,37 @@ function render(now) {
 
   const aliveCount = players.filter((p) => p.alive).length;
   hud.textContent =
-`Ghost Trail Arena
-Delay ${CONFIG.GHOST_DELAY.toFixed(1)}s -> SOLID lethal wall
-World ${WORLD_W} x ${WORLD_H}
-Flight speed tuned down | Trail TTL ${CONFIG.SEGMENT_TTL}s
-Controller: right-bottom virtual stick
+`Ghost Trail Arena ONLINE
+Connected: ${connected ? "YES" : "NO"} | Joined: ${joined ? "YES" : "NO"}
+Delay ${Number(state.config?.ghostDelay || 2.2).toFixed(1)}s -> SOLID lethal wall
+Trail TTL ${Number(state.config?.ttl || 6).toFixed(1)}s | Respawn ${Number(state.config?.respawnDelay || 2).toFixed(1)}s
+World ${world.w} x ${world.h}
 Alive: ${aliveCount}/${players.length}
-${players[0].name}  K:${players[0].kills} D:${players[0].deaths}`;
+${me.name || "YOU"}  K:${me.kills || 0} D:${me.deaths || 0}`;
 
-  const top = [...players].sort((a, b) => b.survival - a.survival).slice(0, 6);
-  board.textContent = "LEADERBOARD (survival sec)\n" + top.map((p, idx) => {
-    const mark = p.id === 0 ? " <YOU>" : "";
-    return `${idx + 1}. ${p.name.padEnd(8, " ")} ${p.survival.toFixed(1)}s  K:${p.kills}${mark}`;
+  const lb = state.leaderboard || [];
+  board.textContent = "LEADERBOARD (survival sec)\n" + lb.map((p, idx) => {
+    const mark = p.id === myId ? " <YOU>" : "";
+    return `${idx + 1}. ${(p.name || "-").padEnd(8, " ")} ${Number(p.survival || 0).toFixed(1)}s K:${p.kills || 0}${mark}`;
   }).join("\n");
 
-  if (!players[0].alive) {
-    centerMsg.textContent = `OVERWRITE IN ${(players[0].respawnAt - now).toFixed(1)}...`;
-  } else if (!gameStarted) {
-    centerMsg.textContent = "";
+  if (!connected) {
+    centerMsg.textContent = "CONNECTING TO SERVER...";
+  } else if (joined && me && !me.alive) {
+    centerMsg.textContent = `RESPAWNING IN ${Number(me.respawnIn || 0).toFixed(1)}...`;
+  } else if (!joined) {
+    centerMsg.textContent = "JOIN TO ENTER THE SAME LIVE MAP";
   } else {
     centerMsg.textContent = "";
   }
 }
 
-const now0 = performance.now() / 1000;
-for (const p of players) spawnPlayer(p, now0);
-
+let last = performance.now() / 1000;
 function frame() {
   const now = performance.now() / 1000;
-  let delta = now - lastTime;
-  lastTime = now;
-  delta = Math.min(delta, 0.08);
-  acc += delta;
-
-  while (acc >= dt) {
-    simulate(now);
-    acc -= dt;
-  }
-
+  const dt = Math.min(0.08, now - last);
+  last = now;
+  sendInput(now);
   render(now);
   requestAnimationFrame(frame);
 }
