@@ -42,6 +42,14 @@ const FLOOR_INFO = {
     items: "\uC815\uD654\uB4F1, \uADE0\uC0AC\uC808\uB2E8\uCE7C"
   }
 };
+const CONTROL_PRESETS = {
+  wasd: "WASD + Arrow",
+  arrows: "Arrow + WASD"
+};
+const GOAL_TEXT = "\uBAA9\uD45C: \uCD5C\uD558\uCE35(Floor 4)\uAE4C\uC9C0 \uB0B4\uB824\uAC00 \uBCF4\uC2A4\uB97C \uCC98\uCE58\uD558\uB77C.";
+const RUN_LOOP_TEXT = "\uD0D0\uC0C9 -> \uC804\uD22C -> \uBCF4\uC0C1 \uC120\uD0DD -> \uC704\uD5D8 \uC0C1\uC2B9";
+const SAVE_TOAST_MS = 1400;
+const SAFE_TURN_LIMIT = 12;
 function randSeed() {
   return Math.random() * 4294967295 >>> 0;
 }
@@ -282,11 +290,27 @@ function App() {
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [floor, setFloor] = useState(1);
+  const [showStart, setShowStart] = useState(true);
+  const [hasSave, setHasSave] = useState(() => !!localStorage.getItem(SAVE_KEY));
+  const [paused, setPaused] = useState(false);
+  const [pauseReason, setPauseReason] = useState("");
+  const [toast, setToast] = useState("");
+  const [controlPreset, setControlPreset] = useState("wasd");
   const [hpText, setHpText] = useState("HP: --/--");
+  const [hpRatio, setHpRatio] = useState(1);
   const [bossText, setBossText] = useState("Boss: --/--");
   const [turnText, setTurnText] = useState("Turn: --");
   const [storyEvent, setStoryEvent] = useState(null);
+  const [upgradeEvent, setUpgradeEvent] = useState(null);
+  const [buildTags, setBuildTags] = useState([]);
+  const [deathSummary, setDeathSummary] = useState(null);
   const [logLines, setLogLines] = useState(["\uCD08\uAE30 \uB9F5 \uB80C\uB354\uB9C1 \uC644\uB8CC"]);
+  const [fxState, setFxState] = useState({
+    hitFlash: 0,
+    damageFlash: 0,
+    lootFlash: 0,
+    spark: null
+  });
   const envRef = useRef({
     lastTurn: -1,
     ash: /* @__PURE__ */ new Map(),
@@ -306,11 +330,46 @@ function App() {
   });
   const logText = useMemo(() => logLines.join("\n"), [logLines]);
   const floorMeta = useMemo(() => FLOOR_INFO[floor] || FLOOR_INFO[1], [floor]);
+  const toastTimerRef = useRef(null);
+  const audioRef = useRef({ ctx: null });
+  const damageCauseRef = useRef("");
   const logLine = useCallback((line) => {
     setLogLines((prev) => {
       const next = [line, ...prev];
       return next.slice(0, 120);
     });
+  }, []);
+  const showToast = useCallback((msg) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToast(msg);
+    toastTimerRef.current = setTimeout(() => setToast(""), SAVE_TOAST_MS);
+  }, []);
+  const playSfx = useCallback((kind) => {
+    let ctx = audioRef.current.ctx;
+    if (!ctx) {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      ctx = new Ctx();
+      audioRef.current.ctx = ctx;
+    }
+    if (ctx.state === "suspended") ctx.resume();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const now = ctx.currentTime;
+    osc.type = kind === "damage" ? "sawtooth" : "square";
+    const base = kind === "damage" ? 130 : kind === "loot" ? 520 : 260;
+    osc.frequency.setValueAtTime(base, now);
+    osc.frequency.exponentialRampToValueAtTime(base * (kind === "damage" ? 0.62 : 1.45), now + 0.08);
+    gain.gain.setValueAtTime(1e-4, now);
+    gain.gain.exponentialRampToValueAtTime(kind === "damage" ? 0.06 : 0.045, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(1e-4, now + 0.13);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.14);
+  }, []);
+  const emitFx = useCallback((patch) => {
+    setFxState((prev) => ({ ...prev, ...patch }));
   }, []);
   const hasBit = useCallback((bit) => {
     const api = runtimeRef.current.api;
@@ -331,6 +390,23 @@ function App() {
     env.pending.clear();
     env.spores.clear();
     env.freezeUntil = 0;
+  }, []);
+  useEffect(() => {
+    const id = setInterval(() => {
+      setFxState((prev) => {
+        const next = {
+          hitFlash: Math.max(0, prev.hitFlash - 1),
+          damageFlash: Math.max(0, prev.damageFlash - 1),
+          lootFlash: Math.max(0, prev.lootFlash - 1),
+          spark: prev.spark
+        };
+        if (next.spark) {
+          next.spark = next.spark.life <= 1 ? null : { ...next.spark, life: next.spark.life - 1 };
+        }
+        return next;
+      });
+    }, 55);
+    return () => clearInterval(id);
   }, []);
   const applyEnvironment = useCallback(() => {
     const api = runtimeRef.current.api;
@@ -466,6 +542,7 @@ function App() {
     const hp = api.game_player_hp();
     const mhp = api.game_player_maxhp();
     setHpText(`HP: ${hp}/${mhp}`);
+    setHpRatio(clamp(hp / Math.max(1, mhp), 0, 1));
     const bossAlive = api.game_boss_alive() === 1;
     const inSpore = floor === 4 && env.spores.has(tileKey(px, py));
     if (bossAlive) {
@@ -479,6 +556,33 @@ function App() {
       setBossText("Boss: defeated");
     }
     setTurnText(`Turn: ${api.game_turn()}`);
+    if (fxState.hitFlash > 0) {
+      ctx.fillStyle = `rgba(255,245,185,${0.1 + fxState.hitFlash * 0.035})`;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    if (fxState.lootFlash > 0) {
+      ctx.fillStyle = `rgba(94,219,171,${0.06 + fxState.lootFlash * 0.03})`;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    if (fxState.damageFlash > 0) {
+      const edge = ctx.createRadialGradient(
+        canvas.width / 2,
+        canvas.height / 2,
+        canvas.width * 0.2,
+        canvas.width / 2,
+        canvas.height / 2,
+        canvas.width * 0.68
+      );
+      edge.addColorStop(0, "rgba(0,0,0,0)");
+      edge.addColorStop(1, `rgba(197,37,37,${0.14 + fxState.damageFlash * 0.05})`);
+      ctx.fillStyle = edge;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    if (fxState.spark) {
+      const { x, y, life } = fxState.spark;
+      ctx.fillStyle = `rgba(255,198,115,${0.18 + life * 0.1})`;
+      ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
+    }
     if (!storyEvent && rt.STORY) {
       const turn = api.game_turn();
       for (const ev of rt.STORY.events) {
@@ -496,7 +600,7 @@ function App() {
         }
       }
     }
-  }, [applyEnvironment, floor, hasBit, storyEvent]);
+  }, [applyEnvironment, floor, fxState, hasBit, storyEvent]);
   const saveToLocal = useCallback(() => {
     const rt = runtimeRef.current;
     const { api, Module } = rt;
@@ -508,7 +612,9 @@ function App() {
     Module._free(ptr);
     const b64 = btoa(String.fromCharCode(...bytes));
     localStorage.setItem(SAVE_KEY, b64);
-  }, []);
+    setHasSave(true);
+    showToast("\uC800\uC7A5\uB428");
+  }, [showToast]);
   const loadFromLocal = useCallback(() => {
     const rt = runtimeRef.current;
     const { api, Module } = rt;
@@ -523,8 +629,10 @@ function App() {
     const ok = api.game_load_read(ptr, bytes.length);
     Module._free(ptr);
     logLine(ok ? "Loaded save." : "Load failed (version mismatch).");
+    if (ok) showToast("\uC800\uC7A5 \uBD88\uB7EC\uC624\uAE30 \uC644\uB8CC");
+    setHasSave(!!ok || !!localStorage.getItem(SAVE_KEY));
     return !!ok;
-  }, [logLine]);
+  }, [logLine, showToast]);
   const configureBossForFloor = useCallback((floor2) => {
     const rt = runtimeRef.current;
     const { BOSSES, api } = rt;
@@ -571,13 +679,99 @@ function App() {
     api.boss_apply_stats_from_config();
     logLine(`Boss loaded: ${boss.name} (floor ${floor2})`);
   }, [logLine]);
+  const makeUpgradeChoices = useCallback(() => {
+    const pool = [
+      { label: "\uACF5\uACA9 \uC99D\uD3ED", effect: STORY_EFFECTS.atk_1, tag: "ATK", desc: "+1 ATK (\uC0C1\uC2DC)" },
+      { label: "\uAC15\uCCA0 \uBC29\uD328", effect: STORY_EFFECTS.shield_1, tag: "SHIELD", desc: "\uD53C\uACA9 \uC644\uD654" },
+      { label: "\uB300\uC2DC \uBD80\uC2A4\uD130", effect: STORY_EFFECTS.dash_buff, tag: "DASH", desc: "\uB300\uC2DC \uD6A8\uC728 \uC99D\uAC00" },
+      { label: "\uC751\uAE09 \uCE58\uB8CC", effect: STORY_EFFECTS.heal_2, tag: "HEAL", desc: "HP +2" },
+      { label: "\uC751\uAE09 \uC218\uD608+", effect: STORY_EFFECTS.heal_3, tag: "HEAL", desc: "HP +3" }
+    ];
+    const picked = [];
+    while (picked.length < 3 && pool.length > 0) {
+      const idx = Math.floor(Math.random() * pool.length);
+      picked.push(pool.splice(idx, 1)[0]);
+    }
+    return picked;
+  }, []);
+  const inferDamageCause = useCallback((snapshot) => {
+    const api = runtimeRef.current.api;
+    if (!api) return "\uD53C\uD574 \uC6D0\uC778 \uBBF8\uD655\uC778";
+    const px = api.game_player_x();
+    const py = api.game_player_y();
+    const env = envRef.current;
+    const here = tileKey(px, py);
+    if (floor === 2 && (env.lava.has(here) || env.pending.has(here) || env.telegraph.has(here))) return "\uC6A9\uC554 \uBD84\uCD9C \uB77C\uC778";
+    if (floor === 4 && env.spores.has(here)) return "\uD3EC\uC790 \uD3ED\uBC1C \uC7A5\uD310";
+    if (floor === 1 && env.ash.has(here)) return "\uC7AC \uBD84\uCD9C\uAD6C \uD654\uC0C1";
+    if (api.game_enemy_alive() === 1) {
+      const d = Math.abs(api.game_enemy_x() - px) + Math.abs(api.game_enemy_y() - py);
+      if (d <= 1) return "\uADFC\uC811 \uC801 \uACF5\uACA9";
+    }
+    if (api.game_boss_alive() === 1) {
+      const d = Math.abs(api.game_boss_x() - px) + Math.abs(api.game_boss_y() - py);
+      if (d <= 2) return "\uBCF4\uC2A4 \uD328\uD134 \uACF5\uACA9";
+    }
+    if (snapshot.turn <= SAFE_TURN_LIMIT) return "\uCD08\uBC18 \uAD50\uC804 \uD53C\uD574";
+    return "\uC9C0\uD615 \uB610\uB294 \uC801 \uD328\uD134 \uD53C\uD574";
+  }, [floor]);
   const stepWithCode = useCallback((code) => {
     const api = runtimeRef.current.api;
     if (!api) return;
+    const before = {
+      turn: api.game_turn(),
+      hp: api.game_player_hp(),
+      bossHp: api.game_boss_alive() === 1 ? api.game_boss_hp() : 0,
+      enemyAlive: api.game_enemy_alive() === 1,
+      px: api.game_player_x(),
+      py: api.game_player_y()
+    };
     api.game_step(code);
+    const after = {
+      turn: api.game_turn(),
+      hp: api.game_player_hp(),
+      bossHp: api.game_boss_alive() === 1 ? api.game_boss_hp() : 0,
+      enemyAlive: api.game_enemy_alive() === 1,
+      px: api.game_player_x(),
+      py: api.game_player_y()
+    };
+    const tookDamage = after.hp < before.hp;
+    const dealtBossDamage = after.bossHp < before.bossHp;
+    const killedEnemy = before.enemyAlive && !after.enemyAlive;
+    if (dealtBossDamage || killedEnemy) {
+      emitFx({
+        hitFlash: 4,
+        spark: { x: after.px, y: after.py, life: 4 }
+      });
+      playSfx("hit");
+    }
+    if (tookDamage) {
+      const cause = inferDamageCause(before);
+      damageCauseRef.current = cause;
+      emitFx({ damageFlash: 5 });
+      playSfx("damage");
+      logLine(`\uD53C\uACA9: ${cause}`);
+    }
+    if (after.hp <= 0) {
+      setDeathSummary({
+        floor,
+        turn: after.turn,
+        reason: damageCauseRef.current || "\uC6D0\uC778 \uBBF8\uC0C1",
+        build: buildTags.length ? buildTags.join(" + ") : "\uAE30\uBCF8 \uBE4C\uB4DC"
+      });
+    }
+    if (after.turn > 0 && after.turn % 6 === 0 && !upgradeEvent && !storyEvent && after.hp > 0) {
+      setUpgradeEvent({
+        title: "\uBCF4\uC0C1 \uC120\uD0DD",
+        subtitle: "\uC9C0\uAE08 \uBE4C\uB4DC\uB97C \uAC15\uD654\uD560 \uD2B9\uC131\uC744 \uD558\uB098 \uC120\uD0DD\uD558\uC138\uC694.",
+        choices: makeUpgradeChoices()
+      });
+      emitFx({ lootFlash: 3 });
+      playSfx("loot");
+    }
     draw();
     saveToLocal();
-  }, [draw, saveToLocal]);
+  }, [buildTags, draw, emitFx, floor, inferDamageCause, logLine, makeUpgradeChoices, playSfx, saveToLocal, storyEvent, upgradeEvent]);
   const dirToCode = useCallback((dx, dy, dash = false) => {
     if (dx === 0 && dy === -1) return dash ? 5 : 1;
     if (dx === 0 && dy === 1) return dash ? 6 : 2;
@@ -628,12 +822,16 @@ function App() {
   }, [dirToCode, stepWithCode, tryAutoAttack]);
   const inputToCode = useCallback((key, shift) => {
     const dash = shift ? 4 : 0;
-    if (key === "ArrowUp" || key === "w" || key === "W") return 1 + dash;
-    if (key === "ArrowDown" || key === "s" || key === "S") return 2 + dash;
-    if (key === "ArrowLeft" || key === "a" || key === "A") return 3 + dash;
-    if (key === "ArrowRight" || key === "d" || key === "D") return 4 + dash;
+    const upA = controlPreset === "arrows" ? ["ArrowUp", "w", "W"] : ["w", "W", "ArrowUp"];
+    const downA = controlPreset === "arrows" ? ["ArrowDown", "s", "S"] : ["s", "S", "ArrowDown"];
+    const leftA = controlPreset === "arrows" ? ["ArrowLeft", "a", "A"] : ["a", "A", "ArrowLeft"];
+    const rightA = controlPreset === "arrows" ? ["ArrowRight", "d", "D"] : ["d", "D", "ArrowRight"];
+    if (upA.includes(key)) return 1 + dash;
+    if (downA.includes(key)) return 2 + dash;
+    if (leftA.includes(key)) return 3 + dash;
+    if (rightA.includes(key)) return 4 + dash;
     return 0;
-  }, []);
+  }, [controlPreset]);
   const normalizeCodeWithEnvironment = useCallback((code) => {
     const api = runtimeRef.current.api;
     if (!api || !code) return code;
@@ -655,12 +853,19 @@ function App() {
     if (!api) return;
     resetEnvironment();
     api.game_new(randSeed());
+    api.story_apply_effect(STORY_EFFECTS.shield_1);
     configureBossForFloor(1);
     setFloor(1);
     setStoryEvent(null);
+    setUpgradeEvent(null);
+    setBuildTags([]);
+    setDeathSummary(null);
+    damageCauseRef.current = "";
+    setShowStart(false);
+    logLine("\uCD08\uBC18 \uC548\uC804 \uAD6C\uAC04: \uAE30\uBCF8 \uBCF4\uD638\uB9C9 \uC801\uC6A9");
     draw();
     saveToLocal();
-  }, [configureBossForFloor, draw, resetEnvironment, saveToLocal]);
+  }, [configureBossForFloor, draw, logLine, resetEnvironment, saveToLocal]);
   const onContinue = useCallback(() => {
     const api = runtimeRef.current.api;
     if (!api) return;
@@ -677,8 +882,16 @@ function App() {
       setFloor(f);
     }
     setStoryEvent(null);
+    setUpgradeEvent(null);
+    setDeathSummary(null);
+    setShowStart(false);
     draw();
   }, [configureBossForFloor, draw, loadFromLocal, logLine, resetEnvironment]);
+  const onStartRun = useCallback(() => {
+    if (!ready) return;
+    if (hasSave) onContinue();
+    else onNewRun();
+  }, [hasSave, onContinue, onNewRun, ready]);
   const onNextFloor = useCallback(() => {
     const api = runtimeRef.current.api;
     if (!api) return;
@@ -690,6 +903,7 @@ function App() {
     configureBossForFloor(next);
     setFloor(next);
     setStoryEvent(null);
+    setUpgradeEvent(null);
     logLine(`\uC2EC\uC7A5\uC2E4 \uC774\uB3D9: Floor ${next}`);
     draw();
     saveToLocal();
@@ -697,7 +911,9 @@ function App() {
   const onClear = useCallback(() => {
     localStorage.removeItem(SAVE_KEY);
     logLine("Save cleared.");
-  }, [logLine]);
+    setHasSave(false);
+    showToast("\uC800\uC7A5 \uC0AD\uC81C\uB428");
+  }, [logLine, showToast]);
   const onStoryChoice = useCallback((choice) => {
     const api = runtimeRef.current.api;
     if (!api) return;
@@ -709,6 +925,39 @@ function App() {
     draw();
     saveToLocal();
   }, [draw, logLine, saveToLocal, setBit]);
+  const onUpgradeChoice = useCallback((choice) => {
+    const api = runtimeRef.current.api;
+    if (!api || !choice) return;
+    if (choice.effect) api.story_apply_effect(choice.effect);
+    if (choice.tag) {
+      setBuildTags((prev) => {
+        const next = [...prev, choice.tag];
+        return next.slice(-6);
+      });
+    }
+    logLine(`\uD68D\uB4DD: ${choice.label} (${choice.desc})`);
+    emitFx({ lootFlash: 5 });
+    playSfx("loot");
+    setUpgradeEvent(null);
+    draw();
+    saveToLocal();
+  }, [draw, emitFx, logLine, playSfx, saveToLocal]);
+  const onCopyResult = useCallback(async () => {
+    if (!deathSummary) return;
+    const text = [
+      "[HEART DIVER RUN]",
+      `Floor: ${deathSummary.floor}`,
+      `Turn: ${deathSummary.turn}`,
+      `Build: ${deathSummary.build}`,
+      `Death: ${deathSummary.reason}`
+    ].join("\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast("\uACB0\uACFC \uCE74\uB4DC \uBCF5\uC0AC\uB428");
+    } catch {
+      showToast("\uD074\uB9BD\uBCF4\uB4DC \uBCF5\uC0AC \uC2E4\uD328");
+    }
+  }, [deathSummary, showToast]);
   useEffect(() => {
     drawIntroMap(canvasRef.current, runtimeRef.current.sprites);
   }, []);
@@ -787,8 +1036,8 @@ function App() {
   }, [configureBossForFloor, draw, loadFromLocal, logLine]);
   useEffect(() => {
     function onKeyDown(e) {
-      if (!runtimeRef.current.api || !ready || storyEvent) return;
-      if (e.key === " " || e.key === "f" || e.key === "F") {
+      if (!runtimeRef.current.api || !ready || storyEvent || upgradeEvent || deathSummary || paused || showStart) return;
+      if (e.key === " " || e.key === "f" || e.key === "F" || e.key === "e" || e.key === "E") {
         e.preventDefault();
         tryAutoAttack();
         return;
@@ -800,12 +1049,12 @@ function App() {
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [inputToCode, normalizeCodeWithEnvironment, ready, stepWithCode, storyEvent, tryAutoAttack]);
+  }, [deathSummary, inputToCode, normalizeCodeWithEnvironment, paused, ready, showStart, stepWithCode, storyEvent, tryAutoAttack, upgradeEvent]);
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return void 0;
     function onPointerDown(e) {
-      if (!runtimeRef.current.api || !ready || storyEvent) return;
+      if (!runtimeRef.current.api || !ready || storyEvent || upgradeEvent || deathSummary || paused || showStart) return;
       const rect = canvas.getBoundingClientRect();
       const sx = canvas.width / rect.width;
       const sy = canvas.height / rect.height;
@@ -815,7 +1064,26 @@ function App() {
     }
     canvas.addEventListener("pointerdown", onPointerDown);
     return () => canvas.removeEventListener("pointerdown", onPointerDown);
-  }, [ready, stepToward, storyEvent]);
+  }, [deathSummary, paused, ready, showStart, stepToward, storyEvent, upgradeEvent]);
+  useEffect(() => {
+    function pauseByFocus() {
+      if (!ready || showStart || deathSummary) return;
+      setPaused(true);
+      setPauseReason("\uD3EC\uCEE4\uC2A4 \uC544\uC6C3: \uC77C\uC2DC\uC815\uC9C0\uB428");
+    }
+    function onVisibility() {
+      if (document.hidden) pauseByFocus();
+    }
+    window.addEventListener("blur", pauseByFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("blur", pauseByFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [deathSummary, ready, showStart]);
+  useEffect(() => () => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+  }, []);
   const storyBody = storyEvent ? [
     h("div", { key: "story-text" }, storyEvent.text),
     h(
@@ -845,7 +1113,18 @@ function App() {
       "header",
       { className: "top" },
       h("div", { className: "brand" }, "HEART DIVER"),
-      h("div", { className: "hint" }, "Move: WASD/Arrows/Click | Attack: Space/F | Dash: Shift+Move")
+      h(
+        "div",
+        { className: "topRight" },
+        h("div", { className: "hint" }, "WASD/Arrow \uC774\uB3D9 | Space \uACF5\uACA9 | E \uC0C1\uD638\uC791\uC6A9 | Shift+\uC774\uB3D9 \uB300\uC2DC"),
+        h(
+          "div",
+          { className: "presetRow" },
+          h("span", { className: "mutedText" }, "\uD0A4 \uD504\uB9AC\uC14B"),
+          h("button", { className: controlPreset === "wasd" ? "primary" : "", onClick: () => setControlPreset("wasd") }, CONTROL_PRESETS.wasd),
+          h("button", { className: controlPreset === "arrows" ? "primary" : "", onClick: () => setControlPreset("arrows") }, CONTROL_PRESETS.arrows)
+        )
+      )
     ),
     h(
       "main",
@@ -853,14 +1132,79 @@ function App() {
       h(
         "section",
         { className: "panel" },
-        h("canvas", { ref: canvasRef, width: 640, height: 352 }),
+        h(
+          "div",
+          { className: "gameStage" },
+          h("canvas", { ref: canvasRef, width: 640, height: 352 }),
+          showStart ? h(
+            "div",
+            { className: "overlay startOverlay" },
+            h("div", { className: "overlayTitle" }, "HEART DIVER"),
+            h("div", { className: "overlayGoal" }, GOAL_TEXT),
+            h("div", { className: "overlayLoop" }, RUN_LOOP_TEXT),
+            h(
+              "div",
+              { className: "overlayControls" },
+              h("div", null, "WASD / Arrow: \uC774\uB3D9"),
+              h("div", null, "Space: \uACF5\uACA9"),
+              h("div", null, "E: \uC0C1\uD638\uC791\uC6A9"),
+              h("div", null, "Shift+\uC774\uB3D9: \uB300\uC2DC"),
+              h("div", null, "Click: \uD55C \uCE78 \uC774\uB3D9")
+            ),
+            h("button", { className: "startBtn", onClick: onStartRun, disabled: !ready }, hasSave ? "Start Run (Continue)" : "Start Run")
+          ) : null,
+          paused ? h(
+            "div",
+            { className: "overlay pauseOverlay" },
+            h("div", { className: "overlayTitle" }, "PAUSED"),
+            h("div", { className: "mutedText" }, pauseReason || "\uC77C\uC2DC\uC815\uC9C0"),
+            h("button", { className: "startBtn", onClick: () => setPaused(false) }, "Resume")
+          ) : null,
+          upgradeEvent ? h(
+            "div",
+            { className: "overlay upgradeOverlay" },
+            h("div", { className: "overlayTitle" }, upgradeEvent.title),
+            h("div", { className: "overlayGoal" }, upgradeEvent.subtitle),
+            h(
+              "div",
+              { className: "upgradeChoices" },
+              upgradeEvent.choices.map(
+                (choice) => h(
+                  "button",
+                  { key: choice.label, onClick: () => onUpgradeChoice(choice) },
+                  `${choice.label} - ${choice.desc}`
+                )
+              )
+            )
+          ) : null,
+          deathSummary ? h(
+            "div",
+            { className: "overlay deathOverlay" },
+            h("div", { className: "overlayTitle" }, "RUN RESULT"),
+            h("div", { className: "overlayGoal" }, `Floor ${deathSummary.floor} | Turn ${deathSummary.turn}`),
+            h("div", { className: "overlayLoop" }, `\uBE4C\uB4DC: ${deathSummary.build}`),
+            h("div", { className: "overlayGoal" }, `\uC0AC\uB9DD \uC6D0\uC778: ${deathSummary.reason}`),
+            h(
+              "div",
+              { className: "buttons" },
+              h("button", { className: "primary", onClick: onCopyResult }, "\uACB0\uACFC \uCE74\uB4DC \uBCF5\uC0AC"),
+              h("button", { onClick: onNewRun }, "\uB2E4\uC2DC \uC2DC\uC791")
+            )
+          ) : null
+        ),
         h(
           "div",
           { className: "hud" },
-          h("div", null, hpText),
-          h("div", null, bossText),
-          h("div", null, turnText),
-          h("div", null, `Floor: ${floor} ${floorMeta.subtitle}`)
+          h(
+            "div",
+            { className: "hudHp" },
+            h("div", { className: "hudLabel" }, hpText),
+            h("div", { className: "hpBar" }, h("div", { className: "hpFill", style: { width: `${Math.round(hpRatio * 100)}%` } }))
+          ),
+          h("div", { className: "hudStat" }, bossText),
+          h("div", { className: "hudStat" }, turnText),
+          h("div", { className: "hudStat" }, `Floor: ${floor} ${floorMeta.subtitle}`),
+          h("div", { className: "hudGoal" }, GOAL_TEXT)
         ),
         h(
           "div",
@@ -868,6 +1212,7 @@ function App() {
           h("button", { onClick: onNewRun, disabled: !ready }, "New Run"),
           h("button", { onClick: onContinue, disabled: !ready }, "Continue"),
           h("button", { onClick: onNextFloor, disabled: !(ready && runtimeRef.current.api?.game_boss_alive() === 0 && floor < 4) }, "Next Floor"),
+          h("button", { onClick: () => setPaused((v) => !v), disabled: !ready || showStart }, paused ? "Resume" : "Pause"),
           h("button", { onClick: onClear }, "Clear Save")
         ),
         loadError ? h("div", { className: "loadError" }, `Game load failed: ${loadError}`) : null
@@ -886,6 +1231,12 @@ function App() {
         h(
           "div",
           { className: "box" },
+          h("div", { className: "boxTitle" }, "Build"),
+          h("div", { className: "worldText" }, buildTags.length ? buildTags.join(" + ") : "\uC544\uC9C1 \uC120\uD0DD\uD55C \uC5C5\uADF8\uB808\uC774\uB4DC\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.")
+        ),
+        h(
+          "div",
+          { className: "box" },
           h("div", { className: "boxTitle" }, "Story"),
           h("div", { id: "story" }, storyBody)
         ),
@@ -896,7 +1247,8 @@ function App() {
           h("div", { id: "log" }, logText)
         )
       )
-    )
+    ),
+    toast ? h("div", { className: "toast" }, toast) : null
   );
 }
 export {

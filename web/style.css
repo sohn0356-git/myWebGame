@@ -32,6 +32,13 @@ body {
   backdrop-filter: blur(8px);
 }
 
+.topRight {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-end;
+}
+
 .brand {
   font-weight: 900;
   letter-spacing: 0.4px;
@@ -57,6 +64,10 @@ body {
   box-shadow: 0 16px 34px rgba(0, 0, 0, 0.4);
 }
 
+.gameStage {
+  position: relative;
+}
+
 canvas {
   display: block;
   width: 100%;
@@ -75,13 +86,45 @@ canvas {
   margin-top: 10px;
   color: var(--muted);
   font-size: 13px;
+  flex-wrap: wrap;
 }
 
-.hud > div {
+.hudStat,
+.hudGoal,
+.hudHp {
   border: 1px solid #2e3d56;
   background: #101722;
   border-radius: 10px;
   padding: 6px 9px;
+}
+
+.hudGoal {
+  flex: 1;
+  min-width: 260px;
+}
+
+.hudHp {
+  min-width: 170px;
+}
+
+.hudLabel {
+  color: #f2f6ff;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.hpBar {
+  height: 8px;
+  border-radius: 999px;
+  background: #283349;
+  border: 1px solid #344563;
+  overflow: hidden;
+}
+
+.hpFill {
+  height: 100%;
+  background: linear-gradient(90deg, #f35158, #ff9668);
+  transition: width 0.2s ease;
 }
 
 .buttons {
@@ -113,6 +156,11 @@ button:active {
 button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
+}
+
+button.primary {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(255, 210, 74, 0.18) inset;
 }
 
 .side {
@@ -147,6 +195,97 @@ button:disabled {
   display: flex;
   gap: 8px;
   margin-top: 10px;
+}
+
+.presetRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px;
+  text-align: center;
+  background: rgba(8, 10, 14, 0.76);
+}
+
+.overlayTitle {
+  font-size: 24px;
+  font-weight: 900;
+  color: #f3d779;
+  letter-spacing: 0.04em;
+}
+
+.overlayGoal {
+  color: #eef3ff;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.overlayLoop {
+  color: #a8b9d3;
+  font-size: 13px;
+}
+
+.overlayControls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 18px;
+  color: #cfd8e8;
+  font-size: 13px;
+  background: rgba(17, 24, 34, 0.7);
+  border: 1px solid #2f405d;
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.startBtn {
+  min-width: 240px;
+  font-size: 18px;
+  padding: 13px 18px;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(255, 210, 74, 0.2) inset;
+}
+
+.upgradeChoices {
+  width: min(520px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.upgradeChoices button {
+  text-align: left;
+}
+
+.pauseOverlay {
+  background: rgba(8, 10, 14, 0.66);
+}
+
+.deathOverlay {
+  background: rgba(18, 8, 10, 0.82);
+}
+
+.toast {
+  position: fixed;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 1px solid #3c557d;
+  border-radius: 11px;
+  background: rgba(14, 23, 36, 0.92);
+  color: #eaf1ff;
+  padding: 8px 12px;
+  font-size: 13px;
+  z-index: 20;
 }
 
 .choiceRow button {
@@ -196,7 +335,16 @@ button:disabled {
     align-items: flex-start;
   }
 
+  .topRight {
+    align-items: flex-start;
+    width: 100%;
+  }
+
   .hint {
     line-height: 1.35;
+  }
+
+  .overlayControls {
+    grid-template-columns: 1fr;
   }
 }

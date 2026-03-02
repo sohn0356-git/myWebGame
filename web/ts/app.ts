@@ -47,6 +47,16 @@ const FLOOR_INFO = {
   },
 };
 
+const CONTROL_PRESETS = {
+  wasd: "WASD + Arrow",
+  arrows: "Arrow + WASD",
+};
+
+const GOAL_TEXT = "목표: 최하층(Floor 4)까지 내려가 보스를 처치하라.";
+const RUN_LOOP_TEXT = "탐색 -> 전투 -> 보상 선택 -> 위험 상승";
+const SAVE_TOAST_MS = 1400;
+const SAFE_TURN_LIMIT = 12;
+
 function randSeed() {
   return (Math.random() * 0xffffffff) >>> 0;
 }
@@ -325,11 +335,27 @@ export default function App() {
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [floor, setFloor] = useState(1);
+  const [showStart, setShowStart] = useState(true);
+  const [hasSave, setHasSave] = useState(() => !!localStorage.getItem(SAVE_KEY));
+  const [paused, setPaused] = useState(false);
+  const [pauseReason, setPauseReason] = useState("");
+  const [toast, setToast] = useState("");
+  const [controlPreset, setControlPreset] = useState("wasd");
   const [hpText, setHpText] = useState("HP: --/--");
+  const [hpRatio, setHpRatio] = useState(1);
   const [bossText, setBossText] = useState("Boss: --/--");
   const [turnText, setTurnText] = useState("Turn: --");
   const [storyEvent, setStoryEvent] = useState(null);
+  const [upgradeEvent, setUpgradeEvent] = useState(null);
+  const [buildTags, setBuildTags] = useState([]);
+  const [deathSummary, setDeathSummary] = useState(null);
   const [logLines, setLogLines] = useState(["초기 맵 렌더링 완료"]);
+  const [fxState, setFxState] = useState({
+    hitFlash: 0,
+    damageFlash: 0,
+    lootFlash: 0,
+    spark: null,
+  });
   const envRef = useRef({
     lastTurn: -1,
     ash: new Map(),
@@ -350,12 +376,50 @@ export default function App() {
 
   const logText = useMemo(() => logLines.join("\n"), [logLines]);
   const floorMeta = useMemo(() => FLOOR_INFO[floor] || FLOOR_INFO[1], [floor]);
+  const toastTimerRef = useRef(null);
+  const audioRef = useRef({ ctx: null });
+  const damageCauseRef = useRef("");
 
   const logLine = useCallback((line) => {
     setLogLines((prev) => {
       const next = [line, ...prev];
       return next.slice(0, 120);
     });
+  }, []);
+
+  const showToast = useCallback((msg) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToast(msg);
+    toastTimerRef.current = setTimeout(() => setToast(""), SAVE_TOAST_MS);
+  }, []);
+
+  const playSfx = useCallback((kind) => {
+    let ctx = audioRef.current.ctx;
+    if (!ctx) {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      ctx = new Ctx();
+      audioRef.current.ctx = ctx;
+    }
+    if (ctx.state === "suspended") ctx.resume();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const now = ctx.currentTime;
+    osc.type = kind === "damage" ? "sawtooth" : "square";
+    const base = kind === "damage" ? 130 : kind === "loot" ? 520 : 260;
+    osc.frequency.setValueAtTime(base, now);
+    osc.frequency.exponentialRampToValueAtTime(base * (kind === "damage" ? 0.62 : 1.45), now + 0.08);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(kind === "damage" ? 0.06 : 0.045, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.13);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.14);
+  }, []);
+
+  const emitFx = useCallback((patch) => {
+    setFxState((prev) => ({ ...prev, ...patch }));
   }, []);
 
   const hasBit = useCallback((bit) => {
@@ -379,6 +443,24 @@ export default function App() {
     env.pending.clear();
     env.spores.clear();
     env.freezeUntil = 0;
+  }, []);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setFxState((prev) => {
+        const next = {
+          hitFlash: Math.max(0, prev.hitFlash - 1),
+          damageFlash: Math.max(0, prev.damageFlash - 1),
+          lootFlash: Math.max(0, prev.lootFlash - 1),
+          spark: prev.spark,
+        };
+        if (next.spark) {
+          next.spark = next.spark.life <= 1 ? null : { ...next.spark, life: next.spark.life - 1 };
+        }
+        return next;
+      });
+    }, 55);
+    return () => clearInterval(id);
   }, []);
 
   const applyEnvironment = useCallback(() => {
@@ -532,6 +614,7 @@ export default function App() {
     const hp = api.game_player_hp();
     const mhp = api.game_player_maxhp();
     setHpText(`HP: ${hp}/${mhp}`);
+    setHpRatio(clamp(hp / Math.max(1, mhp), 0, 1));
 
     const bossAlive = api.game_boss_alive() === 1;
     const inSpore = floor === 4 && env.spores.has(tileKey(px, py));
@@ -547,6 +630,34 @@ export default function App() {
     }
 
     setTurnText(`Turn: ${api.game_turn()}`);
+
+    if (fxState.hitFlash > 0) {
+      ctx.fillStyle = `rgba(255,245,185,${0.1 + fxState.hitFlash * 0.035})`;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    if (fxState.lootFlash > 0) {
+      ctx.fillStyle = `rgba(94,219,171,${0.06 + fxState.lootFlash * 0.03})`;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    if (fxState.damageFlash > 0) {
+      const edge = ctx.createRadialGradient(
+        canvas.width / 2,
+        canvas.height / 2,
+        canvas.width * 0.2,
+        canvas.width / 2,
+        canvas.height / 2,
+        canvas.width * 0.68
+      );
+      edge.addColorStop(0, "rgba(0,0,0,0)");
+      edge.addColorStop(1, `rgba(197,37,37,${0.14 + fxState.damageFlash * 0.05})`);
+      ctx.fillStyle = edge;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    if (fxState.spark) {
+      const { x, y, life } = fxState.spark;
+      ctx.fillStyle = `rgba(255,198,115,${0.18 + life * 0.1})`;
+      ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
+    }
 
     if (!storyEvent && rt.STORY) {
       const turn = api.game_turn();
@@ -567,7 +678,7 @@ export default function App() {
         }
       }
     }
-  }, [applyEnvironment, floor, hasBit, storyEvent]);
+  }, [applyEnvironment, floor, fxState, hasBit, storyEvent]);
 
   const saveToLocal = useCallback(() => {
     const rt = runtimeRef.current;
@@ -582,7 +693,9 @@ export default function App() {
 
     const b64 = btoa(String.fromCharCode(...bytes));
     localStorage.setItem(SAVE_KEY, b64);
-  }, []);
+    setHasSave(true);
+    showToast("저장됨");
+  }, [showToast]);
 
   const loadFromLocal = useCallback(() => {
     const rt = runtimeRef.current;
@@ -602,8 +715,10 @@ export default function App() {
     Module._free(ptr);
 
     logLine(ok ? "Loaded save." : "Load failed (version mismatch).");
+    if (ok) showToast("저장 불러오기 완료");
+    setHasSave(!!ok || !!localStorage.getItem(SAVE_KEY));
     return !!ok;
-  }, [logLine]);
+  }, [logLine, showToast]);
 
   const configureBossForFloor = useCallback((floor) => {
     const rt = runtimeRef.current;
@@ -659,13 +774,107 @@ export default function App() {
     logLine(`Boss loaded: ${boss.name} (floor ${floor})`);
   }, [logLine]);
 
+  const makeUpgradeChoices = useCallback(() => {
+    const pool = [
+      { label: "공격 증폭", effect: STORY_EFFECTS.atk_1, tag: "ATK", desc: "+1 ATK (상시)" },
+      { label: "강철 방패", effect: STORY_EFFECTS.shield_1, tag: "SHIELD", desc: "피격 완화" },
+      { label: "대시 부스터", effect: STORY_EFFECTS.dash_buff, tag: "DASH", desc: "대시 효율 증가" },
+      { label: "응급 치료", effect: STORY_EFFECTS.heal_2, tag: "HEAL", desc: "HP +2" },
+      { label: "응급 수혈+", effect: STORY_EFFECTS.heal_3, tag: "HEAL", desc: "HP +3" },
+    ];
+    const picked = [];
+    while (picked.length < 3 && pool.length > 0) {
+      const idx = Math.floor(Math.random() * pool.length);
+      picked.push(pool.splice(idx, 1)[0]);
+    }
+    return picked;
+  }, []);
+
+  const inferDamageCause = useCallback((snapshot) => {
+    const api = runtimeRef.current.api;
+    if (!api) return "피해 원인 미확인";
+    const px = api.game_player_x();
+    const py = api.game_player_y();
+    const env = envRef.current;
+    const here = tileKey(px, py);
+    if (floor === 2 && (env.lava.has(here) || env.pending.has(here) || env.telegraph.has(here))) return "용암 분출 라인";
+    if (floor === 4 && env.spores.has(here)) return "포자 폭발 장판";
+    if (floor === 1 && env.ash.has(here)) return "재 분출구 화상";
+    if (api.game_enemy_alive() === 1) {
+      const d = Math.abs(api.game_enemy_x() - px) + Math.abs(api.game_enemy_y() - py);
+      if (d <= 1) return "근접 적 공격";
+    }
+    if (api.game_boss_alive() === 1) {
+      const d = Math.abs(api.game_boss_x() - px) + Math.abs(api.game_boss_y() - py);
+      if (d <= 2) return "보스 패턴 공격";
+    }
+    if (snapshot.turn <= SAFE_TURN_LIMIT) return "초반 교전 피해";
+    return "지형 또는 적 패턴 피해";
+  }, [floor]);
+
   const stepWithCode = useCallback((code) => {
     const api = runtimeRef.current.api;
     if (!api) return;
+    const before = {
+      turn: api.game_turn(),
+      hp: api.game_player_hp(),
+      bossHp: api.game_boss_alive() === 1 ? api.game_boss_hp() : 0,
+      enemyAlive: api.game_enemy_alive() === 1,
+      px: api.game_player_x(),
+      py: api.game_player_y(),
+    };
     api.game_step(code);
+
+    const after = {
+      turn: api.game_turn(),
+      hp: api.game_player_hp(),
+      bossHp: api.game_boss_alive() === 1 ? api.game_boss_hp() : 0,
+      enemyAlive: api.game_enemy_alive() === 1,
+      px: api.game_player_x(),
+      py: api.game_player_y(),
+    };
+
+    const tookDamage = after.hp < before.hp;
+    const dealtBossDamage = after.bossHp < before.bossHp;
+    const killedEnemy = before.enemyAlive && !after.enemyAlive;
+
+    if (dealtBossDamage || killedEnemy) {
+      emitFx({
+        hitFlash: 4,
+        spark: { x: after.px, y: after.py, life: 4 },
+      });
+      playSfx("hit");
+    }
+    if (tookDamage) {
+      const cause = inferDamageCause(before);
+      damageCauseRef.current = cause;
+      emitFx({ damageFlash: 5 });
+      playSfx("damage");
+      logLine(`피격: ${cause}`);
+    }
+
+    if (after.hp <= 0) {
+      setDeathSummary({
+        floor,
+        turn: after.turn,
+        reason: damageCauseRef.current || "원인 미상",
+        build: buildTags.length ? buildTags.join(" + ") : "기본 빌드",
+      });
+    }
+
+    if (after.turn > 0 && after.turn % 6 === 0 && !upgradeEvent && !storyEvent && after.hp > 0) {
+      setUpgradeEvent({
+        title: "보상 선택",
+        subtitle: "지금 빌드를 강화할 특성을 하나 선택하세요.",
+        choices: makeUpgradeChoices(),
+      });
+      emitFx({ lootFlash: 3 });
+      playSfx("loot");
+    }
+
     draw();
     saveToLocal();
-  }, [draw, saveToLocal]);
+  }, [buildTags, draw, emitFx, floor, inferDamageCause, logLine, makeUpgradeChoices, playSfx, saveToLocal, storyEvent, upgradeEvent]);
 
   const dirToCode = useCallback((dx, dy, dash = false) => {
     if (dx === 0 && dy === -1) return dash ? 5 : 1;
@@ -729,12 +938,16 @@ export default function App() {
 
   const inputToCode = useCallback((key, shift) => {
     const dash = shift ? 4 : 0;
-    if (key === "ArrowUp" || key === "w" || key === "W") return 1 + dash;
-    if (key === "ArrowDown" || key === "s" || key === "S") return 2 + dash;
-    if (key === "ArrowLeft" || key === "a" || key === "A") return 3 + dash;
-    if (key === "ArrowRight" || key === "d" || key === "D") return 4 + dash;
+    const upA = controlPreset === "arrows" ? ["ArrowUp", "w", "W"] : ["w", "W", "ArrowUp"];
+    const downA = controlPreset === "arrows" ? ["ArrowDown", "s", "S"] : ["s", "S", "ArrowDown"];
+    const leftA = controlPreset === "arrows" ? ["ArrowLeft", "a", "A"] : ["a", "A", "ArrowLeft"];
+    const rightA = controlPreset === "arrows" ? ["ArrowRight", "d", "D"] : ["d", "D", "ArrowRight"];
+    if (upA.includes(key)) return 1 + dash;
+    if (downA.includes(key)) return 2 + dash;
+    if (leftA.includes(key)) return 3 + dash;
+    if (rightA.includes(key)) return 4 + dash;
     return 0;
-  }, []);
+  }, [controlPreset]);
 
   const normalizeCodeWithEnvironment = useCallback((code) => {
     const api = runtimeRef.current.api;
@@ -762,12 +975,19 @@ export default function App() {
 
     resetEnvironment();
     api.game_new(randSeed());
+    api.story_apply_effect(STORY_EFFECTS.shield_1);
     configureBossForFloor(1);
     setFloor(1);
     setStoryEvent(null);
+    setUpgradeEvent(null);
+    setBuildTags([]);
+    setDeathSummary(null);
+    damageCauseRef.current = "";
+    setShowStart(false);
+    logLine("초반 안전 구간: 기본 보호막 적용");
     draw();
     saveToLocal();
-  }, [configureBossForFloor, draw, resetEnvironment, saveToLocal]);
+  }, [configureBossForFloor, draw, logLine, resetEnvironment, saveToLocal]);
 
   const onContinue = useCallback(() => {
     const api = runtimeRef.current.api;
@@ -786,8 +1006,17 @@ export default function App() {
       setFloor(f);
     }
     setStoryEvent(null);
+    setUpgradeEvent(null);
+    setDeathSummary(null);
+    setShowStart(false);
     draw();
   }, [configureBossForFloor, draw, loadFromLocal, logLine, resetEnvironment]);
+
+  const onStartRun = useCallback(() => {
+    if (!ready) return;
+    if (hasSave) onContinue();
+    else onNewRun();
+  }, [hasSave, onContinue, onNewRun, ready]);
 
   const onNextFloor = useCallback(() => {
     const api = runtimeRef.current.api;
@@ -802,6 +1031,7 @@ export default function App() {
     configureBossForFloor(next);
     setFloor(next);
     setStoryEvent(null);
+    setUpgradeEvent(null);
     logLine(`심장실 이동: Floor ${next}`);
     draw();
     saveToLocal();
@@ -810,7 +1040,9 @@ export default function App() {
   const onClear = useCallback(() => {
     localStorage.removeItem(SAVE_KEY);
     logLine("Save cleared.");
-  }, [logLine]);
+    setHasSave(false);
+    showToast("저장 삭제됨");
+  }, [logLine, showToast]);
 
   const onStoryChoice = useCallback((choice) => {
     const api = runtimeRef.current.api;
@@ -827,6 +1059,41 @@ export default function App() {
     draw();
     saveToLocal();
   }, [draw, logLine, saveToLocal, setBit]);
+
+  const onUpgradeChoice = useCallback((choice) => {
+    const api = runtimeRef.current.api;
+    if (!api || !choice) return;
+    if (choice.effect) api.story_apply_effect(choice.effect);
+    if (choice.tag) {
+      setBuildTags((prev) => {
+        const next = [...prev, choice.tag];
+        return next.slice(-6);
+      });
+    }
+    logLine(`획득: ${choice.label} (${choice.desc})`);
+    emitFx({ lootFlash: 5 });
+    playSfx("loot");
+    setUpgradeEvent(null);
+    draw();
+    saveToLocal();
+  }, [draw, emitFx, logLine, playSfx, saveToLocal]);
+
+  const onCopyResult = useCallback(async () => {
+    if (!deathSummary) return;
+    const text = [
+      "[HEART DIVER RUN]",
+      `Floor: ${deathSummary.floor}`,
+      `Turn: ${deathSummary.turn}`,
+      `Build: ${deathSummary.build}`,
+      `Death: ${deathSummary.reason}`,
+    ].join("\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast("결과 카드 복사됨");
+    } catch {
+      showToast("클립보드 복사 실패");
+    }
+  }, [deathSummary, showToast]);
 
   useEffect(() => {
     drawIntroMap(canvasRef.current, runtimeRef.current.sprites);
@@ -919,9 +1186,9 @@ export default function App() {
 
   useEffect(() => {
     function onKeyDown(e) {
-      if (!runtimeRef.current.api || !ready || storyEvent) return;
+      if (!runtimeRef.current.api || !ready || storyEvent || upgradeEvent || deathSummary || paused || showStart) return;
 
-      if (e.key === " " || e.key === "f" || e.key === "F") {
+      if (e.key === " " || e.key === "f" || e.key === "F" || e.key === "e" || e.key === "E") {
         e.preventDefault();
         tryAutoAttack();
         return;
@@ -935,14 +1202,14 @@ export default function App() {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [inputToCode, normalizeCodeWithEnvironment, ready, stepWithCode, storyEvent, tryAutoAttack]);
+  }, [deathSummary, inputToCode, normalizeCodeWithEnvironment, paused, ready, showStart, stepWithCode, storyEvent, tryAutoAttack, upgradeEvent]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return undefined;
 
     function onPointerDown(e) {
-      if (!runtimeRef.current.api || !ready || storyEvent) return;
+      if (!runtimeRef.current.api || !ready || storyEvent || upgradeEvent || deathSummary || paused || showStart) return;
 
       const rect = canvas.getBoundingClientRect();
       const sx = canvas.width / rect.width;
@@ -956,7 +1223,28 @@ export default function App() {
 
     canvas.addEventListener("pointerdown", onPointerDown);
     return () => canvas.removeEventListener("pointerdown", onPointerDown);
-  }, [ready, stepToward, storyEvent]);
+  }, [deathSummary, paused, ready, showStart, stepToward, storyEvent, upgradeEvent]);
+
+  useEffect(() => {
+    function pauseByFocus() {
+      if (!ready || showStart || deathSummary) return;
+      setPaused(true);
+      setPauseReason("포커스 아웃: 일시정지됨");
+    }
+    function onVisibility() {
+      if (document.hidden) pauseByFocus();
+    }
+    window.addEventListener("blur", pauseByFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("blur", pauseByFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [deathSummary, ready, showStart]);
+
+  useEffect(() => () => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+  }, []);
 
   const storyBody = storyEvent
     ? [
@@ -990,7 +1278,18 @@ export default function App() {
       "header",
       { className: "top" },
       h("div", { className: "brand" }, "HEART DIVER"),
-      h("div", { className: "hint" }, "Move: WASD/Arrows/Click | Attack: Space/F | Dash: Shift+Move")
+      h(
+        "div",
+        { className: "topRight" },
+        h("div", { className: "hint" }, "WASD/Arrow 이동 | Space 공격 | E 상호작용 | Shift+이동 대시"),
+        h(
+          "div",
+          { className: "presetRow" },
+          h("span", { className: "mutedText" }, "키 프리셋"),
+          h("button", { className: controlPreset === "wasd" ? "primary" : "", onClick: () => setControlPreset("wasd") }, CONTROL_PRESETS.wasd),
+          h("button", { className: controlPreset === "arrows" ? "primary" : "", onClick: () => setControlPreset("arrows") }, CONTROL_PRESETS.arrows)
+        )
+      )
     ),
     h(
       "main",
@@ -998,14 +1297,87 @@ export default function App() {
       h(
         "section",
         { className: "panel" },
-        h("canvas", { ref: canvasRef, width: 640, height: 352 }),
+        h(
+          "div",
+          { className: "gameStage" },
+          h("canvas", { ref: canvasRef, width: 640, height: 352 }),
+          showStart
+            ? h(
+                "div",
+                { className: "overlay startOverlay" },
+                h("div", { className: "overlayTitle" }, "HEART DIVER"),
+                h("div", { className: "overlayGoal" }, GOAL_TEXT),
+                h("div", { className: "overlayLoop" }, RUN_LOOP_TEXT),
+                h(
+                  "div",
+                  { className: "overlayControls" },
+                  h("div", null, "WASD / Arrow: 이동"),
+                  h("div", null, "Space: 공격"),
+                  h("div", null, "E: 상호작용"),
+                  h("div", null, "Shift+이동: 대시"),
+                  h("div", null, "Click: 한 칸 이동")
+                ),
+                h("button", { className: "startBtn", onClick: onStartRun, disabled: !ready }, hasSave ? "Start Run (Continue)" : "Start Run")
+              )
+            : null,
+          paused
+            ? h(
+                "div",
+                { className: "overlay pauseOverlay" },
+                h("div", { className: "overlayTitle" }, "PAUSED"),
+                h("div", { className: "mutedText" }, pauseReason || "일시정지"),
+                h("button", { className: "startBtn", onClick: () => setPaused(false) }, "Resume")
+              )
+            : null,
+          upgradeEvent
+            ? h(
+                "div",
+                { className: "overlay upgradeOverlay" },
+                h("div", { className: "overlayTitle" }, upgradeEvent.title),
+                h("div", { className: "overlayGoal" }, upgradeEvent.subtitle),
+                h(
+                  "div",
+                  { className: "upgradeChoices" },
+                  upgradeEvent.choices.map((choice) =>
+                    h(
+                      "button",
+                      { key: choice.label, onClick: () => onUpgradeChoice(choice) },
+                      `${choice.label} - ${choice.desc}`
+                    )
+                  )
+                )
+              )
+            : null,
+          deathSummary
+            ? h(
+                "div",
+                { className: "overlay deathOverlay" },
+                h("div", { className: "overlayTitle" }, "RUN RESULT"),
+                h("div", { className: "overlayGoal" }, `Floor ${deathSummary.floor} | Turn ${deathSummary.turn}`),
+                h("div", { className: "overlayLoop" }, `빌드: ${deathSummary.build}`),
+                h("div", { className: "overlayGoal" }, `사망 원인: ${deathSummary.reason}`),
+                h(
+                  "div",
+                  { className: "buttons" },
+                  h("button", { className: "primary", onClick: onCopyResult }, "결과 카드 복사"),
+                  h("button", { onClick: onNewRun }, "다시 시작")
+                )
+              )
+            : null
+        ),
         h(
           "div",
           { className: "hud" },
-          h("div", null, hpText),
-          h("div", null, bossText),
-          h("div", null, turnText),
-          h("div", null, `Floor: ${floor} ${floorMeta.subtitle}`)
+          h(
+            "div",
+            { className: "hudHp" },
+            h("div", { className: "hudLabel" }, hpText),
+            h("div", { className: "hpBar" }, h("div", { className: "hpFill", style: { width: `${Math.round(hpRatio * 100)}%` } }))
+          ),
+          h("div", { className: "hudStat" }, bossText),
+          h("div", { className: "hudStat" }, turnText),
+          h("div", { className: "hudStat" }, `Floor: ${floor} ${floorMeta.subtitle}`),
+          h("div", { className: "hudGoal" }, GOAL_TEXT)
         ),
         h(
           "div",
@@ -1013,6 +1385,7 @@ export default function App() {
           h("button", { onClick: onNewRun, disabled: !ready }, "New Run"),
           h("button", { onClick: onContinue, disabled: !ready }, "Continue"),
           h("button", { onClick: onNextFloor, disabled: !(ready && runtimeRef.current.api?.game_boss_alive() === 0 && floor < 4) }, "Next Floor"),
+          h("button", { onClick: () => setPaused((v) => !v), disabled: !ready || showStart }, paused ? "Resume" : "Pause"),
           h("button", { onClick: onClear }, "Clear Save")
         ),
         loadError ? h("div", { className: "loadError" }, `Game load failed: ${loadError}`) : null
@@ -1031,6 +1404,12 @@ export default function App() {
         h(
           "div",
           { className: "box" },
+          h("div", { className: "boxTitle" }, "Build"),
+          h("div", { className: "worldText" }, buildTags.length ? buildTags.join(" + ") : "아직 선택한 업그레이드가 없습니다.")
+        ),
+        h(
+          "div",
+          { className: "box" },
           h("div", { className: "boxTitle" }, "Story"),
           h("div", { id: "story" }, storyBody)
         ),
@@ -1041,7 +1420,8 @@ export default function App() {
           h("div", { id: "log" }, logText)
         )
       )
-    )
+    ),
+    toast ? h("div", { className: "toast" }, toast) : null
   );
 }
 
