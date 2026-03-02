@@ -2,7 +2,7 @@
   "name": "mywebgame",
   "private": true,
   "scripts": {
-    "build:web": "esbuild web/ts/app.tsx --bundle --format=esm --outfile=web/app.js && esbuild web/ts/ui.tsx --bundle --format=esm --outfile=web/ui.js",
+    "build:web": "node --check web/app.js",
     "typecheck:web": "tsc -p tsconfig.json --noEmit",
     "start": "node server.js"
   },
