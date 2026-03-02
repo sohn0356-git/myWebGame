@@ -1,22 +1,64 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "https://esm.sh/react@18.3.1";
-import HeaderBar from "./components/HeaderBar.tsx";
-import GameOverlays from "./components/GameOverlays.tsx";
-import HudBar from "./components/HudBar.tsx";
-import SidePanels from "./components/SidePanels.tsx";
-const h = React.createElement;
-const SAVE_KEY = "wasm_rogue_save_v4";
-const STORY_EFFECTS = {
+// web/ts/app.tsx
+import React5, { useCallback, useEffect, useMemo, useRef, useState } from "https://esm.sh/react@18.3.1";
+
+// web/ts/components/HeaderBar.tsx
+import React from "https://esm.sh/react@18.3.1";
+function HeaderBar({ controlPreset, setControlPreset, controlPresets }) {
+  return /* @__PURE__ */ React.createElement("header", { className: "top" }, /* @__PURE__ */ React.createElement("div", { className: "brand" }, "HEART DIVER"), /* @__PURE__ */ React.createElement("div", { className: "topRight" }, /* @__PURE__ */ React.createElement("div", { className: "hint" }, "WASD/Arrow Move | Space Attack | E Interact | Shift+Move Dash"), /* @__PURE__ */ React.createElement("div", { className: "presetRow" }, /* @__PURE__ */ React.createElement("span", { className: "mutedText" }, "Key Preset"), /* @__PURE__ */ React.createElement("button", { className: controlPreset === "wasd" ? "primary" : "", onClick: () => setControlPreset("wasd") }, controlPresets.wasd), /* @__PURE__ */ React.createElement("button", { className: controlPreset === "arrows" ? "primary" : "", onClick: () => setControlPreset("arrows") }, controlPresets.arrows))));
+}
+
+// web/ts/components/GameOverlays.tsx
+import React2 from "https://esm.sh/react@18.3.1";
+function GameOverlays({
+  showStart,
+  ready,
+  hasSave,
+  onStartRun,
+  paused,
+  pauseReason,
+  setPaused,
+  upgradeEvent,
+  onUpgradeChoice,
+  deathSummary,
+  onCopyResult,
+  onNewRun,
+  goalText,
+  runLoopText,
+  archiveHook,
+  showCutscene,
+  cutsceneText,
+  onCutsceneNext
+}) {
+  return /* @__PURE__ */ React2.createElement(React2.Fragment, null, showStart ? /* @__PURE__ */ React2.createElement("div", { className: "overlay startOverlay" }, /* @__PURE__ */ React2.createElement("div", { className: "overlayTitle" }, "HEART DIVER"), /* @__PURE__ */ React2.createElement("div", { className: "overlayGoal" }, goalText), /* @__PURE__ */ React2.createElement("div", { className: "overlayLoop" }, archiveHook), /* @__PURE__ */ React2.createElement("div", { className: "overlayLoop" }, runLoopText), /* @__PURE__ */ React2.createElement("div", { className: "overlayControls" }, /* @__PURE__ */ React2.createElement("div", null, "WASD / Arrow: Move"), /* @__PURE__ */ React2.createElement("div", null, "Space: Attack"), /* @__PURE__ */ React2.createElement("div", null, "E: Interact"), /* @__PURE__ */ React2.createElement("div", null, "Shift+Move: Dash"), /* @__PURE__ */ React2.createElement("div", null, "Click: Move one tile")), /* @__PURE__ */ React2.createElement("button", { className: "startBtn", onClick: onStartRun, disabled: !ready }, hasSave ? "Start Run (Continue)" : "Start Run")) : null, showCutscene ? /* @__PURE__ */ React2.createElement("div", { className: "overlay cutsceneOverlay" }, /* @__PURE__ */ React2.createElement("div", { className: "overlayTitle" }, "SYSTEM LOG"), /* @__PURE__ */ React2.createElement("div", { className: "cutsceneBody" }, cutsceneText), /* @__PURE__ */ React2.createElement("button", { className: "cutsceneNext", onClick: onCutsceneNext }, "Z: NEXT")) : null, paused ? /* @__PURE__ */ React2.createElement("div", { className: "overlay pauseOverlay" }, /* @__PURE__ */ React2.createElement("div", { className: "overlayTitle" }, "PAUSED"), /* @__PURE__ */ React2.createElement("div", { className: "mutedText" }, pauseReason || "Paused"), /* @__PURE__ */ React2.createElement("button", { className: "startBtn", onClick: () => setPaused(false) }, "Resume")) : null, upgradeEvent ? /* @__PURE__ */ React2.createElement("div", { className: "overlay upgradeOverlay" }, /* @__PURE__ */ React2.createElement("div", { className: "overlayTitle" }, upgradeEvent.title), /* @__PURE__ */ React2.createElement("div", { className: "overlayGoal" }, upgradeEvent.subtitle), /* @__PURE__ */ React2.createElement("div", { className: "upgradeChoices" }, upgradeEvent.choices.map((choice) => /* @__PURE__ */ React2.createElement("button", { key: choice.label, onClick: () => onUpgradeChoice(choice) }, choice.label, " - ", choice.desc)))) : null, deathSummary ? /* @__PURE__ */ React2.createElement("div", { className: "overlay deathOverlay" }, /* @__PURE__ */ React2.createElement("div", { className: "overlayTitle" }, "RUN RESULT"), /* @__PURE__ */ React2.createElement("div", { className: "overlayGoal" }, "Floor ", deathSummary.floor, " | Turn ", deathSummary.turn), /* @__PURE__ */ React2.createElement("div", { className: "overlayLoop" }, "Build: ", deathSummary.build), /* @__PURE__ */ React2.createElement("div", { className: "overlayGoal" }, "Death cause: ", deathSummary.reason), /* @__PURE__ */ React2.createElement("div", { className: "buttons" }, /* @__PURE__ */ React2.createElement("button", { className: "primary", onClick: onCopyResult }, "Copy run card"), /* @__PURE__ */ React2.createElement("button", { onClick: onNewRun }, "Restart"))) : null);
+}
+
+// web/ts/components/HudBar.tsx
+import React3 from "https://esm.sh/react@18.3.1";
+function HudBar({ hpText, hpRatio, bossText, turnText, floor, floorMeta, goalText }) {
+  return /* @__PURE__ */ React3.createElement("div", { className: "hud" }, /* @__PURE__ */ React3.createElement("div", { className: "hudHp" }, /* @__PURE__ */ React3.createElement("div", { className: "hudLabel" }, hpText), /* @__PURE__ */ React3.createElement("div", { className: "hpBar" }, /* @__PURE__ */ React3.createElement("div", { className: "hpFill", style: { width: `${Math.round(hpRatio * 100)}%` } }))), /* @__PURE__ */ React3.createElement("div", { className: "hudStat" }, bossText), /* @__PURE__ */ React3.createElement("div", { className: "hudStat" }, turnText), /* @__PURE__ */ React3.createElement("div", { className: "hudStat" }, "Floor: ", floor, " ", floorMeta.subtitle), /* @__PURE__ */ React3.createElement("div", { className: "hudGoal" }, goalText));
+}
+
+// web/ts/components/SidePanels.tsx
+import React4 from "https://esm.sh/react@18.3.1";
+function SidePanels({ floorMeta, buildTags, storyBody, logText, archiveHook }) {
+  return /* @__PURE__ */ React4.createElement("aside", { className: "side" }, /* @__PURE__ */ React4.createElement("div", { className: "box" }, /* @__PURE__ */ React4.createElement("div", { className: "boxTitle" }, "ONE-SLOT ARCHIVE"), /* @__PURE__ */ React4.createElement("div", { className: "worldText" }, archiveHook), /* @__PURE__ */ React4.createElement("div", { className: "worldText" }, "Keywords: ACCESS / CACHE / INDEX / AUDIT / ROLLBACK / OVERWRITE / CORE / SLOT")), /* @__PURE__ */ React4.createElement("div", { className: "box" }, /* @__PURE__ */ React4.createElement("div", { className: "boxTitle" }, floorMeta.name, " | ", floorMeta.subtitle), /* @__PURE__ */ React4.createElement("div", { className: "worldText" }, "Hazard: ", floorMeta.hazard), /* @__PURE__ */ React4.createElement("div", { className: "worldText" }, "Enemies: ", floorMeta.enemies), /* @__PURE__ */ React4.createElement("div", { className: "worldText" }, "Special item: ", floorMeta.items)), /* @__PURE__ */ React4.createElement("div", { className: "box" }, /* @__PURE__ */ React4.createElement("div", { className: "boxTitle" }, "Build"), /* @__PURE__ */ React4.createElement("div", { className: "worldText" }, buildTags.length ? buildTags.join(" + ") : "No upgrade selected yet.")), /* @__PURE__ */ React4.createElement("div", { className: "box" }, /* @__PURE__ */ React4.createElement("div", { className: "boxTitle" }, "Story"), /* @__PURE__ */ React4.createElement("div", { id: "story" }, storyBody)), /* @__PURE__ */ React4.createElement("div", { className: "box" }, /* @__PURE__ */ React4.createElement("div", { className: "boxTitle" }, "Log"), /* @__PURE__ */ React4.createElement("div", { id: "log" }, logText)));
+}
+
+// web/ts/app.tsx
+var h = React5.createElement;
+var SAVE_KEY = "wasm_rogue_save_v4";
+var STORY_EFFECTS = {
   heal_2: 1,
   heal_3: 2,
   atk_1: 3,
   shield_1: 4,
   dash_buff: 5
 };
-const PAT = { CHARGE: 1, SLAM: 2, MARK: 3, WIPE_LINE: 4, CROSS: 5, SUMMON: 6 };
-const TILE = 16;
-const VIEW_W = 40;
-const VIEW_H = 22;
-const FLOOR_INFO = {
+var PAT = { CHARGE: 1, SLAM: 2, MARK: 3, WIPE_LINE: 4, CROSS: 5, SUMMON: 6 };
+var TILE = 16;
+var VIEW_W = 40;
+var VIEW_H = 22;
+var FLOOR_INFO = {
   1: {
     name: "\uC7AC(\u7070)\uAD11\uB85C \uC9C0\uB300",
     subtitle: "Ash Furnace",
@@ -46,16 +88,16 @@ const FLOOR_INFO = {
     items: "\uC815\uD654\uB4F1, \uADE0\uC0AC\uC808\uB2E8\uCE7C"
   }
 };
-const CONTROL_PRESETS = {
+var CONTROL_PRESETS = {
   wasd: "WASD + Arrow",
   arrows: "Arrow + WASD"
 };
-const BASE_GOAL_TEXT = "\uBAA9\uD45C: \uCD5C\uD558\uCE35(Floor 4)\uAE4C\uC9C0 \uB0B4\uB824\uAC00 \uBCF4\uC2A4\uB97C \uCC98\uCE58\uD558\uB77C.";
-const RUN_LOOP_TEXT = "\uD0D0\uC0C9 -> \uC804\uD22C -> \uBCF4\uC0C1 \uC120\uD0DD -> \uC704\uD5D8 \uC0C1\uC2B9";
-const SAVE_TOAST_MS = 1400;
-const SAFE_TURN_LIMIT = 12;
-const ARCHIVE_HOOK = "\uC800\uC7A5 \uC2AC\uB86F\uC740 \uD558\uB098. \uB124\uAC00 \uC0B4\uC544\uB0A8\uC744\uC218\uB85D, \uB204\uAD70\uAC00\uAC00 \uC9C0\uC6CC\uC9C4\uB2E4.";
-const LORE = {
+var BASE_GOAL_TEXT = "\uBAA9\uD45C: \uCD5C\uD558\uCE35(Floor 4)\uAE4C\uC9C0 \uB0B4\uB824\uAC00 \uBCF4\uC2A4\uB97C \uCC98\uCE58\uD558\uB77C.";
+var RUN_LOOP_TEXT = "\uD0D0\uC0C9 -> \uC804\uD22C -> \uBCF4\uC0C1 \uC120\uD0DD -> \uC704\uD5D8 \uC0C1\uC2B9";
+var SAVE_TOAST_MS = 1400;
+var SAFE_TURN_LIMIT = 12;
+var ARCHIVE_HOOK = "\uC800\uC7A5 \uC2AC\uB86F\uC740 \uD558\uB098. \uB124\uAC00 \uC0B4\uC544\uB0A8\uC744\uC218\uB85D, \uB204\uAD70\uAC00\uAC00 \uC9C0\uC6CC\uC9C4\uB2E4.";
+var LORE = {
   introPages: [
     "[BOOT] ONE-SLOT ARCHIVE v0.9 (DEGRADED)",
     "[INFO] \uAE30\uB85D \uC800\uC7A5\uC18C.\n[WARN] \uC800\uC7A5 \uC2AC\uB86F: 1",
@@ -1294,7 +1336,7 @@ function App() {
   );
   const cutsceneText = cutscenePages[cutsceneIndex] || "";
   return h(
-    React.Fragment,
+    React5.Fragment,
     null,
     h(HeaderBar, {
       controlPreset,
