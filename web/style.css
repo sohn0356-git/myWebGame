@@ -63,6 +63,7 @@ body::before {
   image-rendering: pixelated;
   image-rendering: crisp-edges;
   touch-action: none;
+  z-index: 0;
 }
 
 .hud {
@@ -74,6 +75,7 @@ body::before {
   gap: 12px;
   padding: 16px;
   pointer-events: none;
+  z-index: 2;
 }
 
 .topBar,
@@ -282,6 +284,7 @@ button.primary {
   padding: 20px;
   background: rgba(3, 7, 14, 0.42);
   pointer-events: auto;
+  z-index: 10;
 }
 
 .stageBanner {
@@ -290,7 +293,7 @@ button.primary {
   top: 16px;
   transform: translateX(-50%) translateY(-14px) scale(0.98);
   opacity: 0;
-  z-index: 5;
+  z-index: 11;
   border-radius: 999px;
   border: 1px solid rgba(126, 247, 212, 0.45);
   background: rgba(8, 18, 28, 0.82);

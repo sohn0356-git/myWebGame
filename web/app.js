@@ -229,6 +229,60 @@ const ENEMY_DEFS = {
     score: 34,
     xp: 22,
   },
+  archer: {
+    name: "Ash Archer",
+    hp: 26,
+    speed: 148,
+    damage: 6,
+    color: "#9fb8ff",
+    r: 12,
+    score: 22,
+    xp: 15,
+    ranged: true,
+  },
+  shaman: {
+    name: "Rune Shaman",
+    hp: 30,
+    speed: 112,
+    damage: 4,
+    color: "#b39cff",
+    r: 14,
+    score: 28,
+    xp: 18,
+    support: true,
+  },
+  stalker: {
+    name: "Stalker",
+    hp: 22,
+    speed: 198,
+    damage: 8,
+    color: "#67f7d4",
+    r: 11,
+    score: 25,
+    xp: 16,
+    dashy: true,
+  },
+  shield: {
+    name: "Shield Bearer",
+    hp: 88,
+    speed: 72,
+    damage: 10,
+    color: "#ffd76a",
+    r: 20,
+    score: 38,
+    xp: 26,
+    armored: true,
+  },
+  voidling: {
+    name: "Voidling",
+    hp: 16,
+    speed: 176,
+    damage: 4,
+    color: "#7ef7d4",
+    r: 10,
+    score: 12,
+    xp: 9,
+  },
   boss: {
     name: "Eclipse Tyrant",
     hp: 420,
@@ -419,6 +473,51 @@ function buildSprites() {
       p(g, 11, 7, 2, 5, "#8fb5ff");
       p(g, 6, 11, 4, 3, "#edf3ff");
       p(g, 12, 5, 2, 7, "#67f7d4");
+    }),
+    archer: makeCanvasSprite(14, 14, (g) => {
+      p(g, 5, 1, 4, 2, "#dfe8ff");
+      p(g, 4, 3, 6, 4, "#27425f");
+      p(g, 3, 6, 8, 5, "#132130");
+      p(g, 2, 6, 2, 4, "#ffd76a");
+      p(g, 10, 6, 2, 4, "#ffd76a");
+      p(g, 6, 10, 2, 2, "#7ef7d4");
+      p(g, 11, 4, 2, 6, "#9fb8ff");
+    }),
+    shaman: makeCanvasSprite(16, 16, (g) => {
+      p(g, 6, 1, 4, 2, "#f0d8ff");
+      p(g, 4, 3, 8, 4, "#4f2f6f");
+      p(g, 3, 6, 10, 7, "#221531");
+      p(g, 2, 8, 2, 4, "#67f7d4");
+      p(g, 12, 8, 2, 4, "#67f7d4");
+      p(g, 6, 11, 4, 3, "#b39cff");
+      p(g, 12, 5, 2, 7, "#ffd76a");
+    }),
+    stalker: makeCanvasSprite(14, 14, (g) => {
+      p(g, 5, 1, 4, 2, "#9fb8ff");
+      p(g, 4, 3, 6, 4, "#17394d");
+      p(g, 3, 6, 8, 5, "#111826");
+      p(g, 2, 7, 2, 3, "#b39cff");
+      p(g, 10, 7, 2, 3, "#b39cff");
+      p(g, 6, 10, 2, 2, "#67f7d4");
+      p(g, 11, 4, 1, 6, "#ff7b88");
+    }),
+    shield: makeCanvasSprite(18, 18, (g) => {
+      p(g, 6, 1, 6, 3, "#ffd76a");
+      p(g, 4, 4, 10, 8, "#2e4d6e");
+      p(g, 3, 6, 2, 5, "#9fb8ff");
+      p(g, 13, 6, 2, 5, "#9fb8ff");
+      p(g, 5, 12, 8, 2, "#102033");
+      p(g, 6, 7, 2, 2, "#edf3ff");
+      p(g, 10, 7, 2, 2, "#edf3ff");
+      p(g, 5, 13, 8, 2, "#67f7d4");
+    }),
+    voidling: makeCanvasSprite(12, 12, (g) => {
+      p(g, 5, 1, 2, 2, "#67f7d4");
+      p(g, 3, 3, 6, 6, "#2a1e46");
+      p(g, 4, 4, 4, 4, "#b39cff");
+      p(g, 2, 5, 2, 2, "#7ef7d4");
+      p(g, 8, 5, 2, 2, "#7ef7d4");
+      p(g, 5, 9, 2, 2, "#edf3ff");
     }),
     raider: makeCanvasSprite(14, 14, (g) => {
       p(g, 5, 1, 4, 2, "#ff7b88");
@@ -893,7 +992,13 @@ function spawnCombatNode(node) {
   state.player.y = state.arenaH / 2;
   state.player.tx = state.player.x;
   state.player.ty = state.player.y;
-  const packs = node.id === "road" ? ["raider", "wisp", "raider", "wisp"] : ["raider", "raider", "brute", "wisp", "raider"];
+  const packs = node.id === "road"
+    ? ["raider", "wisp", "archer", "raider", "stalker"]
+    : node.id === "forest"
+      ? ["wisp", "shaman", "stalker", "voidling", "raider"]
+      : node.id === "pass"
+        ? ["shield", "raider", "archer", "brute", "voidling"]
+        : ["raider", "archer", "brute", "stalker", "shaman", "voidling"];
   for (const type of packs) {
     const e = createEnemy(type);
     e.x = rand(80, state.arenaW - 80);
@@ -930,8 +1035,12 @@ function createEnemy(type) {
     xp: def.xp,
     attackTimer: rand(0.3, 1.1),
     ranged: !!def.ranged,
+    support: !!def.support,
+    dashy: !!def.dashy,
+    armored: !!def.armored,
     boss: !!def.boss,
     age: 0,
+    spawnTimer: rand(2.5, 4.5),
   };
 }
 
@@ -1246,11 +1355,38 @@ function updateEnemies(dt) {
       e.stun -= dt;
       continue;
     }
+    e.spawnTimer -= dt;
     const d = dist(p.x, p.y, e.x, e.y) || 1;
     const ux = (p.x - e.x) / d;
     const uy = (p.y - e.y) / d;
-    e.vx = lerp(e.vx, ux * e.speed, 0.06);
-    e.vy = lerp(e.vy, uy * e.speed, 0.06);
+    if (e.type === "stalker" && d < 220) {
+      const burst = d < 90 ? 1.6 : 1.1;
+      e.vx = lerp(e.vx, ux * e.speed * burst, 0.18);
+      e.vy = lerp(e.vy, uy * e.speed * burst, 0.18);
+    } else if (e.type === "shield") {
+      e.vx = lerp(e.vx, ux * e.speed * 0.6, 0.03);
+      e.vy = lerp(e.vy, uy * e.speed * 0.6, 0.03);
+    } else if (e.type === "wisp" || e.type === "archer" || e.type === "shaman") {
+      const ideal = e.type === "shaman" ? 180 : 240;
+      const drift = d > ideal ? 1 : -0.5;
+      e.vx = lerp(e.vx, ux * e.speed * drift, 0.08);
+      e.vy = lerp(e.vy, uy * e.speed * drift, 0.08);
+    } else {
+      e.vx = lerp(e.vx, ux * e.speed, 0.06);
+      e.vy = lerp(e.vy, uy * e.speed, 0.06);
+    }
+    if (e.dashy && e.spawnTimer <= 0) {
+      e.vx += ux * 260;
+      e.vy += uy * 260;
+      e.spawnTimer = rand(2.2, 3.2);
+    }
+    if (e.support && e.spawnTimer <= 0) {
+      const add = createEnemy("voidling");
+      add.x = clamp(e.x + rand(-24, 24), 40, state.arenaW - 40);
+      add.y = clamp(e.y + rand(-24, 24), 40, state.arenaH - 40);
+      state.enemies.push(add);
+      e.spawnTimer = rand(3.8, 5.2);
+    }
     e.x += e.vx * dt;
     e.y += e.vy * dt;
     e.x = clamp(e.x, 36, state.arenaW - 36);
@@ -1259,7 +1395,7 @@ function updateEnemies(dt) {
     if (d < e.r + 18) {
       damagePlayer(e.damage * dt * 5);
     }
-    if (e.ranged && e.attackTimer <= 0 && d < 360) {
+    if ((e.ranged || e.type === "archer") && e.attackTimer <= 0 && d < 360) {
       const a = Math.atan2(p.y - e.y, p.x - e.x);
       state.enemyProjectiles.push({
         x: e.x,
@@ -1272,6 +1408,23 @@ function updateEnemies(dt) {
         r: 4,
       });
       e.attackTimer = 1.2;
+    }
+    if (e.type === "shaman" && e.attackTimer <= 0 && d < 320) {
+      const a = Math.atan2(p.y - e.y, p.x - e.x);
+      state.enemyProjectiles.push({
+        x: e.x,
+        y: e.y,
+        vx: Math.cos(a) * 220,
+        vy: Math.sin(a) * 220,
+        life: 2.3,
+        damage: e.damage + 2,
+        color: "#b39cff",
+        r: 5,
+      });
+      e.attackTimer = 1.6;
+    }
+    if (e.armored && d < e.r + 24) {
+      p.shield = Math.max(0, p.shield - dt * 8);
     }
     if (e.burn) {
       e.burn -= dt;
@@ -1434,7 +1587,8 @@ function updateBoss(dt) {
   }
   if (b.summonTimer <= 0 && b.hp < 240) {
     for (let i = 0; i < 2; i++) {
-      const add = createEnemy(Math.random() > 0.5 ? "raider" : "wisp");
+      const pool = b.hp < 120 ? ["raider", "wisp", "archer", "stalker", "voidling"] : ["raider", "wisp", "archer"];
+      const add = createEnemy(pool[Math.floor(Math.random() * pool.length)]);
       add.x = rand(120, state.arenaW - 120);
       add.y = rand(100, state.arenaH - 100);
       state.enemies.push(add);
@@ -1582,7 +1736,9 @@ function drawCombat(ox, oy) {
   for (const e of state.enemies) {
     const sx = ox + e.x;
     const sy = oy + e.y;
-    drawSprite(SPRITES[e.type], sx, sy, e.type === "brute" ? 1.5 : 1.2);
+    const sprite = SPRITES[e.type] || SPRITES.raider;
+    const scale = e.type === "shield" ? 1.6 : e.type === "brute" ? 1.5 : e.type === "shaman" ? 1.25 : 1.2;
+    drawSprite(sprite, sx, sy, scale);
     const barW = 28;
     ctx.fillStyle = "rgba(255,255,255,0.12)";
     ctx.fillRect(sx - barW / 2, sy + 16, barW, 4);
