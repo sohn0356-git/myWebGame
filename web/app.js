@@ -478,9 +478,11 @@ function buildSprites() {
       p(g, 5, 1, 4, 2, "#dfe8ff");
       p(g, 4, 3, 6, 4, "#27425f");
       p(g, 3, 6, 8, 5, "#132130");
-      p(g, 2, 6, 2, 4, "#ffd76a");
-      p(g, 10, 6, 2, 4, "#ffd76a");
-      p(g, 6, 10, 2, 2, "#7ef7d4");
+      p(g, 2, 5, 2, 5, "#ffd76a");
+      p(g, 10, 5, 2, 5, "#ffd76a");
+      p(g, 4, 7, 6, 1, "#ff7b88");
+      p(g, 5, 9, 2, 2, "#7ef7d4");
+      p(g, 8, 9, 2, 2, "#7ef7d4");
       p(g, 11, 4, 2, 6, "#9fb8ff");
     }),
     shaman: makeCanvasSprite(16, 16, (g) => {
@@ -489,6 +491,8 @@ function buildSprites() {
       p(g, 3, 6, 10, 7, "#221531");
       p(g, 2, 8, 2, 4, "#67f7d4");
       p(g, 12, 8, 2, 4, "#67f7d4");
+      p(g, 5, 5, 6, 1, "#67f7d4");
+      p(g, 5, 8, 6, 1, "#ff7b88");
       p(g, 6, 11, 4, 3, "#b39cff");
       p(g, 12, 5, 2, 7, "#ffd76a");
     }),
@@ -498,6 +502,7 @@ function buildSprites() {
       p(g, 3, 6, 8, 5, "#111826");
       p(g, 2, 7, 2, 3, "#b39cff");
       p(g, 10, 7, 2, 3, "#b39cff");
+      p(g, 4, 8, 6, 1, "#ff7b88");
       p(g, 6, 10, 2, 2, "#67f7d4");
       p(g, 11, 4, 1, 6, "#ff7b88");
     }),
@@ -510,6 +515,8 @@ function buildSprites() {
       p(g, 6, 7, 2, 2, "#edf3ff");
       p(g, 10, 7, 2, 2, "#edf3ff");
       p(g, 5, 13, 8, 2, "#67f7d4");
+      p(g, 5, 2, 2, 2, "#ff7b88");
+      p(g, 11, 2, 2, 2, "#ff7b88");
     }),
     voidling: makeCanvasSprite(12, 12, (g) => {
       p(g, 5, 1, 2, 2, "#67f7d4");
@@ -517,6 +524,7 @@ function buildSprites() {
       p(g, 4, 4, 4, 4, "#b39cff");
       p(g, 2, 5, 2, 2, "#7ef7d4");
       p(g, 8, 5, 2, 2, "#7ef7d4");
+      p(g, 3, 8, 6, 1, "#ff7b88");
       p(g, 5, 9, 2, 2, "#edf3ff");
     }),
     raider: makeCanvasSprite(14, 14, (g) => {
@@ -525,6 +533,7 @@ function buildSprites() {
       p(g, 3, 6, 8, 5, "#25151f");
       p(g, 3, 7, 2, 3, "#ffb06a");
       p(g, 9, 7, 2, 3, "#ffb06a");
+      p(g, 4, 8, 6, 1, "#ffd76a");
       p(g, 6, 10, 2, 2, "#ffd76a");
     }),
     wisp: makeCanvasSprite(14, 14, (g) => {
@@ -533,6 +542,7 @@ function buildSprites() {
       p(g, 5, 4, 4, 4, "#9fb8ff");
       p(g, 3, 6, 2, 2, "#67f7d4");
       p(g, 9, 6, 2, 2, "#67f7d4");
+      p(g, 4, 9, 6, 1, "#b39cff");
     }),
     brute: makeCanvasSprite(18, 18, (g) => {
       p(g, 6, 1, 6, 3, "#ffd76a");
@@ -542,6 +552,8 @@ function buildSprites() {
       p(g, 5, 12, 8, 2, "#2b1220");
       p(g, 6, 7, 2, 2, "#edf3ff");
       p(g, 10, 7, 2, 2, "#edf3ff");
+      p(g, 5, 3, 2, 2, "#ff7b88");
+      p(g, 11, 3, 2, 2, "#ff7b88");
     }),
     boss: makeCanvasSprite(24, 24, (g) => {
       p(g, 7, 1, 10, 4, "#b39cff");
@@ -551,6 +563,9 @@ function buildSprites() {
       p(g, 8, 11, 8, 4, "#0d0f1c");
       p(g, 9, 12, 2, 2, "#67f7d4");
       p(g, 13, 12, 2, 2, "#67f7d4");
+      p(g, 6, 2, 3, 2, "#ff7b88");
+      p(g, 15, 2, 3, 2, "#ff7b88");
+      p(g, 8, 14, 8, 2, "#ffd76a");
     }),
   };
 }
@@ -1735,7 +1750,7 @@ function drawCombat(ox, oy) {
   }
   for (const e of state.enemies) {
     const sx = ox + e.x;
-    const sy = oy + e.y;
+    const sy = oy + e.y + Math.sin(state.time * 4 + e.x * 0.05) * 1.5;
     const sprite = SPRITES[e.type] || SPRITES.raider;
     const scale = e.type === "shield" ? 1.6 : e.type === "brute" ? 1.5 : e.type === "shaman" ? 1.25 : 1.2;
     drawSprite(sprite, sx, sy, scale);
