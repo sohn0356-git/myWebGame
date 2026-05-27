@@ -287,6 +287,7 @@ leftInfo.className = "panel";
 leftInfo.innerHTML = `
   <div class="panelTitle">Eclipse Solo RPG</div>
   <div class="panelText">6종족, 10단계 진행, 솔로 보스사냥 루프.</div>
+  <div class="panelSmall">단계: 캐릭터 선택 → 맵 구성 → 이동 → 전투 → 보스사냥</div>
 `;
 
 const stats = document.createElement("div");
