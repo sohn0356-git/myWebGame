@@ -33,23 +33,6 @@ jobs:
       - name: Build TypeScript frontend
         run: npm run build:web
 
-      - name: Setup Emscripten
-        uses: mymindstorm/setup-emsdk@v14
-        with:
-          version: 3.1.64
-
-      - name: Build WASM
-        run: |
-          emcc src/main.c \
-            -O2 \
-            -s WASM=1 \
-            -s MODULARIZE=0 \
-            -s EXPORT_ES6=0 \
-            -s EXPORTED_FUNCTIONS="['_malloc','_free']" \
-            -s EXPORTED_RUNTIME_METHODS="['cwrap']" \
-            -s ALLOW_MEMORY_GROWTH=1 \
-            -o web/rogue.js
-
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
