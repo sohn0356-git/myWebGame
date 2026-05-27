@@ -130,7 +130,7 @@ const RACES = {
       slash: "#eef5ff",
       outline: "#1b1614",
     },
-    extras: { beard: true, short: true },
+    extras: { beard: true, short: true, bulky: true, helmet: true, hammer: true },
   },
   orc: {
     label: "orc",
@@ -228,15 +228,22 @@ function drawFrame(frame, palette, mirrored = false, extras = {}) {
   const robe = extras.robe ? 1 : 0;
   const hood = extras.hood ? 1 : 0;
   const dagger = extras.dagger ? 1 : 0;
+  const helmet = extras.helmet ? 1 : 0;
+  const hammer = extras.hammer ? 1 : 0;
 
   // outline
   draw(4 - short, headY, 8 + short * 2 + bulky, 1, palette.outline);
-  draw(4 - short, headY + 1, 1, 4 + hood, palette.outline);
-  draw(11 + short + bulky, headY + 1, 1, 4 + hood, palette.outline);
+  draw(4 - short, headY + 1, 1, 4 + hood + helmet, palette.outline);
+  draw(11 + short + bulky, headY + 1, 1, 4 + hood + helmet, palette.outline);
   draw(5 - short, bodyY, 6 + bulky * 2, 1, palette.outline);
   draw(4 - short, bodyY + 1, 1, 4 + robe, palette.outline);
   draw(11 + short + bulky, bodyY + 1, 1, 4 + robe, palette.outline);
   draw(5 - short, legY, 6 + bulky * 2, 1, palette.outline);
+  if (helmet) {
+    draw(5 - short, headY - 1, 6 + bulky * 2, 2, palette.outline);
+    draw(5 - short, headY, 6 + bulky * 2, 1, palette.shirtDark);
+    draw(6 - short, headY + 1, 4 + bulky * 2, 1, palette.belt);
+  }
 
   // cape / back cloth
   draw(capeX, 4 + bob, 2 + robe, 7, palette.cape);
@@ -254,8 +261,9 @@ function drawFrame(frame, palette, mirrored = false, extras = {}) {
     draw(mirrored ? 4 : 11, headY + 2, 1, 1, palette.skin);
   }
   if (extras.beard) {
-    draw(faceX - 1, headY + 2, 5 + short, 3, palette.hair);
-    draw(faceX, headY + 3, 3, 2, palette.hairDark);
+    draw(faceX - 2, headY + 2, 7 + short + bulky, 3, palette.hair);
+    draw(faceX - 1, headY + 3, 5 + short + bulky, 3, palette.hairDark);
+    draw(faceX, headY + 4, 3 + bulky, 2, palette.hairDark);
   }
   if (extras.tusks) {
     draw(faceX, headY + 3, 1, 1, "#f0e8c1");
@@ -286,9 +294,16 @@ function drawFrame(frame, palette, mirrored = false, extras = {}) {
 
   // sword / dagger arm and blade
   const swordBaseX = mirrored ? 2 + sword : 11 - sword;
-  draw(swordBaseX, bodyY + 1, 1, 2, palette.belt);
-  draw(swordBaseX + (mirrored ? -1 : 1), bodyY, 1, 4, palette.swordDark);
-  draw(swordBaseX + (mirrored ? -2 : 2), bodyY - 1, 1, 6, palette.sword);
+  if (hammer) {
+    draw(swordBaseX, bodyY + 1, 1, 2, palette.belt);
+    draw(swordBaseX + (mirrored ? -1 : 1), bodyY - 1, 2, 1, palette.swordDark);
+    draw(swordBaseX + (mirrored ? -2 : 2), bodyY - 2, 3, 1, palette.sword);
+    draw(swordBaseX + (mirrored ? -1 : 1), bodyY - 2, 1, 5, palette.swordDark);
+  } else {
+    draw(swordBaseX, bodyY + 1, 1, 2, palette.belt);
+    draw(swordBaseX + (mirrored ? -1 : 1), bodyY, 1, 4, palette.swordDark);
+    draw(swordBaseX + (mirrored ? -2 : 2), bodyY - 1, 1, 6, palette.sword);
+  }
   if (dagger) {
     draw(swordBaseX + (mirrored ? -1 : 1), bodyY + 2, 1, 1, palette.outline);
   }
