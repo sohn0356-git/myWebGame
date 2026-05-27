@@ -314,13 +314,17 @@ objectiveBox.innerHTML = `
   <div class="panelSmall" id="subObjective">다음 진행을 위해 첫 단계부터 시작합니다.</div>
 `;
 
+const stageBanner = document.createElement("div");
+stageBanner.className = "stageBanner";
+stageBanner.textContent = "STAGE 1 - 캐릭터 선택";
+
 const actionPanel = document.createElement("div");
 actionPanel.className = "actionPanel";
 
 bottomRow.append(stageList, objectiveBox, actionPanel);
 hud.append(topBar, bottomRow);
 
-rootWrap.append(canvas, overlay, hud);
+rootWrap.append(canvas, stageBanner, overlay, hud);
 root.append(rootWrap);
 
 function statBox(label, value) {
@@ -567,6 +571,10 @@ function updateStage(stage, objective, detail) {
   const subObjective = document.getElementById("subObjective");
   if (objectiveText) objectiveText.textContent = objective;
   if (subObjective) subObjective.textContent = detail || STAGES[stage - 1]?.desc || "";
+  stageBanner.textContent = `STAGE ${stage} - ${STAGES[stage - 1]?.title || objective}`;
+  stageBanner.classList.add("show");
+  clearTimeout(updateStage._bannerTimer);
+  updateStage._bannerTimer = setTimeout(() => stageBanner.classList.remove("show"), 1200);
   renderStageList();
   statStage.valueEl.textContent = `${stage} / 10`;
 }
