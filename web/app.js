@@ -1027,33 +1027,6 @@ function chooseRace(race) {
   enterWorldNode("village");
 }
 
-function renderActionPanel() {
-  actionPanel.innerHTML = "";
-  const node = state.world[state.currentNodeIndex];
-  if (!node) return;
-  const btns = [];
-  if (state.overlayMode === "none" && state.phase === "world") {
-    if (state.currentNodeIndex < state.world.length - 1) {
-      btns.push(makeButton("다음 맵으로 이동", () => travelToNode(state.currentNodeIndex + 1), "primary"));
-    }
-    if (state.currentNodeIndex > 0) {
-      btns.push(makeButton("이전 맵으로 이동", () => travelToNode(state.currentNodeIndex - 1)));
-    }
-  }
-  if (state.phase === "combat") {
-    btns.push(makeButton("공격", () => performAttack(), "primary"));
-    btns.push(makeButton("특수기", () => performSpecial()));
-  }
-  if (state.phase === "bossFight") {
-    btns.push(makeButton("공격", () => performAttack(), "primary"));
-    btns.push(makeButton("특수기", () => performSpecial()));
-  }
-  if (state.phase === "world" || state.phase === "combat" || state.phase === "bossFight") {
-    btns.push(makeButton("상태 초기화", () => centerCamera()));
-  }
-  for (const b of btns) actionPanel.append(b);
-}
-
 function travelToNode(index) {
   if (state.phase !== "world") return;
   if (index < 0 || index >= state.world.length) return;
@@ -1408,43 +1381,11 @@ function clearCombat() {
   renderActionPanel();
 }
 
-function applyTalent(talent) {
-  talent.apply(state.player);
-  logLine(`Talent chosen: ${talent.name}`);
-  setOverlay("none");
-  state.phase = "world";
-  if (state.world[state.currentNodeIndex].id === "forest") {
-    updateStage(6, "레벨업", "재능을 적용했습니다.");
-  }
-  renderActionPanel();
-}
-
-function applyRelic(relic) {
-  relic.apply(state.player);
-  state.player.relics.push(relic.id);
-  logLine(`Relic equipped: ${relic.name}`);
-  setOverlay("none");
-  state.phase = "world";
-  renderActionPanel();
-}
-
 function finishBoss() {
   state.phase = "victory";
   state.boss = null;
   setOverlay("victory");
   renderActionPanel();
-}
-
-function openTalentChoice() {
-  state.phase = "reward";
-  state.talentChoices = [...TALENTS].sort(() => Math.random() - 0.5).slice(0, 3);
-  setOverlay("reward");
-}
-
-function openRelicChoice() {
-  state.phase = "loot";
-  state.lootChoices = [...RELICS].sort(() => Math.random() - 0.5).slice(0, 3);
-  setOverlay("loot");
 }
 
 function updatePlayer(dt) {
@@ -1625,23 +1566,6 @@ function updateProjectiles(dt) {
       damagePlayer(b.damage);
       state.enemyProjectiles.splice(i, 1);
     }
-  }
-}
-
-function damagePlayer(amount) {
-  const p = state.player;
-  let dmg = Math.max(1, amount - p.armor * 0.45);
-  if (p.shield > 0) {
-    const used = Math.min(p.shield, dmg);
-    p.shield -= used;
-    dmg -= used;
-  }
-  if (dmg > 0) p.hp -= dmg;
-  if (p.hp <= 0) {
-    p.hp = 0;
-    setOverlay("victory");
-    overlay.querySelector(".overlayTitle").textContent = "패배";
-    overlay.querySelector(".overlayLead").textContent = "플레이어가 쓰러졌습니다. 다시 시도할 수 있습니다.";
   }
 }
 
@@ -1956,12 +1880,6 @@ function tick(ts) {
   update(dt);
   renderFrame();
   requestAnimationFrame(tick);
-}
-
-function openBossPrep() {
-  state.phase = "bossPrep";
-  renderActionPanel();
-  setOverlay("bossPrep");
 }
 
 function createOverlayLog() {
