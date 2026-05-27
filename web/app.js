@@ -1,18 +1,271 @@
 const root = document.getElementById("root");
 if (!root) throw new Error("Missing #root");
 
-const W = 2400;
-const H = 2400;
 const TAU = Math.PI * 2;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
 const rand = (a, b) => a + Math.random() * (b - a);
-const randi = (a, b) => Math.floor(rand(a, b + 1));
 const dist = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by);
-const len = (x, y) => Math.hypot(x, y) || 1;
+const norm = (x, y) => {
+  const l = Math.hypot(x, y) || 1;
+  return { x: x / l, y: y / l };
+};
 
-const app = document.createElement("div");
-app.className = "app";
+const STAGES = [
+  { id: 1, title: "캐릭터 선택", desc: "6종족 중 하나를 고르세요." },
+  { id: 2, title: "맵 구성", desc: "시작 마을과 월드맵이 생성됩니다." },
+  { id: 3, title: "맵 이동", desc: "다음 지역으로 이동하세요." },
+  { id: 4, title: "첫 조우", desc: "첫 전투 노드에서 적과 마주칩니다." },
+  { id: 5, title: "전투 클리어", desc: "전투를 정리하고 다음 지역을 엽니다." },
+  { id: 6, title: "레벨업", desc: "전투 보상으로 재능을 하나 고르세요." },
+  { id: 7, title: "장비 장착", desc: "유물 하나를 장착해 빌드를 만드세요." },
+  { id: 8, title: "퀘스트 수락", desc: "보스 사냥 목표를 수락합니다." },
+  { id: 9, title: "보스 관문", desc: "보스 지역으로 들어가기 전 관문입니다." },
+  { id: 10, title: "보스사냥", desc: "최종 보스를 쓰러뜨리세요." },
+];
+
+const RACES = [
+  {
+    id: "human",
+    name: "Human",
+    role: "Balanced Knight",
+    color: "#9fb8ff",
+    hp: 120,
+    armor: 5,
+    speed: 180,
+    mana: 45,
+    attackDamage: 16,
+    attackCooldown: 0.46,
+    attackKind: "slash",
+    crit: 0.08,
+    specialName: "Guard Stance",
+    specialCost: 18,
+    desc: "균형형. 방어와 공격이 안정적이다.",
+  },
+  {
+    id: "elf",
+    name: "Elf",
+    role: "Swift Archer",
+    color: "#7ef7d4",
+    hp: 92,
+    armor: 2,
+    speed: 232,
+    mana: 70,
+    attackDamage: 13,
+    attackCooldown: 0.34,
+    attackKind: "bolt",
+    crit: 0.18,
+    specialName: "Arrow Rain",
+    specialCost: 24,
+    desc: "빠르고 치명타가 높다. 원거리 중심.",
+  },
+  {
+    id: "dwarf",
+    name: "Dwarf",
+    role: "Iron Hammer",
+    color: "#ffd76a",
+    hp: 150,
+    armor: 8,
+    speed: 158,
+    mana: 30,
+    attackDamage: 20,
+    attackCooldown: 0.68,
+    attackKind: "slam",
+    crit: 0.06,
+    specialName: "Earth Shock",
+    specialCost: 20,
+    desc: "튼튼하고 무겁다. 광역 제압에 강하다.",
+  },
+  {
+    id: "orc",
+    name: "Orc",
+    role: "Berserker",
+    color: "#ff7b88",
+    hp: 168,
+    armor: 5,
+    speed: 170,
+    mana: 28,
+    attackDamage: 22,
+    attackCooldown: 0.58,
+    attackKind: "cleave",
+    crit: 0.05,
+    specialName: "Blood Rage",
+    specialCost: 22,
+    desc: "높은 체력과 폭발적인 근접 피해.",
+  },
+  {
+    id: "seraph",
+    name: "Seraph",
+    role: "Holy Mage",
+    color: "#f0d8ff",
+    hp: 104,
+    armor: 4,
+    speed: 206,
+    mana: 90,
+    attackDamage: 14,
+    attackCooldown: 0.4,
+    attackKind: "holy",
+    crit: 0.1,
+    specialName: "Radiant Heal",
+    specialCost: 26,
+    desc: "회복과 방어가 강한 성스러운 종족.",
+  },
+  {
+    id: "shade",
+    name: "Shade",
+    role: "Shadow Rogue",
+    color: "#b39cff",
+    hp: 84,
+    armor: 2,
+    speed: 244,
+    mana: 60,
+    attackDamage: 18,
+    attackCooldown: 0.32,
+    attackKind: "shadow",
+    crit: 0.28,
+    specialName: "Shadow Step",
+    specialCost: 18,
+    desc: "가장 빠르고 가장 위험하다. 치명타 중심.",
+  },
+];
+
+const TALENTS = [
+  {
+    id: "vitality",
+    name: "Vitality",
+    tag: "Defense",
+    desc: "+24 HP and +6 armor.",
+    apply(p) {
+      p.maxHp += 24;
+      p.hp += 24;
+      p.armor += 6;
+    },
+  },
+  {
+    id: "quickdraw",
+    name: "Quickdraw",
+    tag: "Offense",
+    desc: "-18% attack cooldown and +10% projectile speed.",
+    apply(p) {
+      p.attackCooldown = Math.max(0.16, p.attackCooldown * 0.82);
+      p.projectileSpeed *= 1.1;
+    },
+  },
+  {
+    id: "focus",
+    name: "Focus",
+    tag: "Crit",
+    desc: "+12% critical chance and +1 mana regen.",
+    apply(p) {
+      p.crit += 0.12;
+      p.manaRegen += 1;
+    },
+  },
+];
+
+const RELICS = [
+  {
+    id: "sunblade",
+    name: "Sunblade",
+    tag: "Weapon",
+    desc: "+8 damage, attacks burn enemies for a moment.",
+    apply(p) {
+      p.attackDamage += 8;
+      p.burn = true;
+    },
+  },
+  {
+    id: "moonmantle",
+    name: "Moon Mantle",
+    tag: "Defense",
+    desc: "+18 shield and faster shield regen.",
+    apply(p) {
+      p.maxShield += 18;
+      p.shield += 18;
+      p.shieldRegen += 2;
+    },
+  },
+  {
+    id: "windboots",
+    name: "Wind Boots",
+    tag: "Mobility",
+    desc: "+24 speed and longer dash.",
+    apply(p) {
+      p.speed += 24;
+      p.dashDistance += 34;
+    },
+  },
+];
+
+const ENEMY_DEFS = {
+  raider: {
+    name: "Raider",
+    hp: 34,
+    speed: 120,
+    damage: 7,
+    color: "#ff7b88",
+    r: 14,
+    score: 20,
+    xp: 14,
+  },
+  wisp: {
+    name: "Wisp",
+    hp: 24,
+    speed: 160,
+    damage: 5,
+    color: "#7ef7d4",
+    r: 12,
+    score: 18,
+    xp: 12,
+    ranged: true,
+  },
+  brute: {
+    name: "Brute",
+    hp: 62,
+    speed: 86,
+    damage: 11,
+    color: "#ffd76a",
+    r: 18,
+    score: 34,
+    xp: 22,
+  },
+  boss: {
+    name: "Eclipse Tyrant",
+    hp: 420,
+    speed: 104,
+    damage: 13,
+    color: "#b39cff",
+    r: 28,
+    score: 150,
+    xp: 120,
+    boss: true,
+  },
+};
+
+const WORLD_PATH = [
+  { id: "village", name: "Village of Dawn", kind: "safe", bg: ["#1d2a46", "#101726"], note: "시작 마을", stepTag: 2 },
+  { id: "road", name: "Ember Road", kind: "combat", bg: ["#33212b", "#12131d"], note: "첫 조우", stepTag: 4 },
+  { id: "forest", name: "Whisper Forest", kind: "reward", bg: ["#193523", "#0d1710"], note: "레벨업", stepTag: 6 },
+  { id: "ruins", name: "Fallen Ruins", kind: "relic", bg: ["#313148", "#171723"], note: "장비", stepTag: 7 },
+  { id: "shrine", name: "Moon Shrine", kind: "quest", bg: ["#25324a", "#141924"], note: "퀘스트", stepTag: 8 },
+  { id: "pass", name: "Ash Pass", kind: "travel", bg: ["#3b2d25", "#17120e"], note: "보스 지역 접근", stepTag: 9 },
+  { id: "gate", name: "Gate of Ash", kind: "bossPrep", bg: ["#4b2a3b", "#1b1016"], note: "보스 관문", stepTag: 9 },
+  { id: "throne", name: "Eclipse Throne", kind: "boss", bg: ["#20203d", "#0d0d1a"], note: "최종 전투", stepTag: 10 },
+];
+
+const nodePositions = [
+  { x: 140, y: 310 },
+  { x: 300, y: 260 },
+  { x: 470, y: 330 },
+  { x: 650, y: 250 },
+  { x: 840, y: 330 },
+  { x: 1010, y: 245 },
+  { x: 1180, y: 320 },
+  { x: 1360, y: 255 },
+];
+
+const rootWrap = document.createElement("div");
+rootWrap.className = "app";
 
 const canvas = document.createElement("canvas");
 canvas.className = "gameCanvas";
@@ -20,270 +273,69 @@ const ctx = canvas.getContext("2d");
 if (!ctx) throw new Error("Canvas context unavailable");
 ctx.imageSmoothingEnabled = false;
 
-function makePixelCanvas(w, h, drawFn) {
-  const c = document.createElement("canvas");
-  c.width = w;
-  c.height = h;
-  const g = c.getContext("2d");
-  if (!g) throw new Error("Pixel canvas context unavailable");
-  g.imageSmoothingEnabled = false;
-  drawFn(g);
-  return c;
-}
-
-function px(g, x, y, w, h, color) {
-  g.fillStyle = color;
-  g.fillRect(x, y, w, h);
-}
-
-function makeSpriteSet() {
-  const c = {
-    knight: makePixelCanvas(16, 16, (g) => {
-      px(g, 6, 2, 4, 3, "#cfd9ea");
-      px(g, 5, 5, 6, 5, "#6a7fb7");
-      px(g, 4, 7, 8, 5, "#26324f");
-      px(g, 5, 8, 2, 5, "#d9e6ff");
-      px(g, 9, 8, 2, 5, "#d9e6ff");
-      px(g, 3, 9, 2, 4, "#8fb5ff");
-      px(g, 11, 9, 2, 4, "#8fb5ff");
-      px(g, 7, 10, 2, 4, "#edf3ff");
-      px(g, 6, 1, 4, 1, "#8fb5ff");
-      px(g, 12, 7, 2, 1, "#ffd76a");
-      px(g, 12, 8, 1, 4, "#d9e6ff");
-    }),
-    ranger: makePixelCanvas(16, 16, (g) => {
-      px(g, 6, 2, 4, 3, "#7cd7ff");
-      px(g, 4, 5, 8, 4, "#23405e");
-      px(g, 5, 6, 6, 6, "#0f1b2b");
-      px(g, 4, 8, 3, 4, "#8fb5ff");
-      px(g, 9, 8, 3, 4, "#8fb5ff");
-      px(g, 6, 11, 4, 3, "#eaf5ff");
-      px(g, 11, 6, 2, 6, "#ffd76a");
-      px(g, 12, 5, 2, 2, "#8fb5ff");
-      px(g, 3, 9, 2, 2, "#4c6384");
-    }),
-    mage: makePixelCanvas(16, 16, (g) => {
-      px(g, 6, 2, 4, 3, "#f0d8ff");
-      px(g, 4, 5, 8, 4, "#5a4d97");
-      px(g, 3, 8, 10, 6, "#2f2d64");
-      px(g, 5, 7, 6, 1, "#b39cff");
-      px(g, 6, 10, 4, 3, "#edf3ff");
-      px(g, 12, 5, 1, 8, "#ffd76a");
-      px(g, 11, 4, 3, 1, "#8fb5ff");
-      px(g, 3, 12, 2, 2, "#8fb5ff");
-      px(g, 10, 12, 2, 2, "#8fb5ff");
-    }),
-    drone: makePixelCanvas(12, 12, (g) => {
-      px(g, 5, 1, 2, 2, "#67f7d4");
-      px(g, 3, 3, 6, 6, "#2d4963");
-      px(g, 4, 4, 4, 4, "#8fb5ff");
-      px(g, 2, 5, 2, 2, "#67f7d4");
-      px(g, 8, 5, 2, 2, "#67f7d4");
-      px(g, 5, 9, 2, 2, "#d9e6ff");
-    }),
-    striker: makePixelCanvas(14, 14, (g) => {
-      px(g, 5, 1, 4, 3, "#8fb5ff");
-      px(g, 3, 4, 8, 6, "#20314f");
-      px(g, 2, 5, 2, 4, "#ff7b88");
-      px(g, 10, 5, 2, 4, "#ff7b88");
-      px(g, 4, 10, 6, 2, "#edf3ff");
-      px(g, 6, 2, 2, 10, "#ffffff");
-      px(g, 5, 5, 4, 4, "#ff6e8a");
-    }),
-    brute: makePixelCanvas(18, 18, (g) => {
-      px(g, 6, 2, 6, 4, "#ffb06a");
-      px(g, 4, 5, 10, 8, "#7a2230");
-      px(g, 3, 6, 2, 5, "#ff7b88");
-      px(g, 13, 6, 2, 5, "#ff7b88");
-      px(g, 5, 12, 8, 2, "#2e1521");
-      px(g, 5, 8, 2, 2, "#ffd76a");
-      px(g, 11, 8, 2, 2, "#ffd76a");
-      px(g, 7, 14, 4, 2, "#edf3ff");
-    }),
-    shard: makePixelCanvas(8, 8, (g) => {
-      px(g, 3, 0, 2, 2, "#fff0b4");
-      px(g, 2, 2, 4, 4, "#ffd76a");
-      px(g, 3, 6, 2, 2, "#fff0b4");
-      px(g, 0, 3, 2, 2, "#ffd76a");
-      px(g, 6, 3, 2, 2, "#ffd76a");
-    }),
-    bullet: makePixelCanvas(6, 6, (g) => {
-      px(g, 2, 1, 2, 4, "#7ef7d4");
-      px(g, 1, 2, 4, 2, "#8fb5ff");
-      px(g, 2, 2, 2, 2, "#edf3ff");
-    }),
-    bolt: makePixelCanvas(6, 6, (g) => {
-      px(g, 2, 0, 2, 6, "#8fb5ff");
-      px(g, 0, 2, 6, 2, "#ff7b88");
-    }),
-  };
-  return c;
-}
-
-const sprites = makeSpriteSet();
-
-function drawSprite(sprite, x, y, scale, rotation = 0) {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(rotation);
-  const w = sprite.width * scale;
-  const h = sprite.height * scale;
-  ctx.drawImage(sprite, Math.round(-w / 2), Math.round(-h / 2), Math.round(w), Math.round(h));
-  ctx.restore();
-}
-
-const flash = document.createElement("div");
-flash.className = "damageFlash";
+const overlay = document.createElement("div");
+overlay.className = "overlay";
 
 const hud = document.createElement("div");
 hud.className = "hud";
 
-const topRow = document.createElement("div");
-topRow.className = "topRow";
+const topBar = document.createElement("div");
+topBar.className = "topBar";
 
-const bottomRow = document.createElement("div");
-bottomRow.className = "bottomRow";
-
-const brand = document.createElement("div");
-brand.className = "brand";
-brand.innerHTML = `
-  <div class="brandTitle">Eclipse Solo RPG</div>
-  <div class="brandSub">A single-player action RPG about a lone pilot, relic hunting, and surviving the dark between chapters.</div>
+const leftInfo = document.createElement("div");
+leftInfo.className = "panel";
+leftInfo.innerHTML = `
+  <div class="panelTitle">Eclipse Solo RPG</div>
+  <div class="panelText">6종족, 10단계 진행, 솔로 보스사냥 루프.</div>
 `;
 
 const stats = document.createElement("div");
 stats.className = "stats";
 
-const statScore = statCard("Gold", "0");
-const statWave = statCard("Chapter", "1");
-const statHull = statCard("HP", "100");
-const statShield = statCard("Ward", "40");
+const statStage = statBox("Stage", "1 / 10");
+const statHp = statBox("HP", "0 / 0");
+const statMana = statBox("Mana", "0 / 0");
+const statGold = statBox("Gold", "0");
+stats.append(statStage.box, statHp.box, statMana.box, statGold.box);
+topBar.append(leftInfo, stats);
 
-stats.append(statScore.card, statWave.card, statHull.card, statShield.card);
-topRow.append(brand, stats);
+const bottomRow = document.createElement("div");
+bottomRow.className = "bottomRow";
 
-const tipCard = document.createElement("div");
-tipCard.className = "tipCard";
-tipCard.innerHTML = `
-  <strong>Controls:</strong> WASD / Arrow keys to move, mouse to aim, Space to dash.
-  <br />This is a solo action RPG: choose a class, collect relics, level up, and survive each chapter.
+const stageList = document.createElement("div");
+stageList.className = "stageList";
+
+const objectiveBox = document.createElement("div");
+objectiveBox.className = "panel objective";
+objectiveBox.innerHTML = `
+  <div class="panelTitle">Objective</div>
+  <div class="panelText" id="objectiveText">캐릭터를 선택하세요.</div>
+  <div class="panelSmall" id="subObjective">다음 진행을 위해 첫 단계부터 시작합니다.</div>
 `;
 
-bottomRow.append(tipCard);
-hud.append(topRow, bottomRow);
+const actionPanel = document.createElement("div");
+actionPanel.className = "actionPanel";
 
-const centerLayer = document.createElement("div");
-centerLayer.className = "centerLayer";
+bottomRow.append(stageList, objectiveBox, actionPanel);
+hud.append(topBar, bottomRow);
 
-const overlay = document.createElement("div");
-overlay.className = "overlayCard";
-centerLayer.append(overlay);
+rootWrap.append(canvas, overlay, hud);
+root.append(rootWrap);
 
-app.append(canvas, flash, hud, centerLayer);
-root.append(app);
-
-function statCard(label, initial) {
-  const card = document.createElement("div");
-  card.className = "statCard";
-  card.innerHTML = `
+function statBox(label, value) {
+  const box = document.createElement("div");
+  box.className = "statBox";
+  box.innerHTML = `
     <div class="statLabel">${label}</div>
-    <div class="statValue">${initial}</div>
-    <div class="bar"><div class="barFill"></div></div>
+    <div class="statValue">${value}</div>
   `;
   return {
-    card,
-    valueEl: card.querySelector(".statValue"),
-    fillEl: card.querySelector(".barFill"),
+    box,
+    valueEl: box.querySelector(".statValue"),
   };
 }
 
-const ui = {
-  title: null,
-  lead: null,
-  actionRow: null,
-  upgradePanel: null,
-  footer: null,
-};
-
-function buildOverlay(mode) {
-  overlay.classList.add("active");
-  overlay.innerHTML = "";
-
-  const title = document.createElement("div");
-  title.className = "heroTitle";
-  const lead = document.createElement("div");
-  lead.className = "heroLead";
-  const actionRow = document.createElement("div");
-  actionRow.className = "buttonRow";
-  const footer = document.createElement("div");
-  footer.className = "footerHint";
-
-  ui.title = title;
-  ui.lead = lead;
-  ui.actionRow = actionRow;
-  ui.footer = footer;
-  ui.upgradePanel = null;
-
-  overlay.append(title, lead, actionRow, footer);
-
-  if (mode === "title") {
-    title.textContent = "Eclipse Solo RPG";
-    lead.innerHTML = `
-      Pick a class and begin a single-player run through the eclipse ruins.
-      The combat is action-heavy, but the build path is pure RPG: stats, relics, and talent choices.
-    `;
-
-    const knight = button("Knight", "primary", () => startRun("knight"));
-    const ranger = button("Ranger", "", () => startRun("ranger"));
-    const mage = button("Mage", "", () => startRun("mage"));
-    const practice = button("Quick Tips", "", () => {
-      tipCard.innerHTML = `
-        <strong>Goal:</strong> clear chapters, defeat enemies, and grow your build like a solo action RPG.
-        <br /><strong>Best habit:</strong> pick a class that matches your style, then lean into its strengths.
-      `;
-    });
-    actionRow.append(knight, ranger, mage, practice);
-    footer.textContent = "RPG loop: choose a class, survive a chapter, then spend every level-up on a talent.";
-    return;
-  }
-
-  if (mode === "upgrade") {
-    title.textContent = "Talent Gain";
-    lead.textContent = "Choose one perk. The run pauses while you decide your next build step.";
-
-    const panel = document.createElement("div");
-    panel.className = "upgradePanel";
-    ui.upgradePanel = panel;
-    for (const choice of state.upgradeChoices) {
-      const card = document.createElement("button");
-      card.className = "upgradeCard";
-      card.innerHTML = `
-        <div class="upgradeName">${choice.name}</div>
-        <div class="upgradeTag">${choice.tag}</div>
-        <div class="upgradeDesc">${choice.desc}</div>
-      `;
-      card.onclick = () => chooseUpgrade(choice);
-      panel.append(card);
-    }
-    overlay.append(panel);
-    footer.textContent = `Level ${state.player.level} reached. Think like an RPG build, not a one-off shooter loadout.`;
-    return;
-  }
-
-  if (mode === "gameover") {
-    title.textContent = "Run Over";
-    lead.innerHTML = `
-      You were overwhelmed in wave ${state.wave}. Final score: <strong>${Math.floor(state.score)}</strong>.
-      Best score: <strong>${state.bestScore}</strong>.
-    `;
-    const restart = button("Restart", "primary", startRun);
-    const titleBtn = button("Back to Title", "", enterTitle);
-    actionRow.append(restart, titleBtn);
-    footer.textContent = "Each run is short on purpose. Make the next build cleaner and faster.";
-  }
-}
-
-function button(label, cls, onClick) {
+function makeButton(label, onClick, cls = "") {
   const btn = document.createElement("button");
   if (cls) btn.className = cls;
   btn.textContent = label;
@@ -291,674 +343,888 @@ function button(label, cls, onClick) {
   return btn;
 }
 
-const keys = new Set();
-const pointer = {
-  x: 0,
-  y: 0,
-  worldX: W / 2,
-  worldY: H / 2,
-  active: false,
-  down: false,
-};
+function makeCanvasSprite(w, h, draw) {
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const g = c.getContext("2d");
+  if (!g) throw new Error("Sprite canvas context unavailable");
+  g.imageSmoothingEnabled = false;
+  draw(g);
+  return c;
+}
 
-let dpr = 1;
-let viewW = 0;
-let viewH = 0;
-let camX = 0;
-let camY = 0;
-let shake = 0;
-let shakeX = 0;
-let shakeY = 0;
-let lastTime = 0;
+function p(g, x, y, w, h, color) {
+  g.fillStyle = color;
+  g.fillRect(x, y, w, h);
+}
 
-const bgStars = Array.from({ length: 220 }, () => ({
-  x: Math.random(),
-  y: Math.random(),
-  z: rand(0.25, 1),
-  hue: rand(190, 230),
-}));
+function buildSprites() {
+  return {
+    human: makeCanvasSprite(16, 16, (g) => {
+      p(g, 6, 1, 4, 2, "#dfe8ff");
+      p(g, 5, 3, 6, 4, "#6f8fcc");
+      p(g, 4, 6, 8, 6, "#24304b");
+      p(g, 3, 7, 2, 5, "#9fb8ff");
+      p(g, 11, 7, 2, 5, "#9fb8ff");
+      p(g, 6, 11, 4, 3, "#edf3ff");
+      p(g, 12, 5, 1, 7, "#ffd76a");
+    }),
+    elf: makeCanvasSprite(16, 16, (g) => {
+      p(g, 6, 1, 4, 2, "#7ef7d4");
+      p(g, 4, 3, 8, 4, "#22404f");
+      p(g, 5, 6, 6, 6, "#10202c");
+      p(g, 3, 7, 2, 5, "#7ef7d4");
+      p(g, 11, 7, 2, 5, "#7ef7d4");
+      p(g, 6, 11, 4, 3, "#edf3ff");
+      p(g, 12, 4, 2, 8, "#ffd76a");
+    }),
+    dwarf: makeCanvasSprite(16, 16, (g) => {
+      p(g, 5, 1, 6, 2, "#ffd76a");
+      p(g, 4, 3, 8, 4, "#6c4b2d");
+      p(g, 3, 6, 10, 6, "#3b2a2a");
+      p(g, 4, 7, 2, 5, "#8d5c2c");
+      p(g, 10, 7, 2, 5, "#8d5c2c");
+      p(g, 6, 11, 4, 3, "#edf3ff");
+      p(g, 12, 6, 2, 5, "#9fb8ff");
+    }),
+    orc: makeCanvasSprite(16, 16, (g) => {
+      p(g, 5, 1, 6, 2, "#ffb06a");
+      p(g, 4, 3, 8, 4, "#3c1520");
+      p(g, 3, 6, 10, 6, "#0f2218");
+      p(g, 3, 7, 2, 5, "#ff7b88");
+      p(g, 11, 7, 2, 5, "#ff7b88");
+      p(g, 6, 11, 4, 3, "#edf3ff");
+      p(g, 12, 5, 2, 7, "#ffd76a");
+    }),
+    seraph: makeCanvasSprite(16, 16, (g) => {
+      p(g, 6, 1, 4, 2, "#f0d8ff");
+      p(g, 4, 3, 8, 4, "#6b5aa8");
+      p(g, 3, 6, 10, 6, "#2f2d64");
+      p(g, 2, 7, 2, 5, "#f0d8ff");
+      p(g, 12, 7, 2, 5, "#f0d8ff");
+      p(g, 6, 11, 4, 3, "#edf3ff");
+      p(g, 12, 4, 1, 8, "#ffd76a");
+    }),
+    shade: makeCanvasSprite(16, 16, (g) => {
+      p(g, 6, 1, 4, 2, "#b39cff");
+      p(g, 4, 3, 8, 4, "#32265e");
+      p(g, 3, 6, 10, 6, "#151427");
+      p(g, 3, 7, 2, 5, "#8fb5ff");
+      p(g, 11, 7, 2, 5, "#8fb5ff");
+      p(g, 6, 11, 4, 3, "#edf3ff");
+      p(g, 12, 5, 2, 7, "#67f7d4");
+    }),
+    raider: makeCanvasSprite(14, 14, (g) => {
+      p(g, 5, 1, 4, 2, "#ff7b88");
+      p(g, 4, 3, 6, 4, "#4a1d2c");
+      p(g, 3, 6, 8, 5, "#25151f");
+      p(g, 3, 7, 2, 3, "#ffb06a");
+      p(g, 9, 7, 2, 3, "#ffb06a");
+      p(g, 6, 10, 2, 2, "#ffd76a");
+    }),
+    wisp: makeCanvasSprite(14, 14, (g) => {
+      p(g, 5, 1, 4, 2, "#7ef7d4");
+      p(g, 4, 3, 6, 6, "#203348");
+      p(g, 5, 4, 4, 4, "#9fb8ff");
+      p(g, 3, 6, 2, 2, "#67f7d4");
+      p(g, 9, 6, 2, 2, "#67f7d4");
+    }),
+    brute: makeCanvasSprite(18, 18, (g) => {
+      p(g, 6, 1, 6, 3, "#ffd76a");
+      p(g, 4, 4, 10, 7, "#6a2230");
+      p(g, 3, 6, 2, 5, "#ff7b88");
+      p(g, 13, 6, 2, 5, "#ff7b88");
+      p(g, 5, 12, 8, 2, "#2b1220");
+      p(g, 6, 7, 2, 2, "#edf3ff");
+      p(g, 10, 7, 2, 2, "#edf3ff");
+    }),
+    boss: makeCanvasSprite(24, 24, (g) => {
+      p(g, 7, 1, 10, 4, "#b39cff");
+      p(g, 6, 5, 12, 10, "#2a1a44");
+      p(g, 5, 7, 2, 8, "#ff7b88");
+      p(g, 17, 7, 2, 8, "#ff7b88");
+      p(g, 8, 11, 8, 4, "#0d0f1c");
+      p(g, 9, 12, 2, 2, "#67f7d4");
+      p(g, 13, 12, 2, 2, "#67f7d4");
+    }),
+  };
+}
+
+const SPRITES = buildSprites();
+
+function drawSprite(sprite, x, y, size, rot = 0) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(rot);
+  const w = sprite.width * size;
+  const h = sprite.height * size;
+  ctx.drawImage(sprite, -w / 2, -h / 2, w, h);
+  ctx.restore();
+}
+
+function createWorld() {
+  return WORLD_PATH.map((node, index) => ({
+    ...node,
+    index,
+    x: nodePositions[index].x,
+    y: nodePositions[index].y,
+    cleared: index === 0,
+  }));
+}
+
+function createPlayer(race) {
+  return {
+    raceId: race.id,
+    name: race.name,
+    role: race.role,
+    x: 0,
+    y: 0,
+    tx: 0,
+    ty: 0,
+    vx: 0,
+    vy: 0,
+    facing: 0,
+    hp: race.hp,
+    maxHp: race.hp,
+    shield: 20,
+    maxShield: 20,
+    shieldRegen: 2,
+    mana: race.mana,
+    maxMana: race.mana,
+    manaRegen: 2,
+    armor: race.armor,
+    speed: race.speed,
+    attackDamage: race.attackDamage,
+    attackCooldown: race.attackCooldown,
+    attackTimer: 0,
+    attackKind: race.attackKind,
+    projectileSpeed: race.attackKind === "bolt" || race.attackKind === "holy" || race.attackKind === "shadow" ? 520 : 0,
+    crit: race.crit,
+    specialName: race.specialName,
+    specialCost: race.specialCost,
+    dashDistance: 70,
+    burn: false,
+    level: 1,
+    xp: 0,
+    nextXp: 50,
+    gold: 0,
+    talentPoints: 0,
+    relics: [],
+    specialTimer: 0,
+    dashTimer: 0,
+  };
+}
 
 const state = {
-  mode: "title",
-  classId: "knight",
-  score: 0,
-  bestScore: Number(localStorage.getItem("nova_drift_best") || 0),
-  wave: 1,
-  waveTimer: 0,
-  waveDuration: 28,
-  xp: 0,
-  nextLevelXp: 55,
-  spawnBudget: 0,
-  scorePulse: 0,
-  upgradeChoices: [],
+  phase: "title",
+  stage: 1,
+  race: null,
   player: null,
-  bullets: [],
-  enemies: [],
-  shards: [],
+  world: createWorld(),
+  currentNodeIndex: 0,
+  targetNodeIndex: 0,
+  travelT: 0,
+  travelFrom: 0,
+  travelTo: 0,
+  mapFocus: 0,
+  combat: null,
+  projectiles: [],
+  enemyProjectiles: [],
   particles: [],
-  enemyBolts: [],
-  drones: [],
-  pulseCooldown: 0,
-  backgroundPulse: 0,
-  dashHintTimer: 0,
+  enemies: [],
+  enemySpawnBudget: 0,
+  overlayMode: "title",
+  overlayData: null,
+  lootChoices: [],
+  talentChoices: [],
+  questText: "",
+  log: [],
+  boss: null,
+  time: 0,
+  pointerX: 0,
+  pointerY: 0,
+  pointerWorldX: 0,
+  pointerWorldY: 0,
+  pointerDown: false,
+  keys: new Set(),
+  worldW: 1480,
+  worldH: 420,
+  arenaW: 920,
+  arenaH: 540,
+  overlayShown: true,
 };
 
-function freshPlayer(classId = "knight") {
-  const base = {
-    x: W * 0.5,
-    y: H * 0.5 + 180,
-    vx: 0,
-    vy: 0,
-    angle: 0,
-    hp: 100,
-    maxHp: 100,
-    shield: 40,
-    maxShield: 40,
-    shieldRegen: 7,
-    shieldDelay: 0,
-    shieldDelayMax: 1.75,
-    level: 1,
-    fireCd: 0,
-    fireDelay: 0.16,
-    bulletDamage: 9,
-    bulletSpeed: 920,
-    bulletCount: 1,
-    bulletSpread: 0.06,
-    bulletSize: 4,
-    moveSpeed: 360,
-    accel: 1900,
-    drag: 0.86,
-    magnet: 120,
-    dashCd: 0,
-    dashDelay: 1.25,
-    dashPower: 1080,
-    dashTime: 0,
-    dashInvuln: 0,
-    pulse: 0,
-    pulseDamage: 28,
-    pulseRadius: 150,
-    pulseCharge: 0,
-    pulseChargeMax: 100,
-    pulseReady: false,
-    critChance: 0.05,
-    critMult: 1.7,
-    bonusScore: 0,
-    aimLock: 0,
-  };
-  if (classId === "ranger") {
-    base.maxHp = 88;
-    base.hp = 88;
-    base.maxShield = 52;
-    base.shield = 52;
-    base.fireDelay = 0.12;
-    base.bulletDamage = 8;
-    base.bulletCount = 2;
-    base.bulletSpread = 0.08;
-    base.moveSpeed = 410;
-    base.magnet = 150;
-  } else if (classId === "mage") {
-    base.maxHp = 76;
-    base.hp = 76;
-    base.maxShield = 68;
-    base.shield = 68;
-    base.fireDelay = 0.1;
-    base.bulletDamage = 10;
-    base.bulletSpeed = 980;
-    base.pulseDamage = 40;
-    base.pulseRadius = 190;
-    base.shieldRegen = 9;
-    base.critChance = 0.08;
-  } else {
-    base.maxHp = 122;
-    base.hp = 122;
-    base.maxShield = 36;
-    base.shield = 36;
-    base.fireDelay = 0.18;
-    base.bulletDamage = 11;
-    base.dashPower = 1180;
-    base.moveSpeed = 330;
+function logLine(text) {
+  state.log.unshift(text);
+  state.log = state.log.slice(0, 5);
+}
+
+function updateStage(stage, objective, detail) {
+  state.stage = stage;
+  const objectiveText = document.getElementById("objectiveText");
+  const subObjective = document.getElementById("subObjective");
+  if (objectiveText) objectiveText.textContent = objective;
+  if (subObjective) subObjective.textContent = detail || STAGES[stage - 1]?.desc || "";
+  renderStageList();
+  statStage.valueEl.textContent = `${stage} / 10`;
+}
+
+function renderStageList() {
+  stageList.innerHTML = "";
+  for (const item of STAGES) {
+    const row = document.createElement("div");
+    row.className = `stageRow ${item.id < state.stage ? "done" : item.id === state.stage ? "active" : ""}`;
+    row.innerHTML = `
+      <div class="stageNum">${item.id}</div>
+      <div class="stageText">
+        <div class="stageTitle">${item.title}</div>
+        <div class="stageDesc">${item.desc}</div>
+      </div>
+    `;
+    stageList.append(row);
   }
-  return base;
 }
 
-const upgradePool = [
-  {
-    id: "overclock",
-    name: "Overclocked Cannon",
-    tag: "Weapon",
-    desc: "+30% fire rate and +12% bullet speed. Your ship starts to feel unfair in the best way.",
-    apply(p) {
-      p.fireDelay *= 0.76;
-      p.bulletSpeed *= 1.12;
-    },
-  },
-  {
-    id: "splitter",
-    name: "Splitter Rounds",
-    tag: "Weapon",
-    desc: "Fire 2 extra bullets with a wider spread. Great for clearing swarms.",
-    apply(p) {
-      p.bulletCount += 2;
-      p.bulletSpread += 0.08;
-    },
-  },
-  {
-    id: "plating",
-    name: "Reactive Plating",
-    tag: "Defense",
-    desc: "+28 max hull and +12 max shield. You can afford a bad dodge or two.",
-    apply(p) {
-      p.maxHp += 28;
-      p.hp += 28;
-      p.maxShield += 12;
-      p.shield += 12;
-    },
-  },
-  {
-    id: "magnet",
-    name: "Shard Magnet",
-    tag: "Utility",
-    desc: "Increase pickup attraction and add a little more room to breathe between fights.",
-    apply(p) {
-      p.magnet += 110;
-      p.moveSpeed *= 1.06;
-    },
-  },
-  {
-    id: "dash",
-    name: "Afterburn Dash",
-    tag: "Mobility",
-    desc: "-22% dash cooldown and a longer invulnerability window while dashing.",
-    apply(p) {
-      p.dashDelay *= 0.78;
-      p.dashPower *= 1.08;
-      p.dashInvuln = Math.min(0.32, p.dashInvuln + 0.05);
-    },
-  },
-  {
-    id: "drone",
-    name: "Orbit Drone",
-    tag: "Support",
-    desc: "Adds a loyal drone that orbits you and auto-fires at the nearest enemy.",
-    apply(p) {
-      state.drones.push({
-        angle: Math.random() * TAU,
-        radius: 82,
-        fireCd: 0,
-        fireDelay: 0.65,
-        damage: 7,
-        speed: 820,
-        size: 5,
-      });
-    },
-  },
-  {
-    id: "pulse",
-    name: "Shock Pulse",
-    tag: "Special",
-    desc: "Your pulse becomes stronger, larger, and charges faster from kills.",
-    apply(p) {
-      p.pulseDamage += 18;
-      p.pulseRadius += 36;
-      p.pulseChargeMax = Math.max(70, p.pulseChargeMax - 10);
-    },
-  },
-  {
-    id: "focus",
-    name: "Targeting Suite",
-    tag: "Weapon",
-    desc: "Critical hits become more common and deal extra damage.",
-    apply(p) {
-      p.critChance += 0.08;
-      p.critMult += 0.15;
-    },
-  },
-];
+function setOverlay(mode, data = null) {
+  state.overlayMode = mode;
+  state.overlayData = data;
+  overlay.innerHTML = "";
+  overlay.classList.toggle("show", mode !== "none");
 
-function enterTitle() {
-  state.mode = "title";
-  state.player = freshPlayer(state.classId);
-  state.score = 0;
-  state.wave = 1;
-  state.waveTimer = 0;
-  state.waveDuration = 28;
-  state.xp = 0;
-  state.nextLevelXp = 55;
-  state.spawnBudget = 0;
-  state.scorePulse = 0;
-  state.upgradeChoices = [];
-  state.bullets = [];
-  state.enemies = [];
-  state.shards = [];
-  state.particles = [];
-  state.enemyBolts = [];
-  state.drones = [];
-  state.pulseCooldown = 0;
-  state.backgroundPulse = 0;
-  state.dashHintTimer = 0;
-  camX = state.player.x - viewW * 0.5;
-  camY = state.player.y - viewH * 0.5;
-  shake = 0;
-  buildOverlay("title");
-  syncHud();
-}
+  if (mode === "none") return;
 
-function startRun(classId = state.classId) {
-  state.classId = classId;
-  state.mode = "playing";
-  state.player = freshPlayer(classId);
-  state.score = 0;
-  state.wave = 1;
-  state.waveTimer = 0;
-  state.waveDuration = 28;
-  state.xp = 0;
-  state.nextLevelXp = 55;
-  state.spawnBudget = 0;
-  state.scorePulse = 0;
-  state.upgradeChoices = [];
-  state.bullets = [];
-  state.enemies = [];
-  state.shards = [];
-  state.particles = [];
-  state.enemyBolts = [];
-  state.drones = [];
-  state.pulseCooldown = 0;
-  state.backgroundPulse = 0;
-  state.dashHintTimer = 4;
-  camX = state.player.x - viewW * 0.5;
-  camY = state.player.y - viewH * 0.5;
-  shake = 0;
-  overlay.classList.remove("active");
-  syncHud();
-}
+  const card = document.createElement("div");
+  card.className = "overlayCard";
+  overlay.append(card);
 
-function endRun() {
-  state.mode = "gameover";
-  state.bestScore = Math.max(state.bestScore, Math.floor(state.score));
-  localStorage.setItem("nova_drift_best", String(state.bestScore));
-  buildOverlay("gameover");
-  syncHud();
-}
-
-function levelUp() {
-  state.player.level += 1;
-  state.player.maxHp += 8;
-  state.player.hp = Math.min(state.player.maxHp, state.player.hp + 16);
-  state.player.maxShield += 4;
-  state.player.shield = Math.min(state.player.maxShield, state.player.shield + 12);
-  state.player.fireDelay = Math.max(0.075, state.player.fireDelay * 0.98);
-  state.player.pulseCharge = 0;
-  state.player.pulseReady = false;
-  state.upgradeChoices = pickUpgrades();
-  state.mode = "upgrade";
-  buildOverlay("upgrade");
-}
-
-function pickUpgrades() {
-  const pool = [...upgradePool];
-  const picks = [];
-  while (picks.length < 3 && pool.length) {
-    const idx = randi(0, pool.length - 1);
-    picks.push(pool.splice(idx, 1)[0]);
+  if (mode === "title") {
+    card.innerHTML = `
+      <div class="overlayTitle">Eclipse Solo RPG</div>
+      <div class="overlayLead">6종족을 고르고, 월드맵을 이동하고, 보스까지 잡는 솔로 액션 RPG입니다.</div>
+      <div class="overlayMini">진행 흐름: 캐릭터 선택 -> 맵 구성 -> 이동 -> 첫 조우 -> 전투 -> 레벨업 -> 장비 -> 퀘스트 -> 관문 -> 보스사냥</div>
+    `;
+    const row = document.createElement("div");
+    row.className = "buttonRow";
+    row.append(
+      makeButton("시작하기", () => {
+        setOverlay("race");
+      }, "primary"),
+    );
+    card.append(row);
+    return;
   }
-  return picks;
+
+  if (mode === "race") {
+    card.innerHTML = `
+      <div class="overlayTitle">캐릭터 선택</div>
+      <div class="overlayLead">6종족 중 하나를 선택하세요. 종족마다 체력, 이동, 공격 방식이 다릅니다.</div>
+    `;
+    const grid = document.createElement("div");
+    grid.className = "raceGrid";
+    for (const race of RACES) {
+      const btn = document.createElement("button");
+      btn.className = "raceCard";
+      const icon = SPRITES[race.id];
+      const c = document.createElement("canvas");
+      c.width = 64;
+      c.height = 64;
+      const g = c.getContext("2d");
+      if (g && icon) {
+        g.imageSmoothingEnabled = false;
+        g.fillStyle = "rgba(255,255,255,0.04)";
+        g.fillRect(0, 0, 64, 64);
+        g.drawImage(icon, 8, 8, 48, 48);
+      }
+      btn.append(c);
+      const meta = document.createElement("div");
+      meta.className = "raceMeta";
+      meta.innerHTML = `
+        <div class="raceName">${race.name}</div>
+        <div class="raceRole">${race.role}</div>
+        <div class="raceDesc">${race.desc}</div>
+      `;
+      btn.append(meta);
+      btn.onclick = () => chooseRace(race);
+      grid.append(btn);
+    }
+    card.append(grid);
+    return;
+  }
+
+  if (mode === "reward") {
+    card.innerHTML = `
+      <div class="overlayTitle">레벨업</div>
+      <div class="overlayLead">재능 하나를 고르세요.</div>
+    `;
+    const grid = document.createElement("div");
+    grid.className = "choiceGrid";
+    for (const talent of state.talentChoices) {
+      const btn = document.createElement("button");
+      btn.className = "choiceCard";
+      btn.innerHTML = `
+        <div class="choiceTitle">${talent.name}</div>
+        <div class="choiceTag">${talent.tag}</div>
+        <div class="choiceDesc">${talent.desc}</div>
+      `;
+      btn.onclick = () => applyTalent(talent);
+      grid.append(btn);
+    }
+    card.append(grid);
+    return;
+  }
+
+  if (mode === "loot") {
+    card.innerHTML = `
+      <div class="overlayTitle">장비 장착</div>
+      <div class="overlayLead">유물 하나를 선택하세요.</div>
+    `;
+    const grid = document.createElement("div");
+    grid.className = "choiceGrid";
+    for (const relic of state.lootChoices) {
+      const btn = document.createElement("button");
+      btn.className = "choiceCard";
+      btn.innerHTML = `
+        <div class="choiceTitle">${relic.name}</div>
+        <div class="choiceTag">${relic.tag}</div>
+        <div class="choiceDesc">${relic.desc}</div>
+      `;
+      btn.onclick = () => applyRelic(relic);
+      grid.append(btn);
+    }
+    card.append(grid);
+    return;
+  }
+
+  if (mode === "quest") {
+    card.innerHTML = `
+      <div class="overlayTitle">퀘스트 수락</div>
+      <div class="overlayLead">당신은 보스를 사냥해야 합니다.</div>
+      <div class="overlayMini">${state.questText || "보스의 심장부로 가는 길을 열어야 합니다."}</div>
+    `;
+    const row = document.createElement("div");
+    row.className = "buttonRow";
+    row.append(
+      makeButton("수락", () => {
+        logLine("Quest accepted: boss hunt started.");
+        setOverlay("none");
+        updateStage(8, "보스 관문으로 이동하세요.", "이제 마지막 지역으로 진행할 수 있습니다.");
+        enterWorldNode("pass");
+      }, "primary"),
+    );
+    card.append(row);
+    return;
+  }
+
+  if (mode === "bossPrep") {
+    card.innerHTML = `
+      <div class="overlayTitle">보스 관문</div>
+      <div class="overlayLead">최종 보스 구역 앞입니다. 준비를 마치고 문을 여세요.</div>
+      <div class="overlayMini">이 구역에서는 적의 압박이 강합니다. 마지막 전투를 위한 준비 단계입니다.</div>
+    `;
+    const row = document.createElement("div");
+    row.className = "buttonRow";
+    row.append(
+      makeButton("관문 열기", () => {
+        setOverlay("none");
+        updateStage(10, "보스사냥", "Eclipse Tyrant를 쓰러뜨리세요.");
+        enterBossFight();
+      }, "primary"),
+    );
+    card.append(row);
+    return;
+  }
+
+  if (mode === "victory") {
+    card.innerHTML = `
+      <div class="overlayTitle">보스 격파</div>
+      <div class="overlayLead">Eclipse Tyrant를 쓰러뜨렸습니다.</div>
+      <div class="overlayMini">최종 점수: ${Math.floor(state.player.gold)} 골드. 새 캐릭터로 다시 시작할 수 있습니다.</div>
+    `;
+    const row = document.createElement("div");
+    row.className = "buttonRow";
+    row.append(
+      makeButton("다시 하기", () => {
+        setOverlay("title");
+      }, "primary"),
+    );
+    card.append(row);
+  }
 }
 
-function chooseUpgrade(choice) {
-  if (state.mode !== "upgrade") return;
-  choice.apply(state.player);
-  if (state.player.shield > state.player.maxShield) state.player.shield = state.player.maxShield;
-  if (state.player.hp > state.player.maxHp) state.player.hp = state.player.maxHp;
-  state.mode = "playing";
-  state.upgradeChoices = [];
-  overlay.classList.remove("active");
-  syncHud();
+function chooseRace(race) {
+  state.race = race;
+  state.player = createPlayer(race);
+  state.world = createWorld();
+  state.currentNodeIndex = 0;
+  state.targetNodeIndex = 0;
+  state.travelT = 0;
+  state.combat = null;
+  state.projectiles = [];
+  state.enemyProjectiles = [];
+  state.particles = [];
+  state.enemies = [];
+  state.lootChoices = [];
+  state.talentChoices = [];
+  state.questText = "보스의 심장부를 추적하세요.";
+  state.boss = null;
+  state.player.x = nodePositions[0].x;
+  state.player.y = nodePositions[0].y;
+  state.player.tx = state.player.x;
+  state.player.ty = state.player.y;
+  updateStage(2, "맵 구성", "시작 마을에서 월드맵이 생성되었습니다.");
+  logLine(`Chosen race: ${race.name}`);
+  setOverlay("none");
+  renderActionPanel();
+  enterWorldNode("village");
 }
 
-function syncHud() {
-  const p = state.player;
-  statScore.valueEl.textContent = `${Math.floor(state.score)}`;
-  statWave.valueEl.textContent = `${state.wave}`;
-  statHull.valueEl.textContent = `${Math.ceil(p.hp)}/${p.maxHp}`;
-  statShield.valueEl.textContent = `${Math.ceil(p.shield)}/${p.maxShield}`;
-  statHull.fillEl.style.width = `${clamp((p.hp / p.maxHp) * 100, 0, 100)}%`;
-  statShield.fillEl.style.width = `${clamp((p.shield / p.maxShield) * 100, 0, 100)}%`;
-}
-
-function resize() {
-  dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
-  viewW = window.innerWidth;
-  viewH = window.innerHeight;
-  canvas.width = Math.floor(viewW * dpr);
-  canvas.height = Math.floor(viewH * dpr);
-  canvas.style.width = `${viewW}px`;
-  canvas.style.height = `${viewH}px`;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-}
-
-window.addEventListener("resize", resize);
-resize();
-
-function screenToWorld(sx, sy) {
-  return {
-    x: sx + camX,
-    y: sy + camY,
-  };
-}
-
-canvas.addEventListener("pointermove", (ev) => {
-  const rect = canvas.getBoundingClientRect();
-  pointer.x = ev.clientX - rect.left;
-  pointer.y = ev.clientY - rect.top;
-  const world = screenToWorld(pointer.x, pointer.y);
-  pointer.worldX = world.x;
-  pointer.worldY = world.y;
-  pointer.active = true;
-});
-
-canvas.addEventListener("pointerdown", (ev) => {
-  pointer.down = true;
-  pointer.active = true;
-  canvas.setPointerCapture(ev.pointerId);
-  if (state.mode === "title") startRun();
-});
-
-canvas.addEventListener("pointerup", () => {
-  pointer.down = false;
-});
-
-canvas.addEventListener("pointerleave", () => {
-  pointer.down = false;
-});
-
-window.addEventListener("keydown", (ev) => {
-  if (ev.code === "Space") ev.preventDefault();
-  keys.add(ev.code);
-  if (ev.code === "Enter" && state.mode === "title") startRun();
-  if (ev.code === "Enter" && state.mode === "gameover") startRun();
-  if (ev.code === "Escape" && state.mode === "playing") enterTitle();
-});
-
-window.addEventListener("keyup", (ev) => {
-  keys.delete(ev.code);
-});
-
-function addParticle(x, y, vx, vy, life, color, size = 2, glow = 10) {
-  state.particles.push({ x, y, vx, vy, life, age: 0, color, size, glow });
-}
-
-function addScore(amount, x, y) {
-  state.score += amount;
-  state.scorePulse = Math.min(1, state.scorePulse + 0.35);
-  if (x != null && y != null) {
-    for (let i = 0; i < 3; i++) {
-      addParticle(x, y, rand(-40, 40), rand(-40, 40), 0.45, "rgba(126,247,212,0.8)", 1.8, 8);
+function renderActionPanel() {
+  actionPanel.innerHTML = "";
+  const node = state.world[state.currentNodeIndex];
+  if (!node) return;
+  const btns = [];
+  if (state.overlayMode === "none" && state.phase === "world") {
+    if (state.currentNodeIndex < state.world.length - 1) {
+      btns.push(makeButton("다음 맵으로 이동", () => travelToNode(state.currentNodeIndex + 1), "primary"));
+    }
+    if (state.currentNodeIndex > 0) {
+      btns.push(makeButton("이전 맵으로 이동", () => travelToNode(state.currentNodeIndex - 1)));
     }
   }
+  if (state.phase === "combat") {
+    btns.push(makeButton("공격", () => performAttack(), "primary"));
+    btns.push(makeButton("특수기", () => performSpecial()));
+  }
+  if (state.phase === "bossFight") {
+    btns.push(makeButton("공격", () => performAttack(), "primary"));
+    btns.push(makeButton("특수기", () => performSpecial()));
+  }
+  if (state.phase === "world" || state.phase === "combat" || state.phase === "bossFight") {
+    btns.push(makeButton("상태 초기화", () => centerCamera()));
+  }
+  for (const b of btns) actionPanel.append(b);
 }
 
-function spawnEnemy(type) {
-  const side = randi(0, 3);
-  const pad = 110;
-  let x = 0;
-  let y = 0;
-  if (side === 0) {
-    x = rand(-pad, viewW + pad) + camX;
-    y = camY - pad;
-  } else if (side === 1) {
-    x = camX + viewW + pad;
-    y = rand(-pad, viewH + pad) + camY;
-  } else if (side === 2) {
-    x = rand(-pad, viewW + pad) + camX;
-    y = camY + viewH + pad;
-  } else {
-    x = camX - pad;
-    y = rand(-pad, viewH + pad) + camY;
+function travelToNode(index) {
+  if (state.phase !== "world") return;
+  if (index < 0 || index >= state.world.length) return;
+  if (Math.abs(index - state.currentNodeIndex) !== 1) return;
+  state.phase = "travel";
+  state.travelFrom = state.currentNodeIndex;
+  state.travelTo = index;
+  state.travelT = 0;
+  state.targetNodeIndex = index;
+  updateStage(Math.max(state.stage, 3), "맵 이동", `이동 중: ${state.world[index].name}`);
+  logLine(`Travel to ${state.world[index].name}`);
+  renderActionPanel();
+}
+
+function enterWorldNode(id) {
+  const index = state.world.findIndex((n) => n.id === id);
+  if (index < 0) return;
+  state.currentNodeIndex = index;
+  state.targetNodeIndex = index;
+  state.player.tx = nodePositions[index].x;
+  state.player.ty = nodePositions[index].y;
+  state.player.x = nodePositions[index].x;
+  state.player.y = nodePositions[index].y;
+  state.phase = "world";
+  const node = state.world[index];
+  logLine(`Entered ${node.name}`);
+  if (index === 0) {
+    updateStage(2, "맵 구성", "시작 마을에서 출발할 준비를 마쳤습니다.");
   }
+  if (node.kind === "combat" && !node.cleared) {
+    if (node.id === "road") {
+      updateStage(4, "첫 조우", "첫 전투 지역에 도착했습니다.");
+      startCombat(node);
+      return;
+    }
+    startCombat(node);
+    return;
+  }
+  if (node.kind === "reward") {
+    if (state.stage < 6) {
+      updateStage(6, "레벨업", "전투 보상으로 재능을 선택하세요.");
+    }
+    openTalentChoice();
+    return;
+  }
+  if (node.kind === "relic") {
+    updateStage(7, "장비 장착", "유물을 하나 장착하세요.");
+    openRelicChoice();
+    return;
+  }
+  if (node.kind === "quest") {
+    updateStage(8, "퀘스트 수락", "보스 사냥 퀘스트를 받아야 합니다.");
+    openQuest();
+    return;
+  }
+  if (node.kind === "bossPrep") {
+    updateStage(9, "보스 관문", "최종 관문 앞입니다.");
+    openBossPrep();
+    return;
+  }
+  if (node.kind === "boss") {
+    updateStage(10, "보스사냥", "최종 보스전입니다.");
+    enterBossFight();
+    return;
+  }
+  state.phase = "world";
+  renderActionPanel();
+}
 
-  const difficulty = 1 + (state.wave - 1) * 0.12;
-  const base = {
-    drone: { hp: 18, speed: 180, damage: 11, r: 13, color: "#67f7d4", score: 10, xp: 10 },
-    striker: { hp: 34, speed: 110, damage: 8, r: 18, color: "#8fb5ff", score: 16, xp: 14 },
-    brute: { hp: 88, speed: 76, damage: 18, r: 26, color: "#ff7b88", score: 30, xp: 22 },
-  }[type];
+function spawnCombatNode(node) {
+  state.enemies = [];
+  state.projectiles = [];
+  state.enemyProjectiles = [];
+  state.particles = [];
+  state.player.x = state.arenaW / 2;
+  state.player.y = state.arenaH / 2;
+  state.player.tx = state.player.x;
+  state.player.ty = state.player.y;
+  const packs = node.id === "road" ? ["raider", "wisp", "raider", "wisp"] : ["raider", "raider", "brute", "wisp", "raider"];
+  for (const type of packs) {
+    const e = createEnemy(type);
+    e.x = rand(80, state.arenaW - 80);
+    e.y = rand(80, state.arenaH - 80);
+    state.enemies.push(e);
+  }
+  state.combat = { nodeId: node.id, clearTimer: 0 };
+  state.phase = "combat";
+  renderActionPanel();
+}
 
+function startCombat(node) {
+  updateStage(node.stepTag || 4, STAGES[(node.stepTag || 4) - 1].title, `전투 지역: ${node.name}`);
+  spawnCombatNode(node);
+  logLine(`Combat started in ${node.name}`);
+}
+
+function createEnemy(type) {
+  const def = ENEMY_DEFS[type];
   return {
     type,
-    x,
-    y,
+    name: def.name,
+    x: rand(100, state.arenaW - 100),
+    y: rand(100, state.arenaH - 100),
     vx: 0,
     vy: 0,
-    hp: Math.round(base.hp * difficulty),
-    maxHp: Math.round(base.hp * difficulty),
-    speed: base.speed * lerp(1, 1.18, Math.min(1, state.wave / 10)),
-    damage: base.damage * difficulty,
-    r: base.r,
-    color: base.color,
-    score: base.score,
-    xp: base.xp,
-    fireCd: type === "striker" ? rand(0.4, 1.1) : 0,
-    stun: 0,
-    windup: 0,
+    hp: def.hp + state.stage * 2,
+    maxHp: def.hp + state.stage * 2,
+    speed: def.speed,
+    damage: def.damage,
+    r: def.r,
+    color: def.color,
+    score: def.score,
+    xp: def.xp,
+    attackTimer: rand(0.3, 1.1),
+    ranged: !!def.ranged,
+    boss: !!def.boss,
+    age: 0,
   };
 }
 
-function spawnShard(x, y, value = 8) {
-  const a = rand(0, TAU);
-  state.shards.push({
-    x,
-    y,
-    vx: Math.cos(a) * rand(30, 130),
-    vy: Math.sin(a) * rand(30, 130),
-    value,
-    life: 8,
-    glow: rand(10, 18),
-  });
+function openTalentChoice() {
+  state.talentChoices = [...TALENTS].sort(() => Math.random() - 0.5).slice(0, 3);
+  updateStage(6, "레벨업", "재능을 하나 고르세요.");
+  setOverlay("reward");
 }
 
-function shoot(originX, originY, angle, damageBoost = 1, speedBoost = 1, spread = 0) {
+function applyTalent(talent) {
+  talent.apply(state.player);
+  logLine(`Talent gained: ${talent.name}`);
+  setOverlay("none");
+  state.phase = "world";
+  state.world[state.currentNodeIndex].cleared = true;
+  updateStage(6, "레벨업", "재능을 선택했습니다. 다음 맵으로 진행하세요.");
+  renderActionPanel();
+}
+
+function openRelicChoice() {
+  state.lootChoices = [...RELICS].sort(() => Math.random() - 0.5).slice(0, 3);
+  setOverlay("loot");
+}
+
+function applyRelic(relic) {
+  relic.apply(state.player);
+  state.player.relics.push(relic.id);
+  logLine(`Relic equipped: ${relic.name}`);
+  setOverlay("none");
+  state.phase = "world";
+  state.world[state.currentNodeIndex].cleared = true;
+  updateStage(7, "장비 장착", "유물을 장착했습니다. 다음 지역으로 이동하세요.");
+  renderActionPanel();
+}
+
+function openQuest() {
+  state.questText = "Moon Shrine의 봉인을 통해 보스 영역이 드러났습니다. 심장부를 추적하세요.";
+  setOverlay("quest");
+}
+
+function openBossPrep() {
+  state.phase = "bossPrep";
+  state.boss = null;
+  setOverlay("bossPrep");
+  renderActionPanel();
+}
+
+function enterBossFight() {
+  state.phase = "bossFight";
+  state.enemies = [];
+  state.projectiles = [];
+  state.enemyProjectiles = [];
+  state.particles = [];
+  state.boss = createEnemy("boss");
+  state.boss.x = state.arenaW / 2;
+  state.boss.y = 130;
+  state.boss.hp = 420;
+  state.boss.maxHp = 420;
+  state.boss.phase = 1;
+  state.boss.attackTimer = 0.8;
+  state.boss.summonTimer = 4;
+  state.player.x = state.arenaW / 2;
+  state.player.y = state.arenaH - 120;
+  state.player.tx = state.player.x;
+  state.player.ty = state.player.y;
+  renderActionPanel();
+}
+
+function beginVictory() {
+  state.phase = "victory";
+  setOverlay("victory");
+  updateStage(10, "보스사냥", "클리어했습니다.");
+  renderActionPanel();
+  logLine("Boss defeated.");
+}
+
+function centerCamera() {
+  state.mapFocus = 0;
+}
+
+function attackAngle() {
+  if (state.phase === "world") return 0;
+  return Math.atan2(state.pointerWorldY - state.player.y, state.pointerWorldX - state.player.x);
+}
+
+function performAttack() {
+  if (!["combat", "bossFight"].includes(state.phase)) return;
+  if (state.player.attackTimer > 0) return;
   const p = state.player;
-  const shotCount = p.bulletCount;
-  const start = -(shotCount - 1) * 0.5;
-  for (let i = 0; i < shotCount; i++) {
-    const offset = (start + i) * p.bulletSpread;
-    const theta = angle + offset + spread;
-    state.bullets.push({
-      x: originX + Math.cos(theta) * 16,
-      y: originY + Math.sin(theta) * 16,
-      vx: Math.cos(theta) * p.bulletSpeed * speedBoost,
-      vy: Math.sin(theta) * p.bulletSpeed * speedBoost,
-      life: 1.3,
-      damage: p.bulletDamage * damageBoost,
-      r: p.bulletSize,
-      color: i === 0 ? "#7ef7d4" : "#8fb5ff",
-      pierce: i === 0 ? 1 : 0,
+  const a = attackAngle();
+  const crit = Math.random() < p.crit;
+  const damage = p.attackDamage * (crit ? 1.8 : 1);
+  p.attackTimer = p.attackCooldown;
+
+  if (p.attackKind === "slash" || p.attackKind === "cleave" || p.attackKind === "slam") {
+    const radius = p.attackKind === "slam" ? 88 : p.attackKind === "cleave" ? 78 : 62;
+    const arc = p.attackKind === "cleave" ? 1.35 : 1.0;
+    damageNearbyEnemies(p.x, p.y, radius, damage * arc, a, p.attackKind);
+    for (let i = 0; i < 10; i++) addParticle(p.x, p.y, rand(-220, 220), rand(-220, 220), rand(0.12, 0.3), p.raceId === "orc" ? "#ff7b88" : "#9fb8ff", 2, 8);
+  } else {
+    state.projectiles.push({
+      x: p.x,
+      y: p.y,
+      vx: Math.cos(a) * p.projectileSpeed,
+      vy: Math.sin(a) * p.projectileSpeed,
+      life: 1.8,
+      damage,
+      r: 4,
+      color: p.raceId === "shade" ? "#b39cff" : p.raceId === "seraph" ? "#f0d8ff" : "#7ef7d4",
     });
   }
 }
 
-function triggerPulse() {
+function performSpecial() {
   const p = state.player;
-  state.pulseCooldown = 1.2;
-  p.pulseReady = false;
-  p.pulseCharge = 0;
-  state.backgroundPulse = 0.7;
-  shake = Math.max(shake, 12);
-  for (const enemy of state.enemies) {
-    const d = dist(p.x, p.y, enemy.x, enemy.y);
-    if (d <= p.pulseRadius * 1.2) {
-      enemy.hp -= p.pulseDamage * clamp(1.35 - d / p.pulseRadius, 0.4, 1.35);
-      enemy.stun = Math.max(enemy.stun, 0.28);
+  if (!["combat", "bossFight"].includes(state.phase)) return;
+  if (p.mana < p.specialCost) return;
+  p.mana -= p.specialCost;
+  const a = attackAngle();
+  if (p.raceId === "human") {
+    p.shield = Math.min(p.maxShield + 24, p.shield + 24);
+    addParticle(p.x, p.y, 0, 0, 0.5, "#9fb8ff", 8, 14);
+  } else if (p.raceId === "elf") {
+    for (let i = -1; i <= 1; i++) {
+      state.projectiles.push({
+        x: p.x,
+        y: p.y,
+        vx: Math.cos(a + i * 0.18) * (p.projectileSpeed + 120),
+        vy: Math.sin(a + i * 0.18) * (p.projectileSpeed + 120),
+        life: 1.4,
+        damage: p.attackDamage * 0.95,
+        r: 4,
+        color: "#7ef7d4",
+      });
     }
+  } else if (p.raceId === "dwarf") {
+    damageNearbyEnemies(p.x, p.y, 110, p.attackDamage * 1.6, a, "slam");
+    stunEnemies(110, 0.8);
+  } else if (p.raceId === "orc") {
+    p.attackDamage += 6;
+    p.specialTimer = 5;
+  } else if (p.raceId === "seraph") {
+    p.hp = Math.min(p.maxHp, p.hp + 34);
+    p.shield = Math.min(p.maxShield, p.shield + 16);
+    addParticle(p.x, p.y, 0, 0, 0.6, "#f0d8ff", 10, 16);
+  } else if (p.raceId === "shade") {
+    p.x = clamp(p.x + Math.cos(a) * p.dashDistance, 48, state.arenaW - 48);
+    p.y = clamp(p.y + Math.sin(a) * p.dashDistance, 48, state.arenaH - 48);
+    p.dashTimer = 0.35;
+    damageNearbyEnemies(p.x, p.y, 76, p.attackDamage * 1.3, a, "dash");
   }
-  for (let i = 0; i < 70; i++) {
-    const a = rand(0, TAU);
-    const s = rand(p.pulseRadius * 0.5, p.pulseRadius * 1.1);
-    addParticle(
-      p.x + Math.cos(a) * s,
-      p.y + Math.sin(a) * s,
-      Math.cos(a) * rand(40, 280),
-      Math.sin(a) * rand(40, 280),
-      rand(0.4, 0.8),
-      "rgba(126,247,212,0.9)",
-      rand(1.5, 3.5),
-      12,
-    );
+  logLine(`${p.specialName} used.`);
+}
+
+function stunEnemies(radius, duration) {
+  for (const e of state.enemies) {
+    if (dist(state.player.x, state.player.y, e.x, e.y) <= radius) e.stun = Math.max(e.stun || 0, duration);
+  }
+  if (state.boss && dist(state.player.x, state.player.y, state.boss.x, state.boss.y) <= radius) {
+    state.boss.stun = Math.max(state.boss.stun || 0, duration);
   }
 }
 
-function damagePlayer(amount) {
-  const p = state.player;
-  if (p.dashInvuln > 0) return;
-  let rem = amount;
-  if (p.shield > 0) {
-    const used = Math.min(p.shield, rem);
-    p.shield -= used;
-    rem -= used;
-    p.shieldDelay = p.shieldDelayMax;
+function damageNearbyEnemies(x, y, radius, damage, angle, mode) {
+  for (let i = state.enemies.length - 1; i >= 0; i--) {
+    const e = state.enemies[i];
+    const d = dist(x, y, e.x, e.y);
+    if (d <= radius) {
+      const dealt = damage * clamp(1.2 - d / radius, 0.4, 1.2);
+      e.hp -= dealt;
+      if (state.player.burn) e.burn = 1.5;
+      if (e.hp <= 0) killEnemy(i);
+    }
   }
-  if (rem > 0) {
-    p.hp -= rem;
-    p.shieldDelay = p.shieldDelayMax;
-    flash.classList.add("show");
-    setTimeout(() => flash.classList.remove("show"), 70);
-    shake = Math.max(shake, 9);
+  if (state.boss) {
+    const d = dist(x, y, state.boss.x, state.boss.y);
+    if (d <= radius + 10) {
+      state.boss.hp -= damage * clamp(1.2 - d / (radius + 10), 0.35, 1.15);
+      if (state.boss.hp <= 0) finishBoss();
+    }
   }
-  if (p.hp <= 0) {
-    p.hp = 0;
-    endRun();
+  addParticle(x, y, Math.cos(angle) * 120, Math.sin(angle) * 120, 0.2, mode === "dash" ? "#b39cff" : "#ffd76a", 4, 10);
+}
+
+function killEnemy(index) {
+  const e = state.enemies[index];
+  state.enemies.splice(index, 1);
+  state.player.gold += e.score;
+  state.player.xp += e.xp;
+  state.player.mana = Math.min(state.player.maxMana, state.player.mana + 4);
+  logLine(`${e.name} defeated.`);
+  for (let i = 0; i < 10; i++) addParticle(e.x, e.y, rand(-180, 180), rand(-180, 180), rand(0.15, 0.45), e.color, 2, 10);
+  if (state.player.xp >= state.player.nextXp) {
+    state.player.xp -= state.player.nextXp;
+    state.player.nextXp = Math.floor(state.player.nextXp * 1.2 + 20);
+    state.player.level += 1;
+    state.player.maxHp += 8;
+    state.player.hp = Math.min(state.player.maxHp, state.player.hp + 16);
+    openTalentChoiceAfterCombat();
   }
 }
 
-function findAimAngle() {
-  const p = state.player;
-  if (pointer.active) {
-    return Math.atan2(pointer.worldY - p.y, pointer.worldX - p.x);
+function openTalentChoiceAfterCombat() {
+  state.phase = "reward";
+  state.talentChoices = [...TALENTS].sort(() => Math.random() - 0.5).slice(0, 3);
+  setOverlay("reward");
+  updateStage(6, "레벨업", "재능을 하나 고르세요.");
+}
+
+function clearCombat() {
+  const node = state.world[state.currentNodeIndex];
+  node.cleared = true;
+  state.phase = "world";
+  state.combat = null;
+  if (node.id === "road") {
+    updateStage(5, "전투 클리어", "첫 전투를 클리어했습니다.");
+    logLine("First combat cleared.");
   }
-  let best = null;
-  let bestD = Infinity;
-  for (const enemy of state.enemies) {
-    const d = dist(p.x, p.y, enemy.x, enemy.y);
-    if (d < bestD) {
-      bestD = d;
-      best = enemy;
-    }
+  renderActionPanel();
+}
+
+function applyTalent(talent) {
+  talent.apply(state.player);
+  logLine(`Talent chosen: ${talent.name}`);
+  setOverlay("none");
+  state.phase = "world";
+  if (state.world[state.currentNodeIndex].id === "forest") {
+    updateStage(6, "레벨업", "재능을 적용했습니다.");
   }
-  if (best) return Math.atan2(best.y - p.y, best.x - p.x);
-  return p.angle;
+  renderActionPanel();
+}
+
+function applyRelic(relic) {
+  relic.apply(state.player);
+  state.player.relics.push(relic.id);
+  logLine(`Relic equipped: ${relic.name}`);
+  setOverlay("none");
+  state.phase = "world";
+  renderActionPanel();
+}
+
+function finishBoss() {
+  state.phase = "victory";
+  state.boss = null;
+  setOverlay("victory");
+  renderActionPanel();
+}
+
+function openTalentChoice() {
+  state.phase = "reward";
+  state.talentChoices = [...TALENTS].sort(() => Math.random() - 0.5).slice(0, 3);
+  setOverlay("reward");
+}
+
+function openRelicChoice() {
+  state.phase = "loot";
+  state.lootChoices = [...RELICS].sort(() => Math.random() - 0.5).slice(0, 3);
+  setOverlay("loot");
 }
 
 function updatePlayer(dt) {
   const p = state.player;
-  let mx = 0;
-  let my = 0;
-  if (keys.has("KeyA") || keys.has("ArrowLeft")) mx -= 1;
-  if (keys.has("KeyD") || keys.has("ArrowRight")) mx += 1;
-  if (keys.has("KeyW") || keys.has("ArrowUp")) my -= 1;
-  if (keys.has("KeyS") || keys.has("ArrowDown")) my += 1;
+  if (!p) return;
+  p.attackTimer = Math.max(0, p.attackTimer - dt);
+  p.specialTimer = Math.max(0, p.specialTimer - dt);
+  p.dashTimer = Math.max(0, p.dashTimer - dt);
+  p.mana = Math.min(p.maxMana, p.mana + p.manaRegen * dt);
+  p.shield = Math.min(p.maxShield, p.shield + p.shieldRegen * dt);
 
-  if (mx || my) {
-    const l = len(mx, my);
-    mx /= l;
-    my /= l;
-    p.vx += mx * p.accel * dt;
-    p.vy += my * p.accel * dt;
-  }
-
-  const dashPressed = keys.has("Space");
-  if (dashPressed && p.dashCd <= 0) {
-    const dashAngle = mx || my ? Math.atan2(my, mx) : p.angle;
-    p.vx += Math.cos(dashAngle) * p.dashPower;
-    p.vy += Math.sin(dashAngle) * p.dashPower;
-    p.dashCd = p.dashDelay;
-    p.dashTime = 0.16;
-    p.dashInvuln = 0.22;
-    state.dashHintTimer = 0;
-    for (let i = 0; i < 18; i++) {
-      const a = dashAngle + Math.PI + rand(-0.55, 0.55);
-      addParticle(p.x, p.y, Math.cos(a) * rand(100, 420), Math.sin(a) * rand(100, 420), rand(0.2, 0.5), "rgba(143,181,255,0.8)", rand(1, 2.5), 10);
+  if (state.phase === "combat" || state.phase === "bossFight") {
+    let mx = 0;
+    let my = 0;
+    if (state.keys.has("KeyW") || state.keys.has("ArrowUp")) my -= 1;
+    if (state.keys.has("KeyS") || state.keys.has("ArrowDown")) my += 1;
+    if (state.keys.has("KeyA") || state.keys.has("ArrowLeft")) mx -= 1;
+    if (state.keys.has("KeyD") || state.keys.has("ArrowRight")) mx += 1;
+    if (mx || my) {
+      const l = Math.hypot(mx, my) || 1;
+      mx /= l;
+      my /= l;
+      p.vx += mx * p.speed * 6 * dt;
+      p.vy += my * p.speed * 6 * dt;
     }
-    shake = Math.max(shake, 4);
-  }
-
-  const speed = Math.hypot(p.vx, p.vy);
-  const maxSpeed = p.moveSpeed * (p.dashTime > 0 ? 1.35 : 1);
-  if (speed > maxSpeed) {
-    const m = maxSpeed / speed;
-    p.vx *= m;
-    p.vy *= m;
-  }
-
-  p.x += p.vx * dt;
-  p.y += p.vy * dt;
-  p.vx *= Math.pow(p.drag, dt * 60);
-  p.vy *= Math.pow(p.drag, dt * 60);
-  p.x = clamp(p.x, 36, W - 36);
-  p.y = clamp(p.y, 36, H - 36);
-
-  p.angle = lerp(p.angle, findAimAngle(), 1 - Math.pow(0.001, dt));
-
-  p.fireCd -= dt;
-  if (p.fireCd <= 0) {
-    const damageBoost = Math.random() < p.critChance ? p.critMult : 1;
-    shoot(p.x, p.y, p.angle, damageBoost, 1, 0);
-    p.fireCd = p.fireDelay;
-  }
-
-  if (p.dashCd > 0) p.dashCd -= dt;
-  if (p.dashTime > 0) p.dashTime -= dt;
-  if (p.dashInvuln > 0) p.dashInvuln -= dt;
-
-  if (p.shieldDelay > 0) {
-    p.shieldDelay -= dt;
-  } else if (p.shield < p.maxShield) {
-    p.shield = Math.min(p.maxShield, p.shield + p.shieldRegen * dt);
-  }
-
-  if (keys.has("KeyE") && state.pulseCooldown <= 0 && p.pulseCharge >= p.pulseChargeMax) {
-    triggerPulse();
-  }
-
-  if (!keys.has("KeyE") && p.pulseCharge >= p.pulseChargeMax) p.pulseReady = true;
-
-  if (state.dashHintTimer > 0) state.dashHintTimer -= dt;
-}
-
-function updateDrones(dt) {
-  const p = state.player;
-  for (const drone of state.drones) {
-    drone.angle += dt * 2.8;
-    const dx = p.x + Math.cos(drone.angle) * drone.radius;
-    const dy = p.y + Math.sin(drone.angle) * drone.radius;
-    drone.x = dx;
-    drone.y = dy;
-    drone.fireCd -= dt;
-    if (drone.fireCd <= 0) {
-      let target = null;
-      let best = 99999;
-      for (const enemy of state.enemies) {
-        const d = dist(drone.x, drone.y, enemy.x, enemy.y);
-        if (d < best) {
-          best = d;
-          target = enemy;
-        }
-      }
-      if (target) {
-        const a = Math.atan2(target.y - drone.y, target.x - drone.x);
-        state.bullets.push({
-          x: drone.x,
-          y: drone.y,
-          vx: Math.cos(a) * drone.speed,
-          vy: Math.sin(a) * drone.speed,
-          life: 1.2,
-          damage: drone.damage,
-          r: drone.size,
-          color: "#ffd76a",
-          pierce: 0,
-        });
-        drone.fireCd = drone.fireDelay;
-      }
+    const aim = attackAngle();
+    p.facing = aim;
+    const speed = Math.hypot(p.vx, p.vy);
+    const maxSpeed = p.speed * (p.dashTimer > 0 ? 1.45 : 1);
+    if (speed > maxSpeed) {
+      const m = maxSpeed / speed;
+      p.vx *= m;
+      p.vy *= m;
     }
+    p.x = clamp(p.x + p.vx * dt, 34, state.arenaW - 34);
+    p.y = clamp(p.y + p.vy * dt, 34, state.arenaH - 34);
+    p.vx *= Math.pow(0.88, dt * 60);
+    p.vy *= Math.pow(0.88, dt * 60);
+    if (state.keys.has("Space")) performAttack();
+    if (state.keys.has("KeyE")) performSpecial();
+  }
+  if (state.phase === "world") {
+    p.x = lerp(p.x, p.tx, 0.18);
+    p.y = lerp(p.y, p.ty, 0.18);
   }
 }
 
@@ -966,459 +1232,521 @@ function updateEnemies(dt) {
   const p = state.player;
   for (let i = state.enemies.length - 1; i >= 0; i--) {
     const e = state.enemies[i];
+    e.age += dt;
     if (e.stun > 0) {
       e.stun -= dt;
+      continue;
     }
-
-    const dx = p.x - e.x;
-    const dy = p.y - e.y;
-    const d = Math.hypot(dx, dy) || 1;
-    const ux = dx / d;
-    const uy = dy / d;
-
-    if (e.type === "striker") {
-      const ideal = 320;
-      const chase = d > ideal ? 1 : -0.55;
-      e.vx = lerp(e.vx, ux * e.speed * chase, 0.08);
-      e.vy = lerp(e.vy, uy * e.speed * chase, 0.08);
-      e.fireCd -= dt;
-      if (e.fireCd <= 0 && d < 700) {
-        const a = Math.atan2(dy, dx);
-        state.enemyBolts.push({
-          x: e.x,
-          y: e.y,
-          vx: Math.cos(a) * 480,
-          vy: Math.sin(a) * 480,
-          life: 2.1,
-          damage: 10 + state.wave * 0.9,
-          r: 4,
-          color: "#8fb5ff",
-        });
-        e.fireCd = rand(1.0, 1.6);
-      }
-    } else if (e.type === "brute") {
-      if (d > 60) {
-        e.vx = lerp(e.vx, ux * e.speed * 0.95, 0.05);
-        e.vy = lerp(e.vy, uy * e.speed * 0.95, 0.05);
-      } else {
-        e.vx *= 0.92;
-        e.vy *= 0.92;
-      }
-    } else {
-      e.vx = lerp(e.vx, ux * e.speed, 0.08);
-      e.vy = lerp(e.vy, uy * e.speed, 0.08);
+    const d = dist(p.x, p.y, e.x, e.y) || 1;
+    const ux = (p.x - e.x) / d;
+    const uy = (p.y - e.y) / d;
+    e.vx = lerp(e.vx, ux * e.speed, 0.06);
+    e.vy = lerp(e.vy, uy * e.speed, 0.06);
+    e.x += e.vx * dt;
+    e.y += e.vy * dt;
+    e.x = clamp(e.x, 36, state.arenaW - 36);
+    e.y = clamp(e.y, 36, state.arenaH - 36);
+    e.attackTimer -= dt;
+    if (d < e.r + 18) {
+      damagePlayer(e.damage * dt * 5);
     }
-
-    if (e.stun <= 0) {
-      e.x += e.vx * dt;
-      e.y += e.vy * dt;
+    if (e.ranged && e.attackTimer <= 0 && d < 360) {
+      const a = Math.atan2(p.y - e.y, p.x - e.x);
+      state.enemyProjectiles.push({
+        x: e.x,
+        y: e.y,
+        vx: Math.cos(a) * 280,
+        vy: Math.sin(a) * 280,
+        life: 2,
+        damage: e.damage,
+        color: e.color,
+        r: 4,
+      });
+      e.attackTimer = 1.2;
     }
-
-    if (d < e.r + 16) {
-      damagePlayer(e.damage * dt * 6);
-      e.hp -= dt * 18;
-      p.pulseCharge = Math.min(p.pulseChargeMax, p.pulseCharge + dt * 15);
+    if (e.burn) {
+      e.burn -= dt;
+      e.hp -= dt * 5;
     }
-
-    if (e.hp <= 0) {
-      killEnemy(i);
-    }
+    if (e.hp <= 0) killEnemy(i);
   }
 }
 
-function killEnemy(index) {
-  const e = state.enemies[index];
-  state.enemies.splice(index, 1);
-  addScore(e.score, e.x, e.y);
-  state.xp += e.xp;
-  state.player.pulseCharge = Math.min(state.player.pulseChargeMax, state.player.pulseCharge + e.xp * 0.55 + 10);
-  state.player.bonusScore += e.score;
-  state.backgroundPulse = Math.min(1, state.backgroundPulse + 0.08);
-  shake = Math.max(shake, e.type === "brute" ? 6 : 3);
-  for (let i = 0; i < (e.type === "brute" ? 18 : 10); i++) {
-    const a = rand(0, TAU);
-    addParticle(e.x, e.y, Math.cos(a) * rand(80, 280), Math.sin(a) * rand(80, 280), rand(0.25, 0.7), e.color, rand(1.5, 3.5), 12);
-  }
-  const dropCount = e.type === "brute" ? 5 : e.type === "striker" ? 3 : 2;
-  for (let i = 0; i < dropCount; i++) spawnShard(e.x + rand(-18, 18), e.y + rand(-18, 18), e.type === "brute" ? 15 : 8);
-}
-
-function updateBullets(dt) {
-  for (let i = state.bullets.length - 1; i >= 0; i--) {
-    const b = state.bullets[i];
+function updateProjectiles(dt) {
+  for (let i = state.projectiles.length - 1; i >= 0; i--) {
+    const b = state.projectiles[i];
     b.life -= dt;
     b.x += b.vx * dt;
     b.y += b.vy * dt;
-    if (b.life <= 0 || b.x < -50 || b.y < -50 || b.x > W + 50 || b.y > H + 50) {
-      state.bullets.splice(i, 1);
+    if (b.life <= 0) {
+      state.projectiles.splice(i, 1);
       continue;
     }
     for (let j = state.enemies.length - 1; j >= 0; j--) {
       const e = state.enemies[j];
       if (dist(b.x, b.y, e.x, e.y) < b.r + e.r) {
-        const crit = b.color === "#ffd76a" ? 1.15 : 1;
-        e.hp -= b.damage * crit;
-        for (let k = 0; k < 4; k++) {
-          addParticle(b.x, b.y, rand(-120, 120), rand(-120, 120), rand(0.12, 0.28), b.color, rand(1, 2.2), 10);
-        }
-        if (b.pierce > 0) {
-          b.pierce -= 1;
-          b.damage *= 0.87;
-        } else {
-          state.bullets.splice(i, 1);
-        }
+        e.hp -= b.damage;
         if (e.hp <= 0) killEnemy(j);
+        for (let k = 0; k < 4; k++) addParticle(b.x, b.y, rand(-100, 100), rand(-100, 100), 0.18, b.color, 2, 8);
+        state.projectiles.splice(i, 1);
         break;
       }
     }
+    if (state.boss && dist(b.x, b.y, state.boss.x, state.boss.y) < b.r + state.boss.r) {
+      state.boss.hp -= b.damage;
+      for (let k = 0; k < 4; k++) addParticle(b.x, b.y, rand(-120, 120), rand(-120, 120), 0.2, b.color, 2, 10);
+      state.projectiles.splice(i, 1);
+      if (state.boss.hp <= 0) finishBoss();
+    }
   }
-
-  for (let i = state.enemyBolts.length - 1; i >= 0; i--) {
-    const b = state.enemyBolts[i];
+  for (let i = state.enemyProjectiles.length - 1; i >= 0; i--) {
+    const b = state.enemyProjectiles[i];
     b.life -= dt;
     b.x += b.vx * dt;
     b.y += b.vy * dt;
-    if (b.life <= 0 || b.x < -50 || b.y < -50 || b.x > W + 50 || b.y > H + 50) {
-      state.enemyBolts.splice(i, 1);
+    if (b.life <= 0) {
+      state.enemyProjectiles.splice(i, 1);
       continue;
     }
-    if (dist(b.x, b.y, state.player.x, state.player.y) < b.r + 12) {
+    if (dist(b.x, b.y, state.player.x, state.player.y) < b.r + 14) {
       damagePlayer(b.damage);
-      state.enemyBolts.splice(i, 1);
-      for (let k = 0; k < 5; k++) addParticle(b.x, b.y, rand(-120, 120), rand(-120, 120), rand(0.1, 0.24), b.color, 1.5, 10);
+      state.enemyProjectiles.splice(i, 1);
     }
   }
 }
 
-function updateShards(dt) {
+function damagePlayer(amount) {
   const p = state.player;
-  for (let i = state.shards.length - 1; i >= 0; i--) {
-    const s = state.shards[i];
-    s.life -= dt;
-    const dx = p.x - s.x;
-    const dy = p.y - s.y;
-    const d = Math.hypot(dx, dy);
-    if (d < p.magnet) {
-      const pull = 280 + (p.magnet - d) * 3.1;
-      s.vx += (dx / (d || 1)) * pull * dt;
-      s.vy += (dy / (d || 1)) * pull * dt;
+  let dmg = Math.max(1, amount - p.armor * 0.45);
+  if (p.shield > 0) {
+    const used = Math.min(p.shield, dmg);
+    p.shield -= used;
+    dmg -= used;
+  }
+  if (dmg > 0) p.hp -= dmg;
+  if (p.hp <= 0) {
+    p.hp = 0;
+    setOverlay("victory");
+    overlay.querySelector(".overlayTitle").textContent = "패배";
+    overlay.querySelector(".overlayLead").textContent = "플레이어가 쓰러졌습니다. 다시 시도할 수 있습니다.";
+  }
+}
+
+function updateTravel(dt) {
+  if (state.phase !== "travel") return;
+  state.travelT += dt * 1.35;
+  if (state.travelT >= 1) {
+    state.travelT = 1;
+    state.currentNodeIndex = state.travelTo;
+    state.player.tx = nodePositions[state.currentNodeIndex].x;
+    state.player.ty = nodePositions[state.currentNodeIndex].y;
+    state.player.x = state.player.tx;
+    state.player.y = state.player.ty;
+    state.phase = "world";
+    const node = state.world[state.currentNodeIndex];
+    if (node.kind === "combat" && !node.cleared) {
+      if (node.id === "road") {
+        updateStage(4, "첫 조우", "첫 전투 노드에 도착했습니다.");
+        startCombat(node);
+        return;
+      }
     }
-    s.x += s.vx * dt;
-    s.y += s.vy * dt;
-    s.vx *= Math.pow(0.92, dt * 60);
-    s.vy *= Math.pow(0.92, dt * 60);
-    if (d < 18) {
-      state.xp += s.value;
-      state.score += s.value * 0.65;
-      state.player.pulseCharge = Math.min(state.player.pulseChargeMax, state.player.pulseCharge + 3);
-      state.shards.splice(i, 1);
-      for (let k = 0; k < 5; k++) addParticle(s.x, s.y, rand(-80, 80), rand(-80, 80), rand(0.12, 0.32), "rgba(255,215,106,0.95)", 1.5, 9);
-    } else if (s.life <= 0) {
-      state.shards.splice(i, 1);
+    if (node.kind === "reward") {
+      updateStage(6, "레벨업", "레벨업 재능을 고르세요.");
+      openTalentChoice();
+      return;
     }
+    if (node.kind === "relic") {
+      updateStage(7, "장비 장착", "유물을 장착하세요.");
+      openRelicChoice();
+      return;
+    }
+    if (node.kind === "quest") {
+      updateStage(8, "퀘스트 수락", "보스 사냥 퀘스트를 받으세요.");
+      openQuest();
+      return;
+    }
+    if (node.kind === "bossPrep") {
+      updateStage(9, "보스 관문", "최종 관문이 열렸습니다.");
+      openBossPrep();
+      return;
+    }
+    if (node.kind === "boss") {
+      updateStage(10, "보스사냥", "최종 보스전입니다.");
+      enterBossFight();
+      return;
+    }
+    renderActionPanel();
   }
 }
 
-function updateParticles(dt) {
-  for (let i = state.particles.length - 1; i >= 0; i--) {
-    const p = state.particles[i];
-    p.age += dt;
-    p.x += p.vx * dt;
-    p.y += p.vy * dt;
-    p.vx *= Math.pow(0.9, dt * 60);
-    p.vy *= Math.pow(0.9, dt * 60);
-    if (p.age >= p.life) state.particles.splice(i, 1);
-  }
-}
-
-function updateWaves(dt) {
-  state.waveTimer += dt;
+function updateBoss(dt) {
+  if (!state.boss) return;
+  const b = state.boss;
+  b.attackTimer -= dt;
+  b.summonTimer -= dt;
   const p = state.player;
-  if (state.waveTimer >= state.waveDuration) {
-    state.waveTimer = 0;
-    state.wave += 1;
-    state.waveDuration = Math.max(18, 28 - state.wave * 0.55);
-    state.backgroundPulse = 1;
-    shake = Math.max(shake, 3);
+  const d = dist(p.x, p.y, b.x, b.y) || 1;
+  const ux = (p.x - b.x) / d;
+  const uy = (p.y - b.y) / d;
+  if (b.stun > 0) {
+    b.stun -= dt;
+    return;
   }
-
-  const baseRate = 1.8 + state.wave * 0.7;
-  state.spawnBudget += dt * baseRate;
-  while (state.spawnBudget >= 1) {
-    state.spawnBudget -= 1;
-    const roll = Math.random();
-    const type = state.wave < 3 ? "drone" : state.wave < 6 ? (roll < 0.72 ? "drone" : "striker") : roll < 0.52 ? "drone" : roll < 0.83 ? "striker" : "brute";
-    state.enemies.push(spawnEnemy(type));
-  }
-
-  const levelGain = state.xp >= state.nextLevelXp;
-  if (levelGain && state.mode === "playing") {
-    state.xp -= state.nextLevelXp;
-    state.nextLevelXp = Math.floor(state.nextLevelXp * 1.22 + 18);
-    levelUp();
-  }
-
-  if (p.pulseReady) {
-    state.dashHintTimer += dt;
-  }
-}
-
-function updateCamera(dt) {
-  const p = state.player;
-  const targetX = clamp(p.x - viewW * 0.5, 0, Math.max(0, W - viewW));
-  const targetY = clamp(p.y - viewH * 0.5, 0, Math.max(0, H - viewH));
-  camX = lerp(camX, targetX, 1 - Math.pow(0.001, dt));
-  camY = lerp(camY, targetY, 1 - Math.pow(0.001, dt));
-  if (shake > 0) {
-    shake -= dt * 18;
-    const intensity = Math.max(0, shake);
-    shakeX = rand(-intensity, intensity);
-    shakeY = rand(-intensity, intensity);
+  if (b.hp > 280) {
+    b.x += ux * b.speed * 0.45 * dt;
+    b.y += uy * b.speed * 0.45 * dt;
+  } else if (b.hp > 150) {
+    b.x += Math.cos(state.time * 0.8) * 18 * dt;
+    b.y += Math.sin(state.time * 1.1) * 12 * dt;
   } else {
-    shakeX = 0;
-    shakeY = 0;
+    b.x += ux * b.speed * 0.7 * dt;
+    b.y += uy * b.speed * 0.7 * dt;
+  }
+  b.x = clamp(b.x, 80, state.arenaW - 80);
+  b.y = clamp(b.y, 70, state.arenaH - 70);
+
+  if (b.attackTimer <= 0) {
+    const a = Math.atan2(p.y - b.y, p.x - b.x);
+    const burst = b.hp > 220 ? 1 : b.hp > 120 ? 2 : 3;
+    for (let i = -burst; i <= burst; i++) {
+      state.enemyProjectiles.push({
+        x: b.x,
+        y: b.y,
+        vx: Math.cos(a + i * 0.12) * (260 + burst * 20),
+        vy: Math.sin(a + i * 0.12) * (260 + burst * 20),
+        life: 2.2,
+        damage: 12 + burst * 3,
+        color: "#b39cff",
+        r: 5,
+      });
+    }
+    b.attackTimer = b.hp > 120 ? 1.3 : 0.9;
+  }
+  if (b.summonTimer <= 0 && b.hp < 240) {
+    for (let i = 0; i < 2; i++) {
+      const add = createEnemy(Math.random() > 0.5 ? "raider" : "wisp");
+      add.x = rand(120, state.arenaW - 120);
+      add.y = rand(100, state.arenaH - 100);
+      state.enemies.push(add);
+    }
+    b.summonTimer = b.hp > 150 ? 4.5 : 3.2;
   }
 }
 
 function update(dt) {
-  if (state.mode !== "playing") return;
+  state.time += dt;
   updatePlayer(dt);
-  updateDrones(dt);
-  updateWaves(dt);
+  updateTravel(dt);
   updateEnemies(dt);
-  updateBullets(dt);
-  updateShards(dt);
-  updateParticles(dt);
-  updateCamera(dt);
-  state.pulseCooldown = Math.max(0, state.pulseCooldown - dt);
-  state.backgroundPulse = Math.max(0, state.backgroundPulse - dt * 0.75);
-  if (state.score > state.bestScore) {
-    state.bestScore = Math.floor(state.score);
-    localStorage.setItem("nova_drift_best", String(state.bestScore));
+  updateProjectiles(dt);
+  updateBoss(dt);
+  if (state.phase === "combat" && state.enemies.length === 0) {
+    clearCombat();
   }
-  syncHud();
+  if (state.phase === "bossFight" && state.boss && state.boss.hp <= 0) {
+    finishBoss();
+  }
+  if (state.phase === "bossFight" && state.boss) {
+    state.boss.hp = Math.max(0, state.boss.hp);
+  }
+  if (state.phase === "world") {
+    state.player.x = lerp(state.player.x, state.player.tx, 0.1);
+    state.player.y = lerp(state.player.y, state.player.ty, 0.1);
+  }
+  if (state.phase === "world" || state.phase === "combat" || state.phase === "bossFight") {
+    renderHudStats();
+  }
 }
 
-function drawBackground() {
-  const grad = ctx.createLinearGradient(0, 0, 0, viewH);
-  grad.addColorStop(0, "#0a1030");
-  grad.addColorStop(0.55, "#050816");
-  grad.addColorStop(1, "#03050d");
+function renderHudStats() {
+  const p = state.player;
+  if (!p) return;
+  statHp.valueEl.textContent = `${Math.ceil(p.hp)} / ${p.maxHp}`;
+  statMana.valueEl.textContent = `${Math.ceil(p.mana)} / ${p.maxMana}`;
+  statGold.valueEl.textContent = `${Math.floor(p.gold)}`;
+  statStage.valueEl.textContent = `${state.stage} / 10`;
+}
+
+function drawBackground(node) {
+  const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  const bg = node?.bg || ["#171b2b", "#0d111a"];
+  grad.addColorStop(0, bg[0]);
+  grad.addColorStop(1, bg[1]);
   ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, viewW, viewH);
-
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.save();
-  ctx.translate(shakeX, shakeY);
-  const glow = ctx.createRadialGradient(viewW * 0.5, viewH * 0.45, 40, viewW * 0.5, viewH * 0.45, Math.max(viewW, viewH) * 0.8);
-  glow.addColorStop(0, `rgba(66, 115, 255, ${0.12 + state.backgroundPulse * 0.12})`);
-  glow.addColorStop(0.4, "rgba(24, 34, 74, 0.08)");
-  glow.addColorStop(1, "rgba(0,0,0,0)");
-  ctx.fillStyle = glow;
-  ctx.fillRect(0, 0, viewW, viewH);
-
-  for (const s of bgStars) {
-    const px = ((s.x * W - camX * (0.12 + s.z * 0.06)) % W + W) % W;
-    const py = ((s.y * H - camY * (0.12 + s.z * 0.06)) % H + H) % H;
-    const sx = px / W * viewW;
-    const sy = py / H * viewH;
-    ctx.fillStyle = `hsla(${s.hue}, 90%, ${70 + s.z * 12}%, ${0.32 + s.z * 0.45})`;
-    ctx.fillRect(sx, sy, s.z * 1.6, s.z * 1.6);
+  ctx.globalAlpha = 0.2;
+  for (let i = 0; i < 80; i++) {
+    ctx.fillStyle = i % 2 ? "rgba(255,255,255,0.08)" : "rgba(126,247,212,0.08)";
+    const x = (i * 89 + state.time * 12) % canvas.width;
+    const y = (i * 53 + state.time * 20) % canvas.height;
+    ctx.fillRect(x, y, 2, 2);
   }
-
-  const gridStep = 140;
-  ctx.strokeStyle = "rgba(143,181,255,0.08)";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  const startX = -((camX + shakeX) % gridStep);
-  const startY = -((camY + shakeY) % gridStep);
-  for (let x = startX; x < viewW; x += gridStep) {
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, viewH);
-  }
-  for (let y = startY; y < viewH; y += gridStep) {
-    ctx.moveTo(0, y);
-    ctx.lineTo(viewW, y);
-  }
-  ctx.stroke();
-
-  const borderGlow = ctx.createLinearGradient(0, 0, viewW, viewH);
-  borderGlow.addColorStop(0, "rgba(126,247,212,0.22)");
-  borderGlow.addColorStop(0.5, "rgba(143,181,255,0.12)");
-  borderGlow.addColorStop(1, "rgba(255,110,138,0.18)");
-  ctx.strokeStyle = borderGlow;
-  ctx.lineWidth = 2;
-  ctx.strokeRect(14, 14, viewW - 28, viewH - 28);
   ctx.restore();
 }
 
-function worldToScreen(x, y) {
-  return { x: x - camX + shakeX, y: y - camY + shakeY };
-}
-
-function drawShard(s) {
-  const p = worldToScreen(s.x, s.y);
+function drawWorldMap() {
+  const node = state.world[state.currentNodeIndex];
+  drawBackground(node);
   ctx.save();
-  ctx.globalAlpha = 0.65;
-  ctx.fillStyle = "rgba(255,215,106,0.18)";
-  ctx.beginPath();
-  ctx.arc(p.x, p.y, s.glow, 0, TAU);
-  ctx.fill();
-  ctx.restore();
-  drawSprite(sprites.shard, p.x, p.y, 2.6, (s.life * 2.5) % TAU);
-}
-
-function drawEnemy(e) {
-  const p = worldToScreen(e.x, e.y);
-  const pulse = 0.6 + Math.sin((lastTime * 0.004) + e.x * 0.01) * 0.1;
-  ctx.save();
-  ctx.globalAlpha = 0.4;
-  ctx.fillStyle = e.color;
-  ctx.beginPath();
-  ctx.arc(p.x, p.y, e.r * 1.9 + pulse * 2, 0, TAU);
-  ctx.fill();
-  ctx.restore();
-  const sprite = e.type === "drone" ? sprites.drone : e.type === "striker" ? sprites.striker : sprites.brute;
-  const scale = e.type === "drone" ? 4 : e.type === "striker" ? 4 : 4;
-  drawSprite(sprite, p.x, p.y, scale);
-
-  const hpW = e.r * 2.1;
-  ctx.fillStyle = "rgba(255,255,255,0.08)";
-  ctx.fillRect(-hpW * 0.5, e.r + 10, hpW, 4);
-  ctx.fillStyle = "rgba(255,110,138,0.9)";
-  ctx.fillRect(-hpW * 0.5, e.r + 10, hpW * clamp(e.hp / e.maxHp, 0, 1), 4);
-  ctx.restore();
-}
-
-function drawBullet(b) {
-  const p = worldToScreen(b.x, b.y);
-  const sprite = b.color === "#ff7b88" ? sprites.bolt : sprites.bullet;
-  drawSprite(sprite, p.x, p.y, 3);
-}
-
-function drawPlayer() {
-  const p = state.player;
-  const s = worldToScreen(p.x, p.y);
-  const sprite = state.classId === "ranger" ? sprites.ranger : state.classId === "mage" ? sprites.mage : sprites.knight;
-  if (p.dashTime > 0) {
-    ctx.save();
-    ctx.globalAlpha = 0.2;
-    ctx.fillStyle = "rgba(126,247,212,0.5)";
+  ctx.translate((canvas.width - state.worldW) / 2, (canvas.height - state.worldH) / 2);
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = "rgba(142,174,255,0.25)";
+  for (let i = 0; i < state.world.length - 1; i++) {
+    const a = state.world[i];
+    const b = state.world[i + 1];
     ctx.beginPath();
-    ctx.arc(s.x, s.y, 34, 0, TAU);
-    ctx.fill();
-    ctx.restore();
-  }
-  drawSprite(sprite, s.x, s.y, 5, p.angle + Math.PI * 0.5);
-
-  if (p.shield > 0) {
-    ctx.save();
-    ctx.translate(s.x, s.y);
-    ctx.strokeStyle = `rgba(111,184,255,${0.18 + (p.shield / p.maxShield) * 0.4})`;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(0, 0, 26 + (p.shield / p.maxShield) * 4, 0, TAU);
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
     ctx.stroke();
-    ctx.restore();
   }
-}
-
-function drawParticles() {
-  for (const p of state.particles) {
-    const s = worldToScreen(p.x, p.y);
-    const a = 1 - p.age / p.life;
-    ctx.save();
-    ctx.globalAlpha = a;
-    ctx.translate(s.x, s.y);
-    ctx.fillStyle = p.color;
-    ctx.shadowColor = p.color;
-    ctx.shadowBlur = p.glow;
+  for (const n of state.world) {
+    const active = n.index === state.currentNodeIndex;
+    const cleared = n.cleared;
+    ctx.fillStyle = cleared ? "rgba(126,247,212,0.9)" : "rgba(255,255,255,0.45)";
+    if (n.kind === "boss") ctx.fillStyle = "rgba(179,156,255,0.95)";
     ctx.beginPath();
-    ctx.arc(0, 0, p.size, 0, TAU);
+    ctx.arc(n.x, n.y, active ? 18 : 14, 0, TAU);
     ctx.fill();
-    ctx.restore();
-  }
-}
-
-function drawPulseRing() {
-  const p = state.player;
-  if (p.pulseReady || p.pulseCharge > 0) {
-    const ratio = clamp(p.pulseCharge / p.pulseChargeMax, 0, 1);
-    const s = worldToScreen(p.x, p.y);
-    ctx.save();
-    ctx.translate(s.x, s.y);
-    ctx.strokeStyle = `rgba(126,247,212,${0.1 + ratio * 0.5})`;
-    ctx.lineWidth = 3;
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
     ctx.beginPath();
-    ctx.arc(0, 0, p.pulseRadius * ratio, 0, TAU);
-    ctx.stroke();
-    ctx.restore();
+    ctx.arc(n.x, n.y, active ? 7 : 5, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = "#edf3ff";
+    ctx.font = "bold 16px Trebuchet MS, sans-serif";
+    ctx.fillText(n.name, n.x - 42, n.y - 24);
   }
-}
-
-function drawMinimap() {
-  const x = viewW - 168;
-  const y = 18;
-  const w = 150;
-  const h = 150;
-  ctx.save();
-  ctx.fillStyle = "rgba(11,18,32,0.72)";
-  ctx.strokeStyle = "rgba(142,174,255,0.16)";
-  ctx.lineWidth = 1;
-  roundRect(ctx, x, y, w, h, 14);
-  ctx.fill();
-  ctx.stroke();
-  const scaleX = w / W;
-  const scaleY = h / H;
-  ctx.fillStyle = "rgba(126,247,212,0.95)";
-  const p = state.player;
-  ctx.beginPath();
-  ctx.arc(x + p.x * scaleX, y + p.y * scaleY, 3, 0, TAU);
-  ctx.fill();
-  ctx.fillStyle = "rgba(255,110,138,0.85)";
-  for (const e of state.enemies.slice(0, 18)) {
-    ctx.fillRect(x + e.x * scaleX, y + e.y * scaleY, 2, 2);
-  }
+  drawPlayerMarker(state.world[state.currentNodeIndex].x, state.world[state.currentNodeIndex].y, true);
   ctx.restore();
 }
 
-function roundRect(c, x, y, w, h, r) {
-  c.beginPath();
-  c.moveTo(x + r, y);
-  c.arcTo(x + w, y, x + w, y + h, r);
-  c.arcTo(x + w, y + h, x, y + h, r);
-  c.arcTo(x, y + h, x, y, r);
-  c.arcTo(x, y, x + w, y, r);
-  c.closePath();
+function drawPlayerMarker(x, y, worldMode = false) {
+  ctx.save();
+  ctx.translate((canvas.width - state.worldW) / 2 + x, (canvas.height - state.worldH) / 2 + y);
+  ctx.fillStyle = "rgba(126,247,212,0.2)";
+  ctx.beginPath();
+  ctx.arc(0, 0, 28, 0, TAU);
+  ctx.fill();
+  const raceId = state.player?.raceId || "human";
+  drawSprite(SPRITES[raceId], 0, 0, 1.3);
+  ctx.restore();
 }
 
-function render() {
-  drawBackground();
-  drawPulseRing();
-  for (const s of state.shards) drawShard(s);
-  for (const e of state.enemies) drawEnemy(e);
-  for (const b of state.enemyBolts) drawBullet(b);
-  for (const b of state.bullets) drawBullet(b);
-  drawParticles();
-  drawPlayer();
-  drawMinimap();
+function drawArena() {
+  const node = state.world[state.currentNodeIndex];
+  drawBackground(node);
+  const ox = (canvas.width - state.arenaW) / 2;
+  const oy = 42;
+  ctx.save();
+  ctx.translate(ox, oy);
+  ctx.fillStyle = "rgba(0,0,0,0.12)";
+  ctx.fillRect(0, 0, state.arenaW, state.arenaH);
+  ctx.strokeStyle = "rgba(255,255,255,0.12)";
+  ctx.strokeRect(0, 0, state.arenaW, state.arenaH);
+  for (let i = 0; i < 24; i++) {
+    ctx.fillStyle = i % 2 ? "rgba(255,255,255,0.03)" : "rgba(126,247,212,0.03)";
+    ctx.fillRect((i * 41) % state.arenaW, (i * 77) % state.arenaH, 24, 24);
+  }
+  ctx.restore();
+  return { ox, oy };
+}
 
-  if (state.mode === "playing" && state.dashHintTimer > 0) {
-    ctx.save();
-    ctx.fillStyle = "rgba(255,255,255,0.82)";
-    ctx.font = "700 18px Trebuchet MS, sans-serif";
-    ctx.fillText("Dash with Space to break the first trap", 30, viewH - 34);
-    ctx.restore();
+function worldToArena(x, y, ox, oy) {
+  return { x: ox + x, y: oy + y };
+}
+
+function drawCombat(ox, oy) {
+  const p = state.player;
+  for (const proj of state.projectiles) {
+    const x = ox + proj.x;
+    const y = oy + proj.y;
+    ctx.fillStyle = proj.color;
+    ctx.fillRect(x - 2, y - 2, 4, 4);
+  }
+  for (const proj of state.enemyProjectiles) {
+    const x = ox + proj.x;
+    const y = oy + proj.y;
+    ctx.fillStyle = proj.color;
+    ctx.fillRect(x - 3, y - 3, 6, 6);
+  }
+  for (const e of state.enemies) {
+    const sx = ox + e.x;
+    const sy = oy + e.y;
+    drawSprite(SPRITES[e.type], sx, sy, e.type === "brute" ? 1.5 : 1.2);
+    const barW = 28;
+    ctx.fillStyle = "rgba(255,255,255,0.12)";
+    ctx.fillRect(sx - barW / 2, sy + 16, barW, 4);
+    ctx.fillStyle = "#ff7b88";
+    ctx.fillRect(sx - barW / 2, sy + 16, barW * (e.hp / e.maxHp), 4);
+  }
+  if (state.boss) {
+    const b = state.boss;
+    const sx = ox + b.x;
+    const sy = oy + b.y;
+    drawSprite(SPRITES.boss, sx, sy, 2);
+    const barW = 180;
+    ctx.fillStyle = "rgba(255,255,255,0.12)";
+    ctx.fillRect(state.arenaW / 2 - barW / 2, 10, barW, 8);
+    ctx.fillStyle = "#b39cff";
+    ctx.fillRect(state.arenaW / 2 - barW / 2, 10, barW * (b.hp / b.maxHp), 8);
+  }
+  const px = ox + p.x;
+  const py = oy + p.y;
+  ctx.save();
+  if (p.dashTimer > 0) {
+    ctx.globalAlpha = 0.25;
+    ctx.fillStyle = "#7ef7d4";
+    ctx.beginPath();
+    ctx.arc(px, py, 30, 0, TAU);
+    ctx.fill();
+  }
+  drawSprite(SPRITES[p.raceId], px, py, 1.5, p.facing + Math.PI / 2);
+  ctx.restore();
+}
+
+function renderLog() {
+  const small = document.createElement("div");
+  small.className = "logBox";
+  small.innerHTML = `<div class="panelTitle">Log</div>`;
+  for (const line of state.log) {
+    const div = document.createElement("div");
+    div.className = "logLine";
+    div.textContent = line;
+    small.append(div);
+  }
+  return small;
+}
+
+function renderFrame() {
+  const node = state.world[state.currentNodeIndex];
+  if (state.phase === "world" || state.phase === "travel" || state.phase === "reward" || state.phase === "loot" || state.phase === "quest" || state.phase === "bossPrep") {
+    drawWorldMap();
+  } else if (state.phase === "combat" || state.phase === "bossFight") {
+    const { ox, oy } = drawArena();
+    drawCombat(ox, oy);
+  } else {
+    drawBackground(node);
   }
 }
 
 function tick(ts) {
-  if (!lastTime) lastTime = ts;
-  const dt = Math.min(0.033, (ts - lastTime) / 1000);
-  lastTime = ts;
+  if (!state.lastTs) state.lastTs = ts;
+  const dt = Math.min(0.033, (ts - state.lastTs) / 1000);
+  state.lastTs = ts;
   update(dt);
-  render();
+  renderFrame();
   requestAnimationFrame(tick);
 }
 
-enterTitle();
-requestAnimationFrame(tick);
+function openBossPrep() {
+  state.phase = "bossPrep";
+  renderActionPanel();
+  setOverlay("bossPrep");
+}
+
+function createOverlayLog() {
+  const box = document.createElement("div");
+  box.className = "logWrap";
+  box.append(renderLog());
+  return box;
+}
+
+function renderActionPanel() {
+  actionPanel.innerHTML = "";
+  const node = state.world[state.currentNodeIndex];
+  const row = document.createElement("div");
+  row.className = "actionRow";
+  if (state.phase === "world") {
+    if (state.currentNodeIndex < state.world.length - 1) row.append(makeButton("다음 맵", () => travelToNode(state.currentNodeIndex + 1), "primary"));
+    if (state.currentNodeIndex > 0) row.append(makeButton("이전 맵", () => travelToNode(state.currentNodeIndex - 1)));
+    row.append(makeButton("중앙 맞추기", centerCamera));
+  }
+  if (state.phase === "combat" || state.phase === "bossFight") {
+    row.append(makeButton("공격", performAttack, "primary"));
+    row.append(makeButton("특수기", performSpecial));
+    row.append(makeButton("후퇴 카메라", centerCamera));
+  }
+  if (state.phase === "reward" || state.phase === "loot" || state.phase === "quest" || state.phase === "bossPrep") {
+    row.append(makeButton("진행 준비", () => {}, "primary"));
+  }
+  actionPanel.append(row);
+  actionPanel.append(createOverlayLog());
+}
+
+function init() {
+  const style = document.createElement("style");
+  style.textContent = "";
+  document.head.append(style);
+  renderStageList();
+  updateStage(1, "캐릭터 선택", "6종족 중 하나를 골라주세요.");
+  renderHudStats();
+  setOverlay("title");
+  renderActionPanel();
+  resize();
+  requestAnimationFrame(tick);
+}
+
+function resize() {
+  const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+  canvas.width = Math.floor(window.innerWidth * dpr);
+  canvas.height = Math.floor(window.innerHeight * dpr);
+  canvas.style.width = `${window.innerWidth}px`;
+  canvas.style.height = `${window.innerHeight}px`;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+window.addEventListener("resize", resize);
+window.addEventListener("keydown", (e) => {
+  state.keys.add(e.code);
+  if (e.code === "Enter" && state.phase === "title") setOverlay("race");
+  if (e.code === "Escape" && state.phase === "world") centerCamera();
+  if (e.code === "Space") {
+    if (state.phase === "combat" || state.phase === "bossFight") performAttack();
+  }
+  if (e.code === "KeyE") {
+    if (state.phase === "combat" || state.phase === "bossFight") performSpecial();
+  }
+});
+window.addEventListener("keyup", (e) => state.keys.delete(e.code));
+
+canvas.addEventListener("pointermove", (e) => {
+  const r = canvas.getBoundingClientRect();
+  state.pointerX = e.clientX - r.left;
+  state.pointerY = e.clientY - r.top;
+  if (state.phase === "combat" || state.phase === "bossFight") {
+    const ox = (canvas.width - state.arenaW) / 2;
+    const oy = 42;
+    state.pointerWorldX = clamp(state.pointerX - ox, 0, state.arenaW);
+    state.pointerWorldY = clamp(state.pointerY - oy, 0, state.arenaH);
+  }
+});
+
+canvas.addEventListener("pointerdown", () => {
+  state.pointerDown = true;
+  if (state.phase === "title") setOverlay("race");
+  if (state.phase === "combat" || state.phase === "bossFight") performAttack();
+});
+window.addEventListener("pointerup", () => {
+  state.pointerDown = false;
+});
+
+function damagePlayer(amount) {
+  const p = state.player;
+  if (!p) return;
+  let dmg = Math.max(1, amount - p.armor * 0.45);
+  if (p.shield > 0) {
+    const used = Math.min(p.shield, dmg);
+    p.shield -= used;
+    dmg -= used;
+  }
+  if (dmg > 0) p.hp -= dmg;
+  if (p.hp <= 0) {
+    p.hp = 0;
+    state.phase = "victory";
+    overlay.innerHTML = "";
+    setOverlay("victory");
+  }
+}
+
+init();
