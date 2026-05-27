@@ -35,3 +35,13 @@ The run progresses through four Heart-biomes:
 The UI loader tries to load WASM runtime in this order:
 1. `web/rogue.js` (CI build output)
 2. `web/game.js` (legacy/local file name)
+
+## Character Rotation
+
+The player asset build now rotates the `shade` slot every 3 hours. To refresh it manually:
+
+```bash
+npm run rotate:character
+```
+
+For cron, run the same command every 3 hours from the repo root.

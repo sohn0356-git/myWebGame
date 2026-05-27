@@ -4,6 +4,7 @@
   "scripts": {
     "build": "npm run build:web",
     "build:assets": "node scripts/build-player-animations.js",
+    "rotate:character": "bash scripts/rotate-featured-character.sh",
     "build:web": "node --check web/app.js",
     "typecheck:web": "tsc -p tsconfig.json --noEmit",
     "start": "node server.js"

@@ -4,7 +4,9 @@
   "pivotX": 32,
   "pivotY": 42,
   "defaultRaceId": "human",
-  "assetVersion": "hq-v2",
+  "assetVersion": "rot-164807",
+  "generatedAt": "2026-05-27T23:33:38.852Z",
+  "rotationSeed": 164807,
   "races": [
     {
       "id": "human",

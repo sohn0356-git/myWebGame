@@ -111,6 +111,66 @@ const RACES = {
   },
 };
 
+const ROTATION_MS = 3 * 60 * 60 * 1000;
+let ACTIVE_RACES = RACES;
+
+function createRng(seed) {
+  let t = seed >>> 0;
+  return () => {
+    t += 0x6d2b79f5;
+    let r = Math.imul(t ^ (t >>> 15), 1 | t);
+    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function pick(rng, values) {
+  return values[Math.floor(rng() * values.length)];
+}
+
+function hslToHex(h, s, l) {
+  const sat = s / 100;
+  const lig = l / 100;
+  const c = (1 - Math.abs(2 * lig - 1)) * sat;
+  const hp = h / 60;
+  const x = c * (1 - Math.abs((hp % 2) - 1));
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  if (hp >= 0 && hp < 1) [r, g, b] = [c, x, 0];
+  else if (hp < 2) [r, g, b] = [x, c, 0];
+  else if (hp < 3) [r, g, b] = [0, c, x];
+  else if (hp < 4) [r, g, b] = [0, x, c];
+  else if (hp < 5) [r, g, b] = [x, 0, c];
+  else [r, g, b] = [c, 0, x];
+  const m = lig - c / 2;
+  return `#${toHex(Math.round((r + m) * 255))}${toHex(Math.round((g + m) * 255))}${toHex(Math.round((b + m) * 255))}`;
+}
+
+function createRotatingShade(seed) {
+  const rng = createRng(seed);
+  const hue = Math.floor(rng() * 360);
+  const hue2 = (hue + 24 + Math.floor(rng() * 70)) % 360;
+  const hue3 = (hue + 150 + Math.floor(rng() * 50)) % 360;
+  const skinTones = ["#efd5bf", "#e1b58a", "#c98d61", "#8e5e3a", "#f4cfa2"];
+  return {
+    ...RACES.shade,
+    shirt: hslToHex(hue, 58, 55),
+    shirt2: hslToHex(hue, 48, 34),
+    skin: pick(rng, skinTones),
+    hair: hslToHex(hue2, 42, 22),
+    hair2: hslToHex(hue2, 52, 13),
+    pants: hslToHex(hue3, 34, 17),
+    boots: hslToHex(hue3, 24, 9),
+    cape: hslToHex((hue + 210) % 360, 42, 14),
+    accent: hslToHex((hue + 110) % 360, 82, 63),
+    metal: hslToHex(220, 26, 86),
+    metal2: hslToHex(220, 18, 44),
+    outline: hslToHex(hue3, 25, 7),
+    weapon: pick(rng, ["dagger", "saber", "staff", "scythe"]),
+  };
+}
+
 function esc(v) {
   return String(v).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
 }
@@ -125,27 +185,28 @@ function svgEl(tag, attrs = {}, body = "") {
 
 function defsForRace(race) {
   const id = race;
+  const palette = ACTIVE_RACES[race];
   return `
     <defs>
       <linearGradient id="${id}-shirt" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="${RACES[race].shirt}" />
-        <stop offset="100%" stop-color="${RACES[race].shirt2}" />
+        <stop offset="0%" stop-color="${palette.shirt}" />
+        <stop offset="100%" stop-color="${palette.shirt2}" />
       </linearGradient>
       <linearGradient id="${id}-skin" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="${RACES[race].skin}" />
-        <stop offset="100%" stop-color="${shade(RACES[race].skin, -18)}" />
+        <stop offset="0%" stop-color="${palette.skin}" />
+        <stop offset="100%" stop-color="${shade(palette.skin, -18)}" />
       </linearGradient>
       <linearGradient id="${id}-hair" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="${RACES[race].hair}" />
-        <stop offset="100%" stop-color="${RACES[race].hair2}" />
+        <stop offset="0%" stop-color="${palette.hair}" />
+        <stop offset="100%" stop-color="${palette.hair2}" />
       </linearGradient>
       <linearGradient id="${id}-pants" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="${RACES[race].pants}" />
-        <stop offset="100%" stop-color="${shade(RACES[race].pants, -16)}" />
+        <stop offset="0%" stop-color="${palette.pants}" />
+        <stop offset="100%" stop-color="${shade(palette.pants, -16)}" />
       </linearGradient>
       <linearGradient id="${id}-metal" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="${RACES[race].metal}" />
-        <stop offset="100%" stop-color="${RACES[race].metal2}" />
+        <stop offset="0%" stop-color="${palette.metal}" />
+        <stop offset="100%" stop-color="${palette.metal2}" />
       </linearGradient>
       <filter id="${id}-shadow" x="-50%" y="-50%" width="200%" height="200%">
         <feGaussianBlur stdDeviation="1.2" />
@@ -215,7 +276,7 @@ function shadowEllipse(x, y, rx, ry) {
 }
 
 function makeBody(race, frame, mirrored) {
-  const palette = RACES[race];
+  const palette = ACTIVE_RACES[race];
   const o = motionOffset(frame);
   const dir = mirrored ? -1 : 1;
   const y = 0 + o.bob;
@@ -516,6 +577,25 @@ function weaponShape(race, palette, chestY, armFrontX, dir, lift, frame) {
     ].join("\n"));
   }
   if (race === "shade") {
+    if (palette.weapon === "staff") {
+      return svgEl("g", { transform: `translate(${baseX} ${baseY}) rotate(${dir > 0 ? -8 : 8})` }, [
+        svgEl("rect", { x: -1, y: -8, width: 2, height: 17, rx: 1, fill: palette.metal2, stroke: palette.outline, "stroke-width": 0.8 }),
+        svgEl("circle", { cx: 0, cy: -9, r: 3.8, fill: palette.accent, stroke: palette.outline, "stroke-width": 0.8 }),
+        svgEl("circle", { cx: 0, cy: -9, r: 1.6, fill: palette.metal }),
+      ].join("\n"));
+    }
+    if (palette.weapon === "scythe") {
+      return svgEl("g", { transform: `translate(${baseX} ${baseY}) rotate(${dir > 0 ? -16 : 16})` }, [
+        svgEl("rect", { x: -1, y: -6, width: 2, height: 14, rx: 1, fill: palette.metal2, stroke: palette.outline, "stroke-width": 0.8 }),
+        svgEl("path", { d: `M 0 -6 Q 8 -10 7 -1 Q 2 -2 0 0 Z`, fill: palette.accent, stroke: palette.outline, "stroke-width": 0.8 }),
+      ].join("\n"));
+    }
+    if (palette.weapon === "saber") {
+      return svgEl("g", { transform: `translate(${baseX} ${baseY}) rotate(${dir > 0 ? -12 : 12})` }, [
+        svgEl("path", { d: `M -1 -6 L 1 -6 L 0 11 Z`, fill: palette.metal2, stroke: palette.outline, "stroke-width": 0.8 }),
+        svgEl("path", { d: `M -4 -2 Q -2 -6 1 -5 Q 2 -1 -1 1 Z`, fill: palette.accent, stroke: palette.outline, "stroke-width": 0.8 }),
+      ].join("\n"));
+    }
     return svgEl("g", { transform: `translate(${baseX} ${baseY}) rotate(${dir > 0 ? -18 : 18})` }, [
       svgEl("rect", { x: -1, y: -3, width: 2, height: 10, rx: 1, fill: palette.metal2, stroke: palette.outline, "stroke-width": 0.8 }),
       svgEl("rect", { x: -5, y: -1, width: 7, height: 2, rx: 1, fill: palette.accent, stroke: palette.outline, "stroke-width": 0.8 }),
@@ -623,20 +703,25 @@ function writeAll() {
   fs.rmSync(OUT_DIR, { recursive: true, force: true });
   fs.mkdirSync(OUT_DIR, { recursive: true });
 
+  const rotationSeed = Math.floor(Date.now() / ROTATION_MS);
+  ACTIVE_RACES = { ...RACES, shade: createRotatingShade(rotationSeed) };
+
   const manifest = {
     cellWidth: CELL,
     cellHeight: CELL,
     pivotX: 32,
     pivotY: 42,
     defaultRaceId: "human",
-    assetVersion: "hq-v2",
-    races: Object.keys(RACES).map((id) => ({
+    assetVersion: `rot-${rotationSeed}`,
+    generatedAt: new Date().toISOString(),
+    rotationSeed,
+    races: Object.keys(ACTIVE_RACES).map((id) => ({
       id,
       motions: MOTIONS.map((m) => ({ id: m.id, fps: m.fps, loop: m.loop, frames: m.frames })),
     })),
   };
 
-  for (const race of Object.keys(RACES)) {
+  for (const race of Object.keys(ACTIVE_RACES)) {
     const raceDir = path.join(OUT_DIR, race);
     fs.mkdirSync(raceDir, { recursive: true });
     for (const motion of MOTIONS) {

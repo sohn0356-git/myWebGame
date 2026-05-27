@@ -519,7 +519,7 @@ function loadImage(src) {
 }
 
 async function loadPlayerAssets() {
-  const meta = await fetch(`./assets/player/manifest.json?v=${PLAYER_ASSET_BUILD}`).then((res) => {
+  const meta = await fetch(`./assets/player/manifest.json?v=${PLAYER_ASSET_BUILD}`, { cache: "no-store" }).then((res) => {
     if (!res.ok) throw new Error("Failed to load player manifest");
     return res.json();
   });
@@ -585,6 +585,21 @@ function drawPlayerMotion(motionId, frameIndex, x, y, scale, facingDir) {
   );
 }
 
+function drawRacePreview(g, race) {
+  const meta = PLAYER_ASSETS.meta;
+  const previewSheet = PLAYER_ASSETS.sheets[race.id]?.idle?.right || PLAYER_ASSETS.sheets[race.id]?.walk?.right;
+  if (meta && previewSheet) {
+    g.imageSmoothingEnabled = false;
+    g.drawImage(previewSheet, 0, 0, meta.cellWidth, meta.cellHeight, 8, 8, 48, 48);
+    return true;
+  }
+  const icon = SPRITES[race.id] || SPRITES.raider;
+  if (!icon) return false;
+  g.imageSmoothingEnabled = false;
+  g.drawImage(icon, 8, 8, 48, 48);
+  return true;
+}
+
 function currentPlayerMotion() {
   const p = state.player;
   if (!p) return "idle";
@@ -637,6 +652,7 @@ function createPlayer(race) {
     raceId: race.id,
     name: race.name,
     role: race.role,
+    color: race.color,
     x: 0,
     y: 0,
     tx: 0,
@@ -663,7 +679,6 @@ function createPlayer(race) {
     specialName: race.specialName,
     specialCost: race.specialCost,
     dashDistance: 70,
-    burn: false,
     level: 1,
     xp: 0,
     nextXp: 50,
@@ -783,16 +798,14 @@ function setOverlay(mode, data = null) {
     for (const race of RACES) {
       const btn = document.createElement("button");
       btn.className = "raceCard";
-      const icon = SPRITES[race.id];
       const c = document.createElement("canvas");
       c.width = 64;
       c.height = 64;
       const g = c.getContext("2d");
-      if (g && icon) {
-        g.imageSmoothingEnabled = false;
+      if (g) {
         g.fillStyle = "rgba(255,255,255,0.04)";
         g.fillRect(0, 0, 64, 64);
-        g.drawImage(icon, 8, 8, 48, 48);
+        drawRacePreview(g, race);
       }
       btn.append(c);
       const meta = document.createElement("div");
@@ -1018,12 +1031,12 @@ function spawnCombatNode(node) {
   state.player.tx = state.player.x;
   state.player.ty = state.player.y;
   const packs = node.id === "road"
-    ? ["raider", "wisp", "archer", "raider", "stalker"]
+    ? ["orc", "orc", "orc", "orc", "orc"]
     : node.id === "forest"
-      ? ["wisp", "shaman", "stalker", "voidling", "raider"]
+      ? ["orc", "orc", "orc", "orc", "orc"]
       : node.id === "pass"
-        ? ["shield", "raider", "archer", "brute", "voidling"]
-        : ["raider", "archer", "brute", "stalker", "shaman", "voidling"];
+        ? ["orc", "orc", "orc", "orc", "orc"]
+        : ["orc", "orc", "orc", "orc", "orc", "orc"];
   for (const type of packs) {
     const e = createEnemy(type);
     e.x = rand(80, state.arenaW - 80);
@@ -1042,9 +1055,10 @@ function startCombat(node) {
 }
 
 function createEnemy(type) {
-  const def = ENEMY_DEFS[type];
+  const enemyType = type === "boss" ? "boss" : "orc";
+  const def = ENEMY_DEFS[enemyType];
   return {
-    type,
+    type: enemyType,
     name: def.name,
     x: rand(100, state.arenaW - 100),
     y: rand(100, state.arenaH - 100),
@@ -1059,10 +1073,6 @@ function createEnemy(type) {
     score: def.score,
     xp: def.xp,
     attackTimer: rand(0.3, 1.1),
-    ranged: !!def.ranged,
-    support: !!def.support,
-    dashy: !!def.dashy,
-    armored: !!def.armored,
     boss: !!def.boss,
     age: 0,
     spawnTimer: rand(2.5, 4.5),
@@ -1166,7 +1176,7 @@ function performAttack() {
     const radius = p.attackKind === "slam" ? 88 : p.attackKind === "cleave" ? 78 : 62;
     const arc = p.attackKind === "cleave" ? 1.35 : 1.0;
     damageNearbyEnemies(p.x, p.y, radius, damage * arc, a, p.attackKind);
-    for (let i = 0; i < 10; i++) addParticle(p.x, p.y, rand(-220, 220), rand(-220, 220), rand(0.12, 0.3), p.raceId === "orc" ? "#ff7b88" : "#9fb8ff", 2, 8);
+    for (let i = 0; i < 10; i++) addParticle(p.x, p.y, rand(-220, 220), rand(-220, 220), rand(0.12, 0.3), p.color || (p.raceId === "orc" ? "#ff7b88" : "#9fb8ff"), 2, 8);
   } else {
     state.projectiles.push({
       x: p.x,
@@ -1176,7 +1186,7 @@ function performAttack() {
       life: 1.8,
       damage,
       r: 4,
-      color: p.raceId === "shade" ? "#b39cff" : p.raceId === "seraph" ? "#f0d8ff" : "#7ef7d4",
+      color: p.color || (p.raceId === "shade" ? "#b39cff" : p.raceId === "seraph" ? "#f0d8ff" : "#7ef7d4"),
     });
   }
 }
@@ -1240,7 +1250,6 @@ function damageNearbyEnemies(x, y, radius, damage, angle, mode) {
     if (d <= radius) {
       const dealt = damage * clamp(1.2 - d / radius, 0.4, 1.2);
       e.hp -= dealt;
-      if (state.player.burn) e.burn = 1.5;
       if (e.hp <= 0) killEnemy(i);
     }
   }
@@ -1361,34 +1370,8 @@ function updateEnemies(dt) {
     const d = dist(p.x, p.y, e.x, e.y) || 1;
     const ux = (p.x - e.x) / d;
     const uy = (p.y - e.y) / d;
-    if (e.type === "stalker" && d < 220) {
-      const burst = d < 90 ? 1.6 : 1.1;
-      e.vx = lerp(e.vx, ux * e.speed * burst, 0.18);
-      e.vy = lerp(e.vy, uy * e.speed * burst, 0.18);
-    } else if (e.type === "shield") {
-      e.vx = lerp(e.vx, ux * e.speed * 0.6, 0.03);
-      e.vy = lerp(e.vy, uy * e.speed * 0.6, 0.03);
-    } else if (e.type === "wisp" || e.type === "archer" || e.type === "shaman") {
-      const ideal = e.type === "shaman" ? 180 : 240;
-      const drift = d > ideal ? 1 : -0.5;
-      e.vx = lerp(e.vx, ux * e.speed * drift, 0.08);
-      e.vy = lerp(e.vy, uy * e.speed * drift, 0.08);
-    } else {
-      e.vx = lerp(e.vx, ux * e.speed, 0.06);
-      e.vy = lerp(e.vy, uy * e.speed, 0.06);
-    }
-    if (e.dashy && e.spawnTimer <= 0) {
-      e.vx += ux * 260;
-      e.vy += uy * 260;
-      e.spawnTimer = rand(2.2, 3.2);
-    }
-    if (e.support && e.spawnTimer <= 0) {
-      const add = createEnemy("voidling");
-      add.x = clamp(e.x + rand(-24, 24), 40, state.arenaW - 40);
-      add.y = clamp(e.y + rand(-24, 24), 40, state.arenaH - 40);
-      state.enemies.push(add);
-      e.spawnTimer = rand(3.8, 5.2);
-    }
+    e.vx = lerp(e.vx, ux * e.speed, 0.06);
+    e.vy = lerp(e.vy, uy * e.speed, 0.06);
     e.x += e.vx * dt;
     e.y += e.vy * dt;
     e.x = clamp(e.x, 36, state.arenaW - 36);
@@ -1396,41 +1379,6 @@ function updateEnemies(dt) {
     e.attackTimer -= dt;
     if (d < e.r + 18) {
       damagePlayer(e.damage * dt * 5);
-    }
-    if ((e.ranged || e.type === "archer") && e.attackTimer <= 0 && d < 360) {
-      const a = Math.atan2(p.y - e.y, p.x - e.x);
-      state.enemyProjectiles.push({
-        x: e.x,
-        y: e.y,
-        vx: Math.cos(a) * 280,
-        vy: Math.sin(a) * 280,
-        life: 2,
-        damage: e.damage,
-        color: e.color,
-        r: 4,
-      });
-      e.attackTimer = 1.2;
-    }
-    if (e.type === "shaman" && e.attackTimer <= 0 && d < 320) {
-      const a = Math.atan2(p.y - e.y, p.x - e.x);
-      state.enemyProjectiles.push({
-        x: e.x,
-        y: e.y,
-        vx: Math.cos(a) * 220,
-        vy: Math.sin(a) * 220,
-        life: 2.3,
-        damage: e.damage + 2,
-        color: "#b39cff",
-        r: 5,
-      });
-      e.attackTimer = 1.6;
-    }
-    if (e.armored && d < e.r + 24) {
-      p.shield = Math.max(0, p.shield - dt * 8);
-    }
-    if (e.burn) {
-      e.burn -= dt;
-      e.hp -= dt * 5;
     }
     if (e.hp <= 0) killEnemy(i);
   }
@@ -1572,8 +1520,7 @@ function updateBoss(dt) {
   }
   if (b.summonTimer <= 0 && b.hp < 240) {
     for (let i = 0; i < 2; i++) {
-      const pool = b.hp < 120 ? ["raider", "wisp", "archer", "stalker", "voidling"] : ["raider", "wisp", "archer"];
-      const add = createEnemy(pool[Math.floor(Math.random() * pool.length)]);
+      const add = createEnemy("orc");
       add.x = rand(120, state.arenaW - 120);
       add.y = rand(100, state.arenaH - 100);
       state.enemies.push(add);
@@ -1724,8 +1671,8 @@ function drawCombat(ox, oy) {
   for (const e of state.enemies) {
     const sx = ox + e.x;
     const sy = oy + e.y + Math.sin(state.time * 4 + e.x * 0.05) * 1.5;
-    const sprite = SPRITES[e.type] || SPRITES.raider;
-    const scale = e.type === "shield" ? 1.6 : e.type === "brute" ? 1.5 : e.type === "shaman" ? 1.25 : 1.2;
+    const sprite = e.boss ? SPRITES.boss : SPRITES.orc;
+    const scale = e.boss ? 2 : 1.35;
     drawSprite(sprite, sx, sy, scale);
     const barW = 28;
     ctx.fillStyle = "rgba(255,255,255,0.12)";
