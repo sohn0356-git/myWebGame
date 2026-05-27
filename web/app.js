@@ -741,7 +741,8 @@ function setOverlay(mode, data = null) {
   if (mode === "race") {
     card.innerHTML = `
       <div class="overlayTitle">캐릭터 선택</div>
-      <div class="overlayLead">6종족 중 하나를 선택하세요. 종족마다 체력, 이동, 공격 방식이 다릅니다.</div>
+      <div class="overlayLead">게임 시작 즉시 6종족 선택창이 열립니다. 종족마다 체력, 이동, 공격 방식이 다릅니다.</div>
+      <div class="overlayMini">첫 화면이 비어 보이면 아래 종족 카드 중 하나를 바로 선택하세요.</div>
     `;
     const grid = document.createElement("div");
     grid.className = "raceGrid";
@@ -1861,7 +1862,7 @@ function init() {
   renderStageList();
   updateStage(1, "캐릭터 선택", "6종족 중 하나를 골라주세요.");
   renderHudStats();
-  setOverlay("title");
+  setOverlay("race");
   renderActionPanel();
   resize();
   requestAnimationFrame(tick);
