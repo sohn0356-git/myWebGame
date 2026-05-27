@@ -1,9 +1,10 @@
 {
   "cellWidth": 64,
   "cellHeight": 64,
-  "pivotX": 8,
-  "pivotY": 13,
+  "pivotX": 32,
+  "pivotY": 42,
   "defaultRaceId": "human",
+  "assetVersion": "clean-v1",
   "races": [
     {
       "id": "human",

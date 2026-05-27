@@ -601,11 +601,12 @@ async function loadPlayerAssets() {
     if (!res.ok) throw new Error("Failed to load player manifest");
     return res.json();
   });
+  const assetVersion = meta.assetVersion || "1";
   const sheetLoads = [];
   for (const race of meta.races || []) {
     for (const motion of race.motions || []) {
-      sheetLoads.push(loadImage(`./assets/player/${race.id}/${motion.id}-right.svg`));
-      sheetLoads.push(loadImage(`./assets/player/${race.id}/${motion.id}-left.svg`));
+      sheetLoads.push(loadImage(`./assets/player/${race.id}/${motion.id}-right.svg?v=${assetVersion}`));
+      sheetLoads.push(loadImage(`./assets/player/${race.id}/${motion.id}-left.svg?v=${assetVersion}`));
     }
   }
   const images = await Promise.all(sheetLoads);
