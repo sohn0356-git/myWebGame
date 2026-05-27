@@ -339,6 +339,22 @@ button.primary {
   max-width: 70ch;
 }
 
+.titleHero {
+  display: grid;
+  grid-template-columns: minmax(220px, 320px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: center;
+}
+
+.featuredCharacter {
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+  display: block;
+  justify-self: center;
+  filter: drop-shadow(0 24px 40px rgba(0, 0, 0, 0.35));
+}
+
 .overlayMini {
   margin-top: 12px;
   color: var(--text);
@@ -409,6 +425,10 @@ button.primary {
 @media (max-width: 1100px) {
   .topBar,
   .bottomRow {
+    grid-template-columns: 1fr;
+  }
+
+  .titleHero {
     grid-template-columns: 1fr;
   }
 

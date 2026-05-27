@@ -772,9 +772,14 @@ function setOverlay(mode, data = null) {
 
   if (mode === "title") {
     card.innerHTML = `
-      <div class="overlayTitle">Eclipse Solo RPG</div>
-      <div class="overlayLead">6종족을 고르고, 월드맵을 이동하고, 보스까지 잡는 솔로 액션 RPG입니다.</div>
-      <div class="overlayMini">진행 흐름: 캐릭터 선택 -> 맵 구성 -> 이동 -> 첫 조우 -> 전투 -> 레벨업 -> 장비 -> 퀘스트 -> 관문 -> 보스사냥</div>
+      <div class="titleHero">
+        <img class="featuredCharacter" src="./assets/featured/featured-character.png?v=1" alt="Featured character" />
+        <div>
+          <div class="overlayTitle">Eclipse Solo RPG</div>
+          <div class="overlayLead">6종족을 고르고, 월드맵을 이동하고, 보스까지 잡는 솔로 액션 RPG입니다.</div>
+          <div class="overlayMini">진행 흐름: 캐릭터 선택 -> 맵 구성 -> 이동 -> 첫 조우 -> 전투 -> 레벨업 -> 장비 -> 퀘스트 -> 관문 -> 보스사냥</div>
+        </div>
+      </div>
     `;
     const row = document.createElement("div");
     row.className = "buttonRow";
