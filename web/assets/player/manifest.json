@@ -1,0 +1,219 @@
+{
+  "cellWidth": 64,
+  "cellHeight": 64,
+  "pivotX": 8,
+  "pivotY": 13,
+  "defaultRaceId": "human",
+  "races": [
+    {
+      "id": "human",
+      "motions": [
+        {
+          "id": "idle",
+          "fps": 4,
+          "loop": true,
+          "frames": 4
+        },
+        {
+          "id": "walk",
+          "fps": 8,
+          "loop": true,
+          "frames": 6
+        },
+        {
+          "id": "run",
+          "fps": 12,
+          "loop": true,
+          "frames": 7
+        },
+        {
+          "id": "jump",
+          "fps": 6,
+          "loop": false,
+          "frames": 5
+        },
+        {
+          "id": "attack",
+          "fps": 10,
+          "loop": false,
+          "frames": 6
+        }
+      ]
+    },
+    {
+      "id": "elf",
+      "motions": [
+        {
+          "id": "idle",
+          "fps": 4,
+          "loop": true,
+          "frames": 4
+        },
+        {
+          "id": "walk",
+          "fps": 8,
+          "loop": true,
+          "frames": 6
+        },
+        {
+          "id": "run",
+          "fps": 12,
+          "loop": true,
+          "frames": 7
+        },
+        {
+          "id": "jump",
+          "fps": 6,
+          "loop": false,
+          "frames": 5
+        },
+        {
+          "id": "attack",
+          "fps": 10,
+          "loop": false,
+          "frames": 6
+        }
+      ]
+    },
+    {
+      "id": "dwarf",
+      "motions": [
+        {
+          "id": "idle",
+          "fps": 4,
+          "loop": true,
+          "frames": 4
+        },
+        {
+          "id": "walk",
+          "fps": 8,
+          "loop": true,
+          "frames": 6
+        },
+        {
+          "id": "run",
+          "fps": 12,
+          "loop": true,
+          "frames": 7
+        },
+        {
+          "id": "jump",
+          "fps": 6,
+          "loop": false,
+          "frames": 5
+        },
+        {
+          "id": "attack",
+          "fps": 10,
+          "loop": false,
+          "frames": 6
+        }
+      ]
+    },
+    {
+      "id": "orc",
+      "motions": [
+        {
+          "id": "idle",
+          "fps": 4,
+          "loop": true,
+          "frames": 4
+        },
+        {
+          "id": "walk",
+          "fps": 8,
+          "loop": true,
+          "frames": 6
+        },
+        {
+          "id": "run",
+          "fps": 12,
+          "loop": true,
+          "frames": 7
+        },
+        {
+          "id": "jump",
+          "fps": 6,
+          "loop": false,
+          "frames": 5
+        },
+        {
+          "id": "attack",
+          "fps": 10,
+          "loop": false,
+          "frames": 6
+        }
+      ]
+    },
+    {
+      "id": "seraph",
+      "motions": [
+        {
+          "id": "idle",
+          "fps": 4,
+          "loop": true,
+          "frames": 4
+        },
+        {
+          "id": "walk",
+          "fps": 8,
+          "loop": true,
+          "frames": 6
+        },
+        {
+          "id": "run",
+          "fps": 12,
+          "loop": true,
+          "frames": 7
+        },
+        {
+          "id": "jump",
+          "fps": 6,
+          "loop": false,
+          "frames": 5
+        },
+        {
+          "id": "attack",
+          "fps": 10,
+          "loop": false,
+          "frames": 6
+        }
+      ]
+    },
+    {
+      "id": "shade",
+      "motions": [
+        {
+          "id": "idle",
+          "fps": 4,
+          "loop": true,
+          "frames": 4
+        },
+        {
+          "id": "walk",
+          "fps": 8,
+          "loop": true,
+          "frames": 6
+        },
+        {
+          "id": "run",
+          "fps": 12,
+          "loop": true,
+          "frames": 7
+        },
+        {
+          "id": "jump",
+          "fps": 6,
+          "loop": false,
+          "frames": 5
+        },
+        {
+          "id": "attack",
+          "fps": 10,
+          "loop": false,
+          "frames": 6
+        }
+      ]
+    }
+  ]
+}

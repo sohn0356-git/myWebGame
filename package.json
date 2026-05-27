@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "build": "npm run build:web",
+    "build:assets": "node scripts/build-player-animations.js",
     "build:web": "node --check web/app.js",
     "typecheck:web": "tsc -p tsconfig.json --noEmit",
     "start": "node server.js"

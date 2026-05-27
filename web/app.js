@@ -582,6 +582,123 @@ function drawSprite(sprite, x, y, size, rot = 0) {
   ctx.restore();
 }
 
+const PLAYER_ASSETS = {
+  meta: null,
+  sheets: {},
+};
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error(`Failed to load ${src}`));
+    img.src = src;
+  });
+}
+
+async function loadPlayerAssets() {
+  const meta = await fetch("./assets/player/manifest.json").then((res) => {
+    if (!res.ok) throw new Error("Failed to load player manifest");
+    return res.json();
+  });
+  const sheetLoads = [];
+  for (const race of meta.races || []) {
+    for (const motion of race.motions || []) {
+      sheetLoads.push(loadImage(`./assets/player/${race.id}/${motion.id}-right.svg`));
+      sheetLoads.push(loadImage(`./assets/player/${race.id}/${motion.id}-left.svg`));
+    }
+  }
+  const images = await Promise.all(sheetLoads);
+  PLAYER_ASSETS.meta = meta;
+  PLAYER_ASSETS.sheets = {};
+  let index = 0;
+  for (const race of meta.races || []) {
+    PLAYER_ASSETS.sheets[race.id] = {};
+    for (const motion of race.motions || []) {
+      PLAYER_ASSETS.sheets[race.id][motion.id] = {
+        right: images[index++],
+        left: images[index++],
+      };
+    }
+  }
+}
+
+function getMotionMeta(id) {
+  const raceId = state.player?.raceId || PLAYER_ASSETS.meta?.defaultRaceId || "human";
+  const race = PLAYER_ASSETS.meta?.races?.find((item) => item.id === raceId) || PLAYER_ASSETS.meta?.races?.[0];
+  return race?.motions?.find((motion) => motion.id === id) || null;
+}
+
+function getPlayerSheet(facingDir) {
+  return facingDir < 0 ? "left" : "right";
+}
+
+function drawPlayerMotion(motionId, frameIndex, x, y, scale, facingDir) {
+  const meta = PLAYER_ASSETS.meta;
+  const raceId = state.player?.raceId || meta?.defaultRaceId || "human";
+  const sheetSet = PLAYER_ASSETS.sheets[raceId]?.[motionId];
+  if (!meta || !sheetSet) return;
+  const motion = getMotionMeta(motionId);
+  if (!motion) return;
+  const sheet = sheetSet[getPlayerSheet(facingDir)];
+  if (!sheet) return;
+  const cellW = meta.cellWidth;
+  const cellH = meta.cellHeight;
+  const pivotX = meta.pivotX;
+  const pivotY = meta.pivotY;
+  const frameCount = motion.frames;
+  const idx = ((frameIndex % frameCount) + frameCount) % frameCount;
+  const sx = idx * cellW;
+  ctx.drawImage(
+    sheet,
+    sx,
+    0,
+    cellW,
+    cellH,
+    x - pivotX * scale,
+    y - pivotY * scale,
+    cellW * scale,
+    cellH * scale,
+  );
+}
+
+function currentPlayerMotion() {
+  const p = state.player;
+  if (!p) return "idle";
+  if (p.attackAnimTimer > 0) return "attack";
+  if (p.jumpAnimTimer > 0 || p.dashTimer > 0) return "jump";
+  if (state.phase === "combat" || state.phase === "bossFight") {
+    const speed = Math.hypot(p.vx, p.vy);
+    if (speed > p.speed * 0.78) return "run";
+    if (speed > 18) return "walk";
+    return "idle";
+  }
+  const travelDist = Math.hypot(p.tx - p.x, p.ty - p.y);
+  if (state.phase === "travel" || travelDist > 5) return "walk";
+  return "idle";
+}
+
+function updatePlayerAnimation(dt) {
+  const p = state.player;
+  if (!p || !PLAYER_ASSETS.meta) return;
+  const motion = currentPlayerMotion();
+  if (p.motion !== motion) {
+    p.motion = motion;
+    p.motionTime = 0;
+    p.motionFrame = 0;
+  }
+  p.motionTime += dt;
+  const meta = getMotionMeta(motion);
+  if (!meta) return;
+  const frameCount = meta.frames;
+  const fps = meta.fps;
+  if (meta.loop) {
+    p.motionFrame = Math.floor(p.motionTime * fps) % frameCount;
+  } else {
+    p.motionFrame = Math.min(frameCount - 1, Math.floor(p.motionTime * fps));
+  }
+}
+
 function createWorld() {
   return WORLD_PATH.map((node, index) => ({
     ...node,
@@ -632,6 +749,12 @@ function createPlayer(race) {
     relics: [],
     specialTimer: 0,
     dashTimer: 0,
+    jumpAnimTimer: 0,
+    attackAnimTimer: 0,
+    motion: "idle",
+    motionTime: 0,
+    motionFrame: 0,
+    facingDir: 1,
   };
 }
 
@@ -939,6 +1062,8 @@ function travelToNode(index) {
   state.travelTo = index;
   state.travelT = 0;
   state.targetNodeIndex = index;
+  state.player.jumpAnimTimer = 0.45;
+  state.player.motionTime = 0;
   updateStage(Math.max(state.stage, 3), "맵 이동", `이동 중: ${state.world[index].name}`);
   logLine(`Travel to ${state.world[index].name}`);
   renderActionPanel();
@@ -1150,6 +1275,8 @@ function performAttack() {
   const crit = Math.random() < p.crit;
   const damage = p.attackDamage * (crit ? 1.8 : 1);
   p.attackTimer = p.attackCooldown;
+  p.attackAnimTimer = 0.4;
+  p.motionTime = 0;
 
   if (p.attackKind === "slash" || p.attackKind === "cleave" || p.attackKind === "slam") {
     const radius = p.attackKind === "slam" ? 88 : p.attackKind === "cleave" ? 78 : 62;
@@ -1206,6 +1333,8 @@ function performSpecial() {
     p.x = clamp(p.x + Math.cos(a) * p.dashDistance, 48, state.arenaW - 48);
     p.y = clamp(p.y + Math.sin(a) * p.dashDistance, 48, state.arenaH - 48);
     p.dashTimer = 0.35;
+    p.jumpAnimTimer = 0.35;
+    p.motionTime = 0;
     damageNearbyEnemies(p.x, p.y, 76, p.attackDamage * 1.3, a, "dash");
   }
   logLine(`${p.specialName} used.`);
@@ -1323,6 +1452,8 @@ function updatePlayer(dt) {
   p.attackTimer = Math.max(0, p.attackTimer - dt);
   p.specialTimer = Math.max(0, p.specialTimer - dt);
   p.dashTimer = Math.max(0, p.dashTimer - dt);
+  p.attackAnimTimer = Math.max(0, p.attackAnimTimer - dt);
+  p.jumpAnimTimer = Math.max(0, p.jumpAnimTimer - dt);
   p.mana = Math.min(p.maxMana, p.mana + p.manaRegen * dt);
   p.shield = Math.min(p.maxShield, p.shield + p.shieldRegen * dt);
 
@@ -1342,6 +1473,7 @@ function updatePlayer(dt) {
     }
     const aim = attackAngle();
     p.facing = aim;
+    p.facingDir = Math.cos(aim) < 0 ? -1 : 1;
     const speed = Math.hypot(p.vx, p.vy);
     const maxSpeed = p.speed * (p.dashTimer > 0 ? 1.45 : 1);
     if (speed > maxSpeed) {
@@ -1359,6 +1491,8 @@ function updatePlayer(dt) {
   if (state.phase === "world") {
     p.x = lerp(p.x, p.tx, 0.18);
     p.y = lerp(p.y, p.ty, 0.18);
+    const dx = p.tx - p.x;
+    p.facingDir = dx < 0 ? -1 : 1;
   }
 }
 
@@ -1616,6 +1750,7 @@ function updateBoss(dt) {
 function update(dt) {
   state.time += dt;
   updatePlayer(dt);
+  updatePlayerAnimation(dt);
   updateTravel(dt);
   updateEnemies(dt);
   updateProjectiles(dt);
@@ -1707,8 +1842,10 @@ function drawPlayerMarker(x, y, worldMode = false) {
   ctx.beginPath();
   ctx.arc(0, 0, 28, 0, TAU);
   ctx.fill();
-  const raceId = state.player?.raceId || "human";
-  drawSprite(SPRITES[raceId], 0, 0, 1.3);
+  const p = state.player;
+  if (p) {
+    drawPlayerMotion(p.motion || "idle", p.motionFrame || 0, 0, 0, 0.7, p.facingDir || 1);
+  }
   ctx.restore();
 }
 
@@ -1782,7 +1919,7 @@ function drawCombat(ox, oy) {
     ctx.arc(px, py, 30, 0, TAU);
     ctx.fill();
   }
-  drawSprite(SPRITES[p.raceId], px, py, 1.5, p.facing + Math.PI / 2);
+  drawPlayerMotion(p.motion || "idle", p.motionFrame || 0, px, py, 1.4, p.facingDir || 1);
   ctx.restore();
 }
 
@@ -1855,7 +1992,8 @@ function renderActionPanel() {
   actionPanel.append(createOverlayLog());
 }
 
-function init() {
+async function init() {
+  await loadPlayerAssets();
   const style = document.createElement("style");
   style.textContent = "";
   document.head.append(style);
@@ -1930,4 +2068,15 @@ function damagePlayer(amount) {
   }
 }
 
-init();
+init().catch((err) => {
+  console.error(err);
+  overlay.innerHTML = "";
+  overlay.classList.add("show");
+  const card = document.createElement("div");
+  card.className = "overlayCard";
+  card.innerHTML = `
+    <div class="overlayTitle">Asset Load Failed</div>
+    <div class="overlayLead">${String(err?.message || err)}</div>
+  `;
+  overlay.append(card);
+});
