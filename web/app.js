@@ -168,10 +168,9 @@ const RELICS = [
     id: "sunblade",
     name: "Sunblade",
     tag: "Weapon",
-    desc: "+8 damage, attacks burn enemies for a moment.",
+    desc: "+8 damage.",
     apply(p) {
       p.attackDamage += 8;
-      p.burn = true;
     },
   },
   {
@@ -198,90 +197,15 @@ const RELICS = [
 ];
 
 const ENEMY_DEFS = {
-  raider: {
-    name: "Raider",
-    hp: 34,
-    speed: 120,
-    damage: 7,
-    color: "#ff7b88",
-    r: 14,
-    score: 20,
-    xp: 14,
-  },
-  wisp: {
-    name: "Wisp",
-    hp: 24,
-    speed: 160,
-    damage: 5,
-    color: "#7ef7d4",
-    r: 12,
-    score: 18,
-    xp: 12,
-    ranged: true,
-  },
-  brute: {
-    name: "Brute",
-    hp: 62,
-    speed: 86,
-    damage: 11,
-    color: "#ffd76a",
-    r: 18,
-    score: 34,
-    xp: 22,
-  },
-  archer: {
-    name: "Ash Archer",
-    hp: 26,
-    speed: 148,
-    damage: 6,
-    color: "#9fb8ff",
-    r: 12,
-    score: 22,
-    xp: 15,
-    ranged: true,
-  },
-  shaman: {
-    name: "Rune Shaman",
-    hp: 30,
+  orc: {
+    name: "Orc",
+    hp: 56,
     speed: 112,
-    damage: 4,
-    color: "#b39cff",
-    r: 14,
-    score: 28,
-    xp: 18,
-    support: true,
-  },
-  stalker: {
-    name: "Stalker",
-    hp: 22,
-    speed: 198,
-    damage: 8,
-    color: "#67f7d4",
-    r: 11,
-    score: 25,
+    damage: 9,
+    color: "#ff7b88",
+    r: 16,
+    score: 24,
     xp: 16,
-    dashy: true,
-  },
-  shield: {
-    name: "Shield Bearer",
-    hp: 88,
-    speed: 72,
-    damage: 10,
-    color: "#ffd76a",
-    r: 20,
-    score: 38,
-    xp: 26,
-    armored: true,
-  },
-  voidling: {
-    name: "Voidling",
-    hp: 16,
-    speed: 176,
-    damage: 4,
-    color: "#7ef7d4",
-    r: 10,
-    score: 12,
-    xp: 9,
   },
   boss: {
     name: "Eclipse Tyrant",
@@ -357,9 +281,6 @@ topBar.append(leftInfo, stats);
 const bottomRow = document.createElement("div");
 bottomRow.className = "bottomRow";
 
-const stageList = document.createElement("div");
-stageList.className = "stageList";
-
 const objectiveBox = document.createElement("div");
 objectiveBox.className = "panel objective";
 objectiveBox.innerHTML = `
@@ -375,7 +296,7 @@ stageBanner.textContent = "STAGE 1 - 캐릭터 선택";
 const actionPanel = document.createElement("div");
 actionPanel.className = "actionPanel";
 
-bottomRow.append(stageList, objectiveBox, actionPanel);
+bottomRow.append(objectiveBox, actionPanel);
 hud.append(topBar, bottomRow);
 
 rootWrap.append(canvas, stageBanner, overlay, hud);
@@ -586,6 +507,7 @@ const PLAYER_ASSETS = {
   meta: null,
   sheets: {},
 };
+const PLAYER_ASSET_BUILD = "hq-v2";
 
 function loadImage(src) {
   return new Promise((resolve, reject) => {
@@ -597,7 +519,7 @@ function loadImage(src) {
 }
 
 async function loadPlayerAssets() {
-  const meta = await fetch("./assets/player/manifest.json").then((res) => {
+  const meta = await fetch(`./assets/player/manifest.json?v=${PLAYER_ASSET_BUILD}`).then((res) => {
     if (!res.ok) throw new Error("Failed to load player manifest");
     return res.json();
   });
@@ -818,19 +740,7 @@ function updateStage(stage, objective, detail) {
 }
 
 function renderStageList() {
-  stageList.innerHTML = "";
-  for (const item of STAGES) {
-    const row = document.createElement("div");
-    row.className = `stageRow ${item.id < state.stage ? "done" : item.id === state.stage ? "active" : ""}`;
-    row.innerHTML = `
-      <div class="stageNum">${item.id}</div>
-      <div class="stageText">
-        <div class="stageTitle">${item.title}</div>
-        <div class="stageDesc">${item.desc}</div>
-      </div>
-    `;
-    stageList.append(row);
-  }
+  return;
 }
 
 function setOverlay(mode, data = null) {

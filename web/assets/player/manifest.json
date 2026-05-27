@@ -4,7 +4,7 @@
   "pivotX": 32,
   "pivotY": 42,
   "defaultRaceId": "human",
-  "assetVersion": "clean-v1",
+  "assetVersion": "hq-v2",
   "races": [
     {
       "id": "human",

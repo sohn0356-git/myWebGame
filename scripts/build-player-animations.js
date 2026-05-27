@@ -629,7 +629,7 @@ function writeAll() {
     pivotX: 32,
     pivotY: 42,
     defaultRaceId: "human",
-    assetVersion: "clean-v1",
+    assetVersion: "hq-v2",
     races: Object.keys(RACES).map((id) => ({
       id,
       motions: MOTIONS.map((m) => ({ id: m.id, fps: m.fps, loop: m.loop, frames: m.frames })),
