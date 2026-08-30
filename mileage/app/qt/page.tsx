@@ -1,23 +1,17 @@
 "use client";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { BookOpen, CheckCircle, Calendar } from "lucide-react";
-import AppShell from "@/components/AppShell";
 import PageHeader from "@/components/PageHeader";
 import Card from "@/components/Card";
 import { useApp } from "@/lib/store-context";
 
-export default function QTPage() {
-  const router = useRouter();
+export default function QTContent() {
   const { student, isLoggedIn, qtToday, isQTDoneToday, completeQT, qtRecords } = useApp();
   const [remembered, setRemembered] = useState("");
   const [application, setApplication] = useState("");
   const [justCompleted, setJustCompleted] = useState(false);
 
-  useEffect(() => { if (!isLoggedIn) router.replace("/login"); }, [isLoggedIn, router]);
   if (!student || !isLoggedIn) return null;
-
-  const today = new Date().toISOString().slice(0, 10);
 
   const handleComplete = () => {
     if (!remembered.trim() || !application.trim()) return;
@@ -26,12 +20,11 @@ export default function QTPage() {
   };
 
   return (
-    <AppShell active="qt">
+    <div>
       <div className="px-5 pt-7">
         <PageHeader title="오늘의 QT" subtitle={qtToday.date} right={<BookOpen size={18} className="text-indigo-400" />} />
       </div>
 
-      {/* QT Content */}
       <section className="mt-3 px-5">
         <Card>
           <div className="flex items-center gap-2">
@@ -45,7 +38,6 @@ export default function QTPage() {
         </Card>
       </section>
 
-      {/* Completion State or Input */}
       {!isQTDoneToday && !justCompleted ? (
         <section className="mt-5 px-5">
           <div className="space-y-3">
@@ -93,7 +85,6 @@ export default function QTPage() {
         </section>
       )}
 
-      {/* History */}
       <section className="mt-5 px-5 pb-6">
         <div className="flex items-center gap-2">
           <Calendar size={16} className="text-neutral-400" />
@@ -103,7 +94,7 @@ export default function QTPage() {
           {qtRecords.length === 0 && (
             <p className="py-6 text-center text-sm text-neutral-400">아직 QT 기록이 없어요.</p>
           )}
-          {qtRecords.slice().reverse().map((r, i) => (
+          {qtRecords.slice().reverse().map(r => (
             <Card key={r.id} className="!p-3.5">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-bold text-neutral-700">{r.date}</p>
@@ -114,6 +105,6 @@ export default function QTPage() {
           ))}
         </div>
       </section>
-    </AppShell>
+    </div>
   );
 }
