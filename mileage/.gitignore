@@ -4,3 +4,7 @@ dist/
 .env
 .env.local
 .DS_Store
+
+# Next.js build artifacts
+next-env.d.ts
+tsconfig.tsbuildinfo
