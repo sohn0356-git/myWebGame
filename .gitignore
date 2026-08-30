@@ -7,3 +7,8 @@ node_modules/
 # Local build outputs (not used now)
 dist/
 build/
+# Python virtual environment
+.venv/
+
+# Temporary generated artifacts
+tmp/
