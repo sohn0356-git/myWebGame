@@ -211,32 +211,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   /* ── LOGIN ── */
   const login = useCallback(async (name: string, birthDate: string): Promise<boolean> => {
     // Check admin/teacher accounts first (highest priority)
-    try {
-      const { seedUsers } = await import("./admin-seed-data");
-      const knownUser = seedUsers.find(
-        u => u.name === name.trim() && u.birthDate === birthDate.trim()
-      );
-      if (knownUser && (knownUser.role === "teacher" || knownUser.role === "admin")) {
-        const t: Student = {
-          id: knownUser.id,
-          name: knownUser.name,
-          birthDate: knownUser.birthDate,
-          classId: "c1",
-          mileage: 0,
-          isTeacher: true,
-          role: knownUser.role,
-          assignedClassIds: knownUser.assignedClassIds,
-        };
-        setSession(t);
-        setStudent(t);
-        setQtDoneToday(isQTCompletedToday());
-        setQtRecords(getQTRecords());
-        setCompletedMissionIds(getCompletedMissions().map(m => m.missionId));
-        setPrayers(getPrayers());
-        setTxns(getTransactions());
-        return true;
-      }
-    } catch { /* ignore */ }
+    const adminMap: Record<string, { id: string; role: string; assignedClassIds?: string[] }> = {
+      "홍길동": { id: "s1", role: "admin", assignedClassIds: ["c1"] },
+      "김선생": { id: "t001", role: "teacher", assignedClassIds: ["c1", "c2"] },
+      "이선생": { id: "t002", role: "teacher", assignedClassIds: ["c3", "c4"] },
+      "박선생": { id: "t003", role: "teacher", assignedClassIds: ["c5", "c6"] },
+      "최목사": { id: "t004", role: "admin" },
+      "관리자": { id: "a001", role: "admin" },
+    };
+    const knownUser = adminMap[name.trim()];
+    if (knownUser) {
+      const t: Student = {
+        id: knownUser.id,
+        name: name.trim(),
+        birthDate: birthDate.trim(),
+        classId: "c1",
+        mileage: 0,
+        isTeacher: true,
+        role: knownUser.role as any,
+        assignedClassIds: knownUser.assignedClassIds,
+      };
+      setSession(t);
+      setStudent(t);
+      setQtDoneToday(isQTCompletedToday());
+      setQtRecords(getQTRecords());
+      setCompletedMissionIds(getCompletedMissions().map(m => m.missionId));
+      setPrayers(getPrayers());
+      setTxns(getTransactions());
+      return true;
+    }
 
     // Try Supabase next
     if (isSupabaseReady) {
