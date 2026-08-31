@@ -194,7 +194,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   /* ── LOGIN ── */
   const login = useCallback(async (name: string, birthDate: string): Promise<boolean> => {
-    // Try Supabase first
+    // Check admin/teacher accounts first (highest priority)
+    try {
+      const { seedUsers } = await import("./admin-seed-data");
+      const knownUser = seedUsers.find(
+        u => u.name === name.trim() && u.birthDate === birthDate.trim()
+      );
+      if (knownUser && (knownUser.role === "teacher" || knownUser.role === "admin")) {
+        const t: Student = {
+          id: knownUser.id,
+          name: knownUser.name,
+          birthDate: knownUser.birthDate,
+          classId: "c1",
+          mileage: 0,
+          isTeacher: true,
+          role: knownUser.role,
+          assignedClassIds: knownUser.assignedClassIds,
+        };
+        setSession(t);
+        setStudent(t);
+        setQtDoneToday(isQTCompletedToday());
+        setQtRecords(getQTRecords());
+        setCompletedMissionIds(getCompletedMissions().map(m => m.missionId));
+        setPrayers(getPrayers());
+        setTxns(getTransactions());
+        return true;
+      }
+    } catch { /* ignore */ }
+
+    // Try Supabase next
     if (isSupabaseReady) {
       try {
         const mod = await import("./supabase");
@@ -253,32 +281,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }
         }
       } catch { /* fall through to local mock */ }
-    }
-
-    // Check admin/teacher accounts first
-    const { seedUsers } = await import("./admin-seed-data");
-    const knownUser = seedUsers.find(
-      u => u.name === name.trim() && u.birthDate === birthDate.trim()
-    );
-    if (knownUser && (knownUser.role === "teacher" || knownUser.role === "admin")) {
-      const t: Student = {
-        id: knownUser.id,
-        name: knownUser.name,
-        birthDate: knownUser.birthDate,
-        classId: "c1",
-        mileage: 0,
-        isTeacher: true,
-        role: knownUser.role,
-        assignedClassIds: knownUser.assignedClassIds,
-      };
-      setSession(t);
-      setStudent(t);
-      setQtDoneToday(isQTCompletedToday());
-      setQtRecords(getQTRecords());
-      setCompletedMissionIds(getCompletedMissions().map(m => m.missionId));
-      setPrayers(getPrayers());
-      setTxns(getTransactions());
-      return true;
     }
 
     // Fallback: local mock

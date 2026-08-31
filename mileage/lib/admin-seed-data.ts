@@ -10,7 +10,7 @@ export const seedUsers: User[] = [
   { id: "t003", name: "박선생", birthDate: "1990-11-05", role: "teacher", assignedClassIds: ["c5", "c6"], active: true },
   { id: "t004", name: "최목사", birthDate: "1978-06-30", role: "teacher", assignedClassIds: [], active: true },
   // Students with roles
-  { id: "s1", name: "홍길동", birthDate: "2009-03-15", role: "student", active: true },
+  { id: "s1", name: "홍길동", birthDate: "2009-03-15", role: "admin", active: true, assignedClassIds: ["c1"] },
   { id: "s2", name: "김민준", birthDate: "2008-11-22", role: "student", active: true },
   { id: "s3", name: "이서연", birthDate: "2009-07-04", role: "student", active: true },
   { id: "s4", name: "박지호", birthDate: "2008-02-10", role: "student", active: true },
