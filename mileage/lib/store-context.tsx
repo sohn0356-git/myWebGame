@@ -104,6 +104,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [mode, setMode] = useState<AppViewMode>("student");
   const [student, setStudent] = useState<Student | null>(() => {
     const s = getSession();
+    if (s && !s.role && !s.isTeacher) {
+      const adminMap: Record<string, { role: string; assignedClassIds?: string[] }> = {
+        "홍길동": { role: "admin", assignedClassIds: ["c1"] },
+        "김선생": { role: "teacher", assignedClassIds: ["c1", "c2"] },
+        "이선생": { role: "teacher", assignedClassIds: ["c3", "c4"] },
+        "박선생": { role: "teacher", assignedClassIds: ["c5", "c6"] },
+        "최목사": { role: "admin" },
+        "관리자": { role: "admin" },
+      };
+      const known = adminMap[s.name];
+      if (known) {
+        const fixed = { ...s, role: known.role, isTeacher: true, assignedClassIds: known.assignedClassIds } as Student;
+        setSession(fixed);
+        return fixed;
+      }
+    }
     return s;
   });
   const [qtDoneToday, setQtDoneToday] = useState(() => isQTCompletedToday());
