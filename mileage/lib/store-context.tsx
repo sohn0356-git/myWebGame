@@ -81,6 +81,16 @@ interface AppState {
   teachers: Teacher[];
 }
 
+export type AppViewMode = "student" | "admin";
+const ViewModeCtx = createContext<{ mode: AppViewMode; setMode: (m: AppViewMode) => void }>({
+  mode: "student",
+  setMode: () => {},
+});
+
+export function useViewMode() {
+  return useContext(ViewModeCtx);
+}
+
 const Ctx = createContext<AppState | null>(null);
 
 export function useApp() {
@@ -91,6 +101,7 @@ export function useApp() {
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   // 동기 복원: 첫 렌더링부터 세션 반영 → 점멸/리다이렉트 루프 방지
+  const [mode, setMode] = useState<AppViewMode>("student");
   const [student, setStudent] = useState<Student | null>(() => {
     const s = getSession();
     return s;
@@ -229,6 +240,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               classId: trow.class_id || "c1",
               mileage: 0,
               isTeacher: true,
+              role: "teacher",
             };
             setSession(s);
             setStudent(s);
@@ -241,6 +253,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }
         }
       } catch { /* fall through to local mock */ }
+    }
+
+    // Check admin/teacher accounts first
+    const { seedUsers } = await import("./admin-seed-data");
+    const knownUser = seedUsers.find(
+      u => u.name === name.trim() && u.birthDate === birthDate.trim()
+    );
+    if (knownUser && (knownUser.role === "teacher" || knownUser.role === "admin")) {
+      const t: Student = {
+        id: knownUser.id,
+        name: knownUser.name,
+        birthDate: knownUser.birthDate,
+        classId: "c1",
+        mileage: 0,
+        isTeacher: true,
+        role: knownUser.role,
+        assignedClassIds: knownUser.assignedClassIds,
+      };
+      setSession(t);
+      setStudent(t);
+      setQtDoneToday(isQTCompletedToday());
+      setQtRecords(getQTRecords());
+      setCompletedMissionIds(getCompletedMissions().map(m => m.missionId));
+      setPrayers(getPrayers());
+      setTxns(getTransactions());
+      return true;
     }
 
     // Fallback: local mock
@@ -493,6 +531,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [qtComments]);
 
   return (
+    <ViewModeCtx.Provider value={{ mode, setMode }}>
     <Ctx.Provider value={{
       student,
       isLoggedIn: !!student,
@@ -525,5 +564,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }}>
       {children}
     </Ctx.Provider>
+    </ViewModeCtx.Provider>
   );
 }

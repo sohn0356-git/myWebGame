@@ -1,15 +1,18 @@
 "use client";
-import { ShoppingBag, LogOut, ChevronRight, Calendar, BookOpen, Target, HandHeart } from "lucide-react";
+import { ShoppingBag, LogOut, ChevronRight, Calendar, BookOpen, Target, HandHeart, ShieldCheck } from "lucide-react";
 import Card from "@/components/Card";
 import MileageDisplay from "@/components/MileageDisplay";
 import StatCard from "@/components/StatCard";
-import { useApp } from "@/lib/store-context";
+import { useApp, useViewMode } from "@/lib/store-context";
 import { requestTab } from "@/lib/tab";
 import type { TabId } from "@/lib/types";
 
 export default function MyContent() {
   const { student, isLoggedIn, logout, transactions } = useApp();
+  const { setMode } = useViewMode();
   if (!student || !isLoggedIn) return null;
+
+  const isAdmin = student.role === "teacher" || student.role === "admin" || student.isTeacher;
 
   const initialTxns = [
     { id: "it0", type: "QT 완료", description: "오늘의 QT", amount: 20, date: "2026-08-30" },
@@ -42,6 +45,24 @@ export default function MyContent() {
           </div>
         </Card>
       </section>
+
+      {isAdmin && (
+        <section className="mt-5 px-5">
+          <button
+            onClick={() => setMode("admin")}
+            className="flex w-full items-center gap-3 rounded-2xl border border-indigo-200 bg-indigo-50/70 p-4 text-left shadow-sm active:scale-[0.98] transition"
+          >
+            <span className="grid h-11 w-11 place-items-center rounded-xl bg-indigo-500 text-white">
+              <ShieldCheck size={22} />
+            </span>
+            <div className="flex-1">
+              <p className="text-sm font-bold text-indigo-800">관리자 페이지</p>
+              <p className="text-xs text-indigo-500">학생/출석/미션/마일리지 관리</p>
+            </div>
+            <ChevronRight size={18} className="text-indigo-400" />
+          </button>
+        </section>
+      )}
 
       <section className="mt-5 px-5">
         <div className="grid grid-cols-2 gap-2.5">
